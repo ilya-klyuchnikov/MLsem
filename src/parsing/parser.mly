@@ -1,5 +1,6 @@
 %{ (* Emacs, use -*- tuareg -*- to open this file. *)
 
+  (* TODO: partition annotation for let bindings *)
   open Ast
   open Types.Additions
   open Types.Base
@@ -12,11 +13,11 @@
   let multi_param_abstraction startpos endpos lst t =
     let step acc (annotation, pat) =
       match pat with
-      | PatVar v -> annot startpos endpos (Lambda (annotation, v, acc))
+      | PatVar v -> annot startpos endpos (Lambda (v, annotation, acc))
       | pat ->
         let test = annot startpos endpos (Var tmp_var) in
         let body = annot startpos endpos (PatMatch (test, [(pat, acc)])) in
-        annot startpos endpos (Lambda (annotation, tmp_var, body))
+        annot startpos endpos (Lambda (tmp_var, annotation, body))
     in
     List.rev lst |> List.fold_left step t
 
@@ -33,18 +34,18 @@
         | None -> TVarWeak (fresh_tvar_id ())
         | Some ty -> ty
         end
-      | (Unnanoted, _)::lst -> TArrow (TVarWeak (fresh_tvar_id ()), aux lst)
-      | (ADomain [ty], _)::lst -> TArrow (ty, aux lst)
-      | (ADomain _, _)::_ -> failwith "Parameters of recursive functions cannot have multiple type annotations."
+      | (LUnnanoted, _)::lst -> TArrow (TVarWeak (fresh_tvar_id ()), aux lst)
+      | (LDomain [ty], _)::lst -> TArrow (ty, aux lst)
+      | (LDomain _, _)::_ -> failwith "Parameters of recursive functions cannot have multiple type annotations."
     in
     let self_annot = aux lst in
-    let lst = (ADomain [self_annot], PatVar name)::lst in
+    let lst = (LDomain [self_annot], PatVar name)::lst in
     let t = multi_param_abstraction startpos endpos lst t in
     annot startpos endpos (Fixpoint t)
 
   let let_pattern startpos endpos pat d t =
     match pat with
-    | PatVar v -> annot startpos endpos (Let (v, d, t))
+    | PatVar v -> annot startpos endpos (Let (v, PUnnanoted, d, t))
     | pat -> annot startpos endpos (PatMatch (d, [(pat, t)]))
 
   let double_app startpos endpos f a b =
@@ -94,7 +95,7 @@
 %}
 
 %token EOF
-%token FUN LET REC TOPLEVEL IN FST SND HD TL DEBUG
+%token FUN LET REC IN FST SND HD TL DEBUG
 %token IF IS THEN ELSE
 %token LPAREN RPAREN EQUAL COMMA CONS COLON COLON_OPT COERCE INTERROGATION_MARK EXCLAMATION_MARK
 %token ARROW AND OR NEG DIFF
@@ -181,18 +182,12 @@ term:
 | LET id=generalized_identifier ais=parameter* EQUAL td=term IN t=term
   {
     let td = multi_param_abstraction $startpos $endpos ais td in
-    annot $startpos $endpos (Let (id, td, t))
+    annot $startpos $endpos (Let (id, PUnnanoted, td, t))
   }
 | LET REC id=generalized_identifier ais=parameter* oty=optional_typ EQUAL td=term IN t=term
   { 
     let td = multi_param_rec_abstraction $startpos $endpos id ais oty td in
-    annot $symbolstartpos $endpos (Let (id, td, t))
-  }
-| LET TOPLEVEL id=generalized_identifier ais=parameter* EQUAL td=term IN t=term
-  { 
-    let td = multi_param_abstraction $startpos $endpos ais td in
-    let td = annot $symbolstartpos $endpos (TopLevel td) in
-    annot $symbolstartpos $endpos (Let (id, td, t))
+    annot $symbolstartpos $endpos (Let (id, PUnnanoted, td, t))
   }
 | LET LPAREN p = pattern RPAREN EQUAL td=term IN t=term { let_pattern $startpos $endpos p td t }
 | IF t=term ott=optional_test_type THEN t1=term ELSE t2=term { annot $startpos $endpos (Ite (t,ott,t1,t2)) }
@@ -234,7 +229,7 @@ atomic_term:
 | MAGIC { annot $startpos $endpos (Abstract (TBase TEmpty)) }
 | LPAREN RPAREN { annot $startpos $endpos (Const Unit) }
 | LPAREN t=term RPAREN { t }
-| LPAREN t=term COLON tys=separated_nonempty_list(SEMICOLON, typ) RPAREN { annot $startpos $endpos (TypeConstr (t,tys)) }
+| LPAREN t=term COLON ty=typ RPAREN { annot $startpos $endpos (TypeConstr (t,ty)) }
 | LPAREN t=term COERCE tys=separated_nonempty_list(SEMICOLON, typ) RPAREN { annot $startpos $endpos (TypeCoercion (t,tys)) }
 | LBRACE obr=optional_base_record fs=separated_list(SEMICOLON, field_term) RBRACE
 { record_update $startpos $endpos obr fs }
@@ -266,13 +261,13 @@ lint:
 | LPAREN MINUS i=LINT RPAREN { Z.neg i }
 
 parameter:
-  arg = ID { (Unnanoted, PatVar arg) }
+  arg = ID { (LUnnanoted, PatVar arg) }
 | LPAREN arg = pattern opta = optional_param_type_annot RPAREN
 { (opta, arg) }
 
 %inline optional_param_type_annot:
-    { Unnanoted }
-  | COLON tys = separated_nonempty_list(SEMICOLON, typ) { ADomain tys }
+    { LUnnanoted }
+  | COLON tys = separated_nonempty_list(SEMICOLON, typ) { LDomain tys }
 
 generalized_identifier:
   | x=ID | LPAREN x=prefix RPAREN | LPAREN x=infix RPAREN { x }

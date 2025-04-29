@@ -30,7 +30,9 @@ type const =
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 [@@deriving show, ord]
 
-type 'typ type_annot = Unnanoted | ADomain of 'typ list
+type 'typ lambda_annot = LUnnanoted | LDomain of 'typ list
+[@@deriving show, ord]
+type 'typ part_annot = PUnnanoted | PAnnot of 'typ list
 [@@deriving show, ord]
 
 type ('a, 'typ, 'tag, 'v) pattern =
@@ -51,19 +53,18 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Var of 'v
 | Atom of 'ato
 | Tag of 'tag * ('a, 'typ, 'ato, 'tag, 'v) t
-| Lambda of ('typ type_annot) * 'v * ('a, 'typ, 'ato, 'tag, 'v) t
+| Lambda of 'v * 'typ lambda_annot * ('a, 'typ, 'ato, 'tag, 'v) t
 | Fixpoint of ('a, 'typ, 'ato, 'tag, 'v) t
 | Ite of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
 | App of ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
-| Let of 'v * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
+| Let of 'v * 'typ part_annot * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
 | Tuple of ('a, 'typ, 'ato, 'tag, 'v) t list
 | Cons of ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
 | Projection of projection * ('a, 'typ, 'ato, 'tag, 'v) t
 | RecordUpdate of ('a, 'typ, 'ato, 'tag, 'v) t * string * ('a, 'typ, 'ato, 'tag, 'v) t option
-| TypeConstr of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ list
+| TypeConstr of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ
 | TypeCoercion of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ list
 | PatMatch of ('a, 'typ, 'ato, 'tag, 'v) t * (('a, 'typ, 'tag, 'v) pattern * ('a, 'typ, 'ato, 'tag, 'v) t) list
-| TopLevel of ('a, 'typ, 'ato, 'tag, 'v) t
 [@@deriving ord]
 
 and ('a, 'typ, 'ato, 'tag, 'v) t = 'a * ('a, 'typ, 'ato, 'tag, 'v) ast
@@ -142,17 +143,17 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
             else raise (SymbolError ("undefined symbol "^str))
         | Atom str -> Atom (get_atom tenv str)
         | Tag (str, e) -> Tag (get_tag tenv str, aux vtenv env e)
-        | Lambda (t,str,e) ->
-            let (t, vtenv) = match t with
-            | Unnanoted -> (Unnanoted, vtenv)
-            | ADomain ts ->
+        | Lambda (str,a,e) ->
+            let a, vtenv = match a with
+            | LUnnanoted -> LUnnanoted, vtenv
+            | LDomain ts ->
                 let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
-                (ADomain (ts), vtenv)
+                LDomain (ts), vtenv
             in
             let var = Variable.create_lambda (Some str) in
             Variable.attach_location var pos ;
             let env = StrMap.add str var env in
-            Lambda (t, var, aux vtenv env e)
+            Lambda (var, a, aux vtenv env e)
         | Fixpoint e -> Fixpoint (aux vtenv env e)
         | Ite (e, t, e1, e2) ->
             let (t, vtenv) = type_expr_to_typ tenv vtenv t in
@@ -160,11 +161,17 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
             then Ite (aux vtenv env e, t, aux vtenv env e1, aux vtenv env e2)
             else raise (SymbolError ("typecases must use a valid test type"))
         | App (e1, e2) -> App (aux vtenv env e1, aux vtenv env e2)
-        | Let (str, e1, e2) ->
+        | Let (str, a, e1, e2) ->
+            let a, vtenv = match a with
+            | PUnnanoted -> PUnnanoted, vtenv
+            | PAnnot ts ->
+                let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
+                PAnnot ts, vtenv
+            in
             let var = Variable.create_other (Some str) in
             Variable.attach_location var pos ;
             let env' = StrMap.add str var env in
-            Let (var, aux vtenv env e1, aux vtenv env' e2)
+            Let (var, a, aux vtenv env e1, aux vtenv env' e2)
         | Tuple es ->
             Tuple (List.map (aux vtenv env) es)
         | Cons (e1, e2) ->
@@ -172,11 +179,11 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
         | Projection (p, e) -> Projection (p, aux vtenv env e)
         | RecordUpdate (e1, l, e2) ->
             RecordUpdate (aux vtenv env e1, l, Option.map (aux vtenv env) e2)
-        | TypeConstr (e, ts) ->
-            let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
-            if is_test_type (disj ts) && List.for_all no_infer_var ts
-            then TypeConstr (aux vtenv env e, ts)
-            else raise (SymbolError ("type constraints should not have inferable type variable and should cover a test type"))
+        | TypeConstr (e, t) ->
+            let (t, vtenv) = type_expr_to_typ tenv vtenv t in
+            if is_test_type t
+            then TypeConstr (aux vtenv env e, t)
+            else raise (SymbolError ("type constraints should be a test type"))
         | TypeCoercion (e, ts) ->
             let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
             if List.for_all no_infer_var ts
@@ -184,7 +191,6 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
             else raise (SymbolError ("type in coercion should not have inferable type variable"))
         | PatMatch (e, pats) ->
             PatMatch (aux vtenv env e, List.map (aux_pat pos vtenv env) pats)
-        | TopLevel e -> TopLevel (aux vtenv env e)
         in
         ((exprid,pos),e)
     and aux_pat pos vtenv env (pat, e) =
@@ -288,22 +294,21 @@ let rec unannot (_,e) =
     | Var v -> Var v
     | Atom a -> Atom a
     | Tag (t, e) -> Tag (t, unannot e)
-    | Lambda (t, v, e) -> Lambda (t, v, unannot e)
+    | Lambda (v, a, e) -> Lambda (v, a, unannot e)
     | Fixpoint e -> Fixpoint (unannot e)
     | Ite (e, t, e1, e2) -> Ite (unannot e, t, unannot e1, unannot e2)
     | App (e1, e2) -> App (unannot e1, unannot e2)
-    | Let (v, e1, e2) -> Let (v, unannot e1, unannot e2)
+    | Let (v, a, e1, e2) -> Let (v, a, unannot e1, unannot e2)
     | Tuple es -> Tuple (List.map unannot es)
     | Cons (e1, e2) -> Cons (unannot e1, unannot e2)
     | Projection (p, e) -> Projection (p, unannot e)
     | RecordUpdate (e1, l, e2) ->
         RecordUpdate (unannot e1, l, Option.map unannot e2)
     | TypeConstr (e, t) -> TypeConstr (unannot e, t)
-    | TypeCoercion (e, t) -> TypeCoercion (unannot e, t)
+    | TypeCoercion (e, ts) -> TypeCoercion (unannot e, ts)
     | PatMatch (e, pats) ->
         PatMatch (unannot e, pats |>
             List.map (fun (p, e) -> (unannot_pat p, unannot e)))
-    | TopLevel e -> TopLevel (unannot e)
     in
     ( (), e )
 
@@ -340,20 +345,20 @@ let normalize_bvs e =
         | Var v -> Var v
         | Atom a -> Atom a
         | Tag (t, e) -> Tag (t, aux depth map e)
-        | Lambda (t, v, e) ->
+        | Lambda (v, a, e) ->
             let v' = get_predefined_var depth in
             let map = VarMap.add v v' map in
-            Lambda (t, v', aux (depth+1) map e)
+            Lambda (v', a, aux (depth+1) map e)
         | Fixpoint e -> Fixpoint (aux depth map e)
         | Ite (e, t, e1, e2) ->
             Ite (aux depth map e, t, aux depth map e1, aux depth map e2)
         | App (e1, e2) ->
             App (aux depth map e1, aux depth map e2)
-        | Let (v, e1, e2) ->
+        | Let (v, a, e1, e2) ->
             let e1 = aux depth map e1 in
             let v' = get_predefined_var depth in
             let map = VarMap.add v v' map in
-            Let (v', e1, aux (depth+1) map e2)
+            Let (v', a, e1, aux (depth+1) map e2)
         | Tuple es ->
             Tuple (List.map (aux depth map) es)
         | Cons (e1, e2) ->
@@ -371,7 +376,6 @@ let normalize_bvs e =
             let pats = pats |> List.map (fun (p,e) ->
                 (aux_p depth map p, aux depth map e)) in
             PatMatch (e, pats)
-        | TopLevel e -> TopLevel (aux depth map e)
         in (a, e)
     and aux_p (*depth map*) _ _ pat =
         let pa pat =
@@ -384,23 +388,6 @@ let normalize_bvs e =
 
 let unannot_and_normalize e = e |> unannot |> normalize_bvs
 
-(*let rec fv (_, expr) =
-  match expr with
-  | Abstract _ | Const _ -> VarSet.empty
-  | Var v -> VarSet.singleton v
-  | Lambda (_, v, e) -> VarSet.remove v (fv e)
-  | Ite (e, _, e1, e2) -> VarSet.union (VarSet.union (fv e) (fv e1)) (fv e2)
-  | App (e1, e2) -> VarSet.union (fv e1) (fv e2)
-  | Let (v, e1, e2) -> VarSet.union (fv e1) (VarSet.remove v (fv e2))
-  | Pair (e1, e2) -> VarSet.union (fv e1) (fv e2)
-  | Projection (_, e) -> fv e
-  | RecordUpdate (e1, _, e2) ->
-    begin match e2 with
-    | Some e2 -> VarSet.union (fv e1) (fv e2)
-    | None -> fv e1
-    end
-  | Debug (_, e) -> fv e*)
-
 let map_ast f e =
     let rec aux (annot, e) =
         let e = match e with
@@ -409,11 +396,11 @@ let map_ast f e =
         | Var v -> Var v
         | Atom a -> Atom a
         | Tag (t, e) -> Tag (t, aux e)
-        | Lambda (annot, v, e) -> Lambda (annot, v, aux e)
+        | Lambda (v, a, e) -> Lambda (v, a, aux e)
         | Fixpoint e -> Fixpoint (aux e)
         | Ite (e, t, e1, e2) -> Ite (aux e, t, aux e1, aux e2)
         | App (e1, e2) -> App (aux e1, aux e2)
-        | Let (v, e1, e2) -> Let (v, aux e1, aux e2)
+        | Let (v, a, e1, e2) -> Let (v, a, aux e1, aux e2)
         | Tuple es -> Tuple (List.map aux es)
         | Cons (e1, e2) -> Cons (aux e1, aux e2)
         | Projection (p, e) -> Projection (p, aux e)
@@ -423,7 +410,6 @@ let map_ast f e =
         | PatMatch (e, pats) ->
             let pats = pats |> List.map (fun (p,e) -> (aux_p p, aux e)) in
             PatMatch (aux e, pats)
-        | TopLevel e -> TopLevel (aux e)
         in
         f (annot, e)
     and aux_p p =
@@ -440,12 +426,12 @@ let substitute aexpr v (annot', expr') =
   let aux (_, expr) =
     let expr = match expr with
     | Var v' when Variable.equals v v' -> expr'
-    | Lambda (ta, v', e) ->
+    | Lambda (v', a, e) ->
         assert (Variable.equals v v' |> not) ;
-        Lambda (ta, v', e)
-    | Let (v', e1, e2) ->
+        Lambda (v', a, e)
+    | Let (v', a, e1, e2) ->
         assert (Variable.equals v v' |> not) ;
-        Let (v', e1, e2)
+        Let (v', a, e1, e2)
     | e -> e
     in
     (annot', expr)

@@ -13,7 +13,6 @@ depends: [
   "ppx_deriving"
   "zarith"
   "pomap"
-  "tsort"
   "yojson"
   "js_of_ocaml-ppx"
   "zarith_stubs_js"

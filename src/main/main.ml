@@ -12,34 +12,19 @@ type typecheck_result =
 | TSuccess of typ * Env.t * float
 | TFailure of (Position.t list) * string * float
 
-module Reconstruct = Reconstruction.Make ()
-
 let generalize_all ~uncorrelate t =
   let aux = if uncorrelate then uncorrelate_tvars else Utils.identity in
   Subst.apply (generalize (vars t)) t |> aux |> bot_instance |> simplify_typ
 
 exception IncompatibleType of typ
-let type_check_def tenv env (var,expr,typ_annot) =
+let type_check_def _ env (var,_,typ_annot) =
   let time0 = Unix.gettimeofday () in
-  let expr = Msc.remove_patterns_and_fixpoints expr in
-  let (expr, addition) = Msc.remove_toplevel expr in
-  let nf_expr = Msc.convert_to_msc expr in
-  let nf_addition = addition |> List.map (fun (v,e) -> v, Msc.convert_to_msc e) in
   let retrieve_time () =
     let time1 = Unix.gettimeofday () in
     (time1 -. time0 ) *. 1000.
   in
-  let type_additionnal env (v, nf) =
-    Utils.log "%a@." Msc.pp_e nf ;
-    let typ = Reconstruct.typeof_infer tenv env nf |> generalize_all ~uncorrelate:true in
-    (* NOTE: ~uncorrelate:false can reduce the number of tvars in fixpoint instances,
-       BUT it might also yield an unprecise type (expansion becomes necessary)... *)
-    Env.add v typ env
-  in
   try
-    Utils.log "%a@." Msc.pp_e nf_expr ;
-    let env = List.fold_left type_additionnal env nf_addition in
-    let typ = Reconstruct.typeof_infer tenv env nf_expr |> generalize_all ~uncorrelate:true in
+    let typ = any (* TODO *) |> generalize_all ~uncorrelate:true in
     let typ =
       match typ_annot with
       | None -> typ
@@ -51,8 +36,8 @@ let type_check_def tenv env (var,expr,typ_annot) =
     let env = Env.add var typ env in
     TSuccess (typ, env, retrieve_time ())
   with
-  | Algorithmic.Untypeable (pos, str) ->
-    TFailure (pos, str, retrieve_time ())
+  (* | Algorithmic.Untypeable (pos, str) ->
+    TFailure (pos, str, retrieve_time ()) *)
   | IncompatibleType _ ->
     TFailure (Variable.get_locations var,
       "the type inferred is not a subtype of the type specified",
@@ -84,7 +69,7 @@ let initial_env =
   builtin_functions |> List.fold_left (fun env (name, t) ->
     let var = StrMap.find name initial_varm in
     Env.add var t env
-  ) Msc.initial_env
+  ) Env.empty
 
 let parse_and_resolve f varm =
   let last_pos = ref Position.dummy in
