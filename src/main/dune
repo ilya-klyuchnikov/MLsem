@@ -22,5 +22,6 @@
 (env
  (_
   (js_of_ocaml
-   (flags (:standard --enable effects))
-   (build_runtime_flags (:standard --enable effects)))))
+   (flags (:standard --effects=cps))
+   (compilation_mode whole_program)
+   (build_runtime_flags (:standard --effects=cps)))))
