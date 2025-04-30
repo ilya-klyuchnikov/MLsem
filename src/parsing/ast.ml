@@ -124,7 +124,7 @@ let copy_annot a =
 
 let dummy_pat_var_str = "_"
 let dummy_pat_var =
-    Variable.create_other (Some dummy_pat_var_str)
+    Variable.create_gen (Some dummy_pat_var_str)
 
 let no_infer_var t =
     let open Types.Tvar in
@@ -168,7 +168,7 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
                 let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
                 PAnnot ts, vtenv
             in
-            let var = Variable.create_other (Some str) in
+            let var = Variable.create_let (Some str) in
             Variable.attach_location var pos ;
             let env' = StrMap.add str var env in
             Let (var, a, aux vtenv env e1, aux vtenv env' e2)
@@ -199,13 +199,12 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
                 if Variable.equals v1 v2 then Some v1
                 else raise (SymbolError ("matched variables "^str^" are conflicting")))
         in
-        (* let expr_env = env in *)
         let rec aux_p vtenv env pat =
             let find_or_def_var str =
                 if StrMap.mem str env
                 then StrMap.find str env
                 else
-                    let var = Variable.create_other (Some str) in
+                    let var = Variable.create_let (Some str) in
                     Variable.attach_location var pos ;
                     var
             in
@@ -258,8 +257,6 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
                 if String.equal str dummy_pat_var_str
                 then raise (SymbolError "invalid variable name for a pattern assignement") ;
                 let var = find_or_def_var str in
-                (* let e = aux vtenv expr_env e in
-                (PatAssign (var, e), vtenv, StrMap.singleton str var) *)
                 (PatAssign (var, c), vtenv, StrMap.singleton str var)
         in
         let (pat, vtenv, env') = aux_p vtenv StrMap.empty pat in
@@ -286,107 +283,6 @@ let map_p f p =
         f p
     in
     aux p
-
-let rec unannot (_,e) =
-    let e = match e with
-    | Abstract t -> Abstract t
-    | Const c -> Const c
-    | Var v -> Var v
-    | Atom a -> Atom a
-    | Tag (t, e) -> Tag (t, unannot e)
-    | Lambda (v, a, e) -> Lambda (v, a, unannot e)
-    | Fixpoint e -> Fixpoint (unannot e)
-    | Ite (e, t, e1, e2) -> Ite (unannot e, t, unannot e1, unannot e2)
-    | App (e1, e2) -> App (unannot e1, unannot e2)
-    | Let (v, a, e1, e2) -> Let (v, a, unannot e1, unannot e2)
-    | Tuple es -> Tuple (List.map unannot es)
-    | Cons (e1, e2) -> Cons (unannot e1, unannot e2)
-    | Projection (p, e) -> Projection (p, unannot e)
-    | RecordUpdate (e1, l, e2) ->
-        RecordUpdate (unannot e1, l, Option.map unannot e2)
-    | TypeConstr (e, t) -> TypeConstr (unannot e, t)
-    | TypeCoercion (e, ts) -> TypeCoercion (unannot e, ts)
-    | PatMatch (e, pats) ->
-        PatMatch (unannot e, pats |>
-            List.map (fun (p, e) -> (unannot_pat p, unannot e)))
-    in
-    ( (), e )
-
-and unannot_pat pat =
-    let rec aux pat = 
-        match pat with
-        | PatAssign (v, c) -> PatAssign (v, c)
-        | PatType t -> PatType t
-        | PatVar v -> PatVar v
-        | PatTag (tag, p) -> PatTag (tag, aux p)
-        | PatAnd (p1, p2) -> PatAnd (aux p1, aux p2)
-        | PatOr (p1, p2) -> PatOr (aux p1, aux p2)
-        | PatTuple ps -> PatTuple (List.map aux ps)
-        | PatCons (p1, p2) -> PatCons (aux p1, aux p2)
-        | PatRecord (fields, o) ->
-            PatRecord (List.map (fun (str, p) -> (str, aux p)) fields, o)
-    in
-    aux pat
-
-let predefined_vars = Hashtbl.create 100
-let get_predefined_var i =
-  if Hashtbl.mem predefined_vars i
-  then Hashtbl.find predefined_vars i
-  else
-    let v = Variable.create_other None in
-    Hashtbl.add predefined_vars i v ;
-    v
-let normalize_bvs e =
-    let rec aux depth map (a, e) =
-        let e = match e with
-        | Abstract t -> Abstract t
-        | Const c -> Const c
-        | Var v when VarMap.mem v map -> Var (VarMap.find v map)
-        | Var v -> Var v
-        | Atom a -> Atom a
-        | Tag (t, e) -> Tag (t, aux depth map e)
-        | Lambda (v, a, e) ->
-            let v' = get_predefined_var depth in
-            let map = VarMap.add v v' map in
-            Lambda (v', a, aux (depth+1) map e)
-        | Fixpoint e -> Fixpoint (aux depth map e)
-        | Ite (e, t, e1, e2) ->
-            Ite (aux depth map e, t, aux depth map e1, aux depth map e2)
-        | App (e1, e2) ->
-            App (aux depth map e1, aux depth map e2)
-        | Let (v, a, e1, e2) ->
-            let e1 = aux depth map e1 in
-            let v' = get_predefined_var depth in
-            let map = VarMap.add v v' map in
-            Let (v', a, e1, aux (depth+1) map e2)
-        | Tuple es ->
-            Tuple (List.map (aux depth map) es)
-        | Cons (e1, e2) ->
-            Cons (aux depth map e1, aux depth map e2)
-        | Projection (p, e) -> Projection (p, aux depth map e)
-        | RecordUpdate (e1, l, e2) ->
-            RecordUpdate (aux depth map e1, l, Option.map (aux depth map) e2)
-        | TypeConstr (e, t) -> TypeConstr (aux depth map e, t)
-        | TypeCoercion (e, t) -> TypeCoercion (aux depth map e, t)
-        | PatMatch (e, pats) ->
-            let e = aux depth map e in
-            (* NOTE: We do not normalize pattern variables,
-               as two pattern matchings will almost never be
-               syntactically equivalent anyway. *)
-            let pats = pats |> List.map (fun (p,e) ->
-                (aux_p depth map p, aux depth map e)) in
-            PatMatch (e, pats)
-        in (a, e)
-    and aux_p (*depth map*) _ _ pat =
-        let pa pat =
-            match pat with
-            | PatAssign (v, c) -> PatAssign (v, c (* aux depth map e *))
-            | p -> p
-        in
-        map_p pa pat
-    in aux 0 VarMap.empty e
-
-let unannot_and_normalize e = e |> unannot |> normalize_bvs
 
 let map_ast f e =
     let rec aux (annot, e) =
@@ -415,27 +311,12 @@ let map_ast f e =
     and aux_p p =
         let pa p =
             match p with
-            | PatAssign (v, c) -> PatAssign (v, c (* aux e *))
+            | PatAssign (v, c) -> PatAssign (v, c)
             | p -> p
         in
         map_p pa p
     in
     aux e
-
-let substitute aexpr v (annot', expr') =
-  let aux (_, expr) =
-    let expr = match expr with
-    | Var v' when Variable.equals v v' -> expr'
-    | Lambda (v', a, e) ->
-        assert (Variable.equals v v' |> not) ;
-        Lambda (v', a, e)
-    | Let (v', a, e1, e2) ->
-        assert (Variable.equals v v' |> not) ;
-        Let (v', a, e1, e2)
-    | e -> e
-    in
-    (annot', expr)
-  in map_ast aux aexpr
 
 let const_to_typ c =
     match c with

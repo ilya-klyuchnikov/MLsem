@@ -1,6 +1,7 @@
 module Variable = struct
 
-  let data = Hashtbl.create 100
+  type kind = Let | Lambda | Gen
+  let data : (int, string option * Position.t list * kind) Hashtbl.t = Hashtbl.create 100
 
   type t = int
   let compare = compare
@@ -12,39 +13,39 @@ module Variable = struct
       last := !last + 1 ;
       !last
 
-  let create ~binding ~lambda display_name =
+  let create (k:kind) display_name =
     let id = next_id () in
-    Hashtbl.add data id (display_name, [], binding, lambda) ;
+    Hashtbl.add data id (display_name, [], k) ;
     id
 
-  let create_binding display_name =
-    create ~binding:true ~lambda:false display_name
+  let create_let display_name =
+    create Let display_name
 
   let create_lambda display_name =
-    create ~binding:false ~lambda:true display_name
+    create Lambda display_name
 
-  let create_other display_name =
-    create ~binding:false ~lambda:false display_name
+  let create_gen display_name =
+    create Gen display_name
 
   let attach_location id loc =
-    let (name, locs, b, l) = Hashtbl.find data id in
-    Hashtbl.replace data id (name, loc::locs, b, l)
+    let (name, locs, k) = Hashtbl.find data id in
+    Hashtbl.replace data id (name, loc::locs, k)
 
   let get_locations id =
-    let (_, locs, _, _) = Hashtbl.find data id
+    let (_, locs, _) = Hashtbl.find data id
     in locs
 
-  let is_binding_var id =
-    let (_, _, b, _) = Hashtbl.find data id
-    in b
+  let is_let_var id =
+    let (_, _, k) = Hashtbl.find data id in
+    k = Let
 
   let is_lambda_var id =
-    let (_, _, _, l) = Hashtbl.find data id
-    in l
+    let (_, _, k) = Hashtbl.find data id in
+    k = Lambda
 
   let get_name id =
-    let (name, _, _, _) = Hashtbl.find data id
-    in name
+    let (name, _, _) = Hashtbl.find data id in
+    name
 
   let pp fmt t =
     match get_name t with

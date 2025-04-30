@@ -61,7 +61,7 @@ let builtin_functions =
 
 let initial_varm =
   builtin_functions |> List.fold_left (fun varm (name, _) ->
-    let var = Variable.create_other (Some name) in
+    let var = Variable.create_let (Some name) in
     StrMap.add name var varm
   ) Ast.empty_name_var_map
 
@@ -69,7 +69,7 @@ let initial_env =
   builtin_functions |> List.fold_left (fun env (name, t) ->
     let var = StrMap.find name initial_varm in
     Env.add var t env
-  ) Env.empty
+  ) System.Ast.initial_env
 
 let parse_and_resolve f varm =
   let last_pos = ref Position.dummy in
@@ -88,7 +88,7 @@ let parse_and_resolve f varm =
         | Some expr -> let (t, _) = type_expr_to_typ tenv empty_vtenv expr in Some t
         in
         let expr = Ast.parser_expr_to_annot_expr tenv empty_vtenv varm expr in
-        let var = Variable.create_other (Some name) in
+        let var = Variable.create_let (Some name) in
         Variable.attach_location var (Position.position annot) ;
         let varm = StrMap.add name var varm in
         (tenv,varm,(log,(var,expr,tyo))::defs)
