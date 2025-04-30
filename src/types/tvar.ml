@@ -1,4 +1,44 @@
 
+module type TVar = sig
+  type set
+  type t = Sstt.Var.t
+
+  val user_vars : unit -> set
+  val from_user : t -> bool
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val name : t -> string
+  val display_name : t -> string
+
+  val mk : ?user:bool -> string option -> t
+  val mk_fresh : t -> t
+  val typ : t -> Base.typ
+
+  val pp : Format.formatter -> t -> unit
+end
+
+module type TVarSet = sig
+  type var
+  type t
+
+  val empty : t
+  val construct : var list -> t
+  val is_empty : t -> bool
+  val mem : t -> var -> bool
+  val filter : (var -> bool) -> t -> t
+  val union : t -> t -> t
+  val union_many : t list -> t
+  val add : var -> t -> t
+  val inter : t -> t -> t
+  val inter_many : t list -> t
+  val diff : t -> t -> t
+  val rm : var -> t -> t
+  val equal : t -> t -> bool
+  val subset : t -> t -> bool
+  val destruct : t -> var list
+  val pp : Format.formatter -> t -> unit
+end
+
 module TVH = Hashtbl.Make(Sstt.Var)
 
 module TVar = struct
@@ -10,9 +50,10 @@ module TVar = struct
   }
 
   let data = TVH.create 100
-
+  let uservars = ref Sstt.VarSet.empty
   let from_user t =
     try (TVH.find data t).user with Not_found -> false
+  let user_vars () = !uservars
   let equal = Sstt.Var.equal
   let compare = Sstt.Var.compare
   let name = Sstt.Var.name
@@ -30,6 +71,7 @@ module TVar = struct
     let name = match name with None -> norm_name | Some str -> str in
     let var = Sstt.Var.mk norm_name in
     TVH.add data var {user; dname=name} ;
+    if user then uservars := Sstt.VarSet.add var (!uservars) ;
     var
   let mk_fresh t =
     mk ~user:(from_user t) (Some (display_name t))

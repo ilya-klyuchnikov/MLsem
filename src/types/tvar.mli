@@ -1,7 +1,9 @@
 
-module TVar : sig
+module type TVar = sig
+    type set
     type t = Sstt.Var.t
 
+    val user_vars : unit -> set
     val from_user : t -> bool
     val equal : t -> t -> bool
     val compare : t -> t -> int
@@ -15,25 +17,30 @@ module TVar : sig
     val pp : Format.formatter -> t -> unit
 end
 
-module TVarSet : sig
+module type TVarSet = sig
+    type var
     type t
+
     val empty : t
-    val construct : TVar.t list -> t
+    val construct : var list -> t
     val is_empty : t -> bool
-    val mem : t -> TVar.t -> bool
-    val filter : (TVar.t -> bool) -> t -> t
+    val mem : t -> var -> bool
+    val filter : (var -> bool) -> t -> t
     val union : t -> t -> t
     val union_many : t list -> t
-    val add : TVar.t -> t -> t
+    val add : var -> t -> t
     val inter : t -> t -> t
     val inter_many : t list -> t
     val diff : t -> t -> t
-    val rm : TVar.t -> t -> t
+    val rm : var -> t -> t
     val equal : t -> t -> bool
     val subset : t -> t -> bool
-    val destruct : t -> TVar.t list
+    val destruct : t -> var list
     val pp : Format.formatter -> t -> unit
 end
+
+module rec TVar : (TVar with type set := TVarSet.t)
+and TVarSet : (TVarSet with type var := TVar.t)
 
 module Subst : sig
     type t
