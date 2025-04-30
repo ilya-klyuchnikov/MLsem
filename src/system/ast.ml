@@ -2,6 +2,7 @@ open Parsing
 open Variable
 open Types.Base
 open Types.Tvar
+open Env
 
 type e =
 | Abstract of typ
@@ -24,16 +25,17 @@ and t = Ast.exprid * e
 [@@deriving show]
 
 let fixpoint_var = Variable.create_gen (Some "__builtin_fixpoint")
-let fixpoint_typ =
+let fixpoint_scheme =
   let a = TVar.mk None |> TVar.typ in
   let b = TVar.mk None |> TVar.typ in
-  let f = mk_arrow a b in
   let c = TVar.mk None |> TVar.typ in
+  let f = mk_arrow a b in
   let fc = cap f c in
   let arg = mk_arrow f fc in
-  mk_arrow arg fc
+  TyScheme.mk_poly (mk_arrow arg fc)
+
 let initial_env =
-  Env.construct [(fixpoint_var, fixpoint_typ)]
+  Env.construct [(fixpoint_var, fixpoint_scheme)]
 
 let map f =
   let rec aux (id,e) =

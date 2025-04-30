@@ -1,6 +1,7 @@
 open Parsing
 open Variable
 open Types.Base
+open Env
 
 type e =
 | Abstract of typ

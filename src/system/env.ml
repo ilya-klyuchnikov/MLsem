@@ -2,84 +2,80 @@ open Parsing.Variable
 open Types.Base
 open Types.Tvar
 
-type t = typ VarMap.t * TVarSet.t
+module TyScheme = struct
+  type t = TVarSet.t * typ
+  let mk tvs ty =
+    let tvs = TVarSet.inter tvs (vars ty) in
+    (tvs, ty)
+  let mk_mono ty = mk TVarSet.empty ty
+  let mk_poly ty = mk (vars ty) ty
+  let get (tvs, ty) = (tvs, ty)
+  let fv (tvs, ty) = TVarSet.diff (vars ty) tvs
+  let leq (tvs1,ty1) (tvs2,ty2) =
+    TVarSet.subset tvs2 tvs1 &&
+    subtype ty1 ty2 (* TODO *)
+  let equiv t1 t2 = leq t1 t2 && leq t2 t1
+  let pp fmt (tvs, ty) =
+    Format.fprintf fmt "∀%a.%a"
+      (Utils.pp_list TVar.pp) (TVarSet.destruct tvs) pp_typ ty
+end
 
-let empty = (VarMap.empty, TVarSet.empty)
-let is_empty (m,_) =  VarMap.is_empty m
-let singleton v t = (VarMap.singleton v t, vars t)
-let construct lst = (VarMap.of_seq (List.to_seq lst),
-  List.map snd lst |> List.map vars |> TVarSet.union_many)
+module Env = struct
+  type t = TyScheme.t VarMap.t * TVarSet.t
 
-let add v t (m,s) = (VarMap.add v t m, TVarSet.union s (vars t))
+  let empty = (VarMap.empty, TVarSet.empty)
+  let is_empty (m,_) =  VarMap.is_empty m
+  let singleton v t = (VarMap.singleton v t, TyScheme.fv t)
+  let construct lst = (VarMap.of_seq (List.to_seq lst),
+    List.map snd lst |> List.map TyScheme.fv |> TVarSet.union_many)
 
-let domain (m, _) = VarMap.bindings m |> List.map fst
+  let add v t (m,s) = (VarMap.add v t m, TVarSet.union s (TyScheme.fv t))
 
-let bindings (m, _) = VarMap.bindings m
+  let domain (m, _) = VarMap.bindings m |> List.map fst
 
-let mem v (m, _) = (VarMap.mem v m)
+  let bindings (m, _) = VarMap.bindings m
 
-let reconstruct m = VarMap.bindings m |> construct
+  let mem v (m, _) = (VarMap.mem v m)
 
-let rm v (m, _) = VarMap.remove v m |> reconstruct
+  let reconstruct m = VarMap.bindings m |> construct
 
-let find v (m, _) = VarMap.find v m
+  let rm v (m, _) = VarMap.remove v m |> reconstruct
 
-let strengthen_existing v t env =
-  let t = cap t (find v env) in
-  add v t env
+  let find v (m, _) = VarMap.find v m
 
-let strengthen v t env =
-  try strengthen_existing v t env with Not_found -> add v t env
+  let filter f (m, _) = VarMap.filter f m |> reconstruct
 
-let construct_dup = List.fold_left
-  (fun acc (v, t) -> strengthen v t acc) empty
+  let rms vs t =
+    let vs = VarSet.of_list vs in
+    t |> filter (fun v _ -> VarSet.mem v vs |> not)
 
-let cap (m1, s1) (m2, s2) =
-  (VarMap.union (fun _ t1 t2 ->
-    Some (cap t1 t2)
-    ) m1 m2,
-  TVarSet.union s1 s2)
+  let restrict vs t =
+    let vs = VarSet.of_list vs in
+    t |> filter (fun v _ -> VarSet.mem v vs)
 
-let conj lst =
-  List.fold_left cap empty lst
+  let leq (m1,_) (m2,_) =
+    VarMap.for_all (fun v t ->
+      VarMap.mem v m1 && TyScheme.leq (VarMap.find v m1) t
+    ) m2
 
-let filter f (m, _) = VarMap.filter f m |> reconstruct
+  let equiv env1 env2 = leq env1 env2 && leq env2 env1
 
-let rms vs t =
-  let vs = VarSet.of_list vs in
-  t |> filter (fun v _ -> VarSet.mem v vs |> not)
+  let pp fmt (m, _) =
+    VarMap.bindings m
+    |> List.iter (fun (v, ts) ->
+      Format.fprintf fmt "%a: %a\n" Variable.pp v TyScheme.pp ts
+    )
 
-let restrict vs t =
-  let vs = VarSet.of_list vs in
-  t |> filter (fun v _ -> VarSet.mem v vs)
+  let show = Format.asprintf "%a" pp
 
-let leq (m1,_) (m2,_) =
-  VarMap.for_all (fun v t ->
-    VarMap.mem v m1 && subtype (VarMap.find v m1) t
-  ) m2
+  let pp_filtered names fmt env =
+    let env = filter (fun v _ -> List.mem (Variable.show v) names) env in
+    pp fmt env
 
-let equiv env1 env2 = leq env1 env2 && leq env2 env1
+  let add v t e = assert (mem v e |> not) ; add v t e
 
-let pp fmt (m, _) =
-  VarMap.bindings m
-  |> List.iter (fun (v, t) ->
-    Format.fprintf fmt "%a: %a\n" Variable.pp v pp_typ t
-  )
+  let tvars (_, s) = s
 
-let show = Format.asprintf "%a" pp
-
-let pp_filtered names fmt env =
-  let env = filter (fun v _ -> List.mem (Variable.show v) names) env in
-  pp fmt env
-
-let add v t e = assert (mem v e |> not) ; add v t e
-
-let tvars (_, s) = s
-
-let map f t =
-  bindings t |> List.map (fun (v,t) -> (v,f t)) |> construct
-
-let apply_subst s env =
-  if TVarSet.inter (tvars env) (Subst.dom s) |> TVarSet.is_empty
-  then env
-  else map (Subst.apply s) env
+  let map f t =
+    bindings t |> List.map (fun (v,t) -> (v,f t)) |> construct
+end

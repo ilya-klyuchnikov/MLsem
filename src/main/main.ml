@@ -4,14 +4,15 @@ open Types.Base
 open Types.Additions
 open Parsing
 open Parsing.Variable
+open Env
 
 type def = Variable.t * Ast.expr * typ option
 
 type typecheck_result =
-| TSuccess of typ * Env.t * float
+| TSuccess of TyScheme.t * Env.t * float
 | TFailure of (Position.t list) * string * float
 
-exception IncompatibleType of typ
+exception IncompatibleType of TyScheme.t
 let type_check_def _ env (var,_,typ_annot) =
   let time0 = Unix.gettimeofday () in
   let retrieve_time () =
@@ -19,7 +20,7 @@ let type_check_def _ env (var,_,typ_annot) =
     (time1 -. time0 ) *. 1000.
   in
   try
-    let typ = any (* TODO *) in
+    let typ = TyScheme.mk_mono any (* TODO *) in
     let typ =
       match typ_annot with
       | None -> typ
@@ -41,7 +42,7 @@ type parsing_result =
 
 let builtin_functions =
   let arith_operators_typ =
-    mk_arrow int_typ (mk_arrow int_typ int_typ)
+    mk_arrow int_typ (mk_arrow int_typ int_typ) |> TyScheme.mk_poly
   in
   [
     ("+", arith_operators_typ) ;
