@@ -82,3 +82,117 @@ let fv' e accs =
   | Let (_, v, _, _) | Lambda (_, v, _) -> VarSet.remove v acc
 
 let fv e = fold fv' e
+
+(* Conversion *)
+
+let rec type_of_pat pat =
+  let open Ast in
+  match pat with
+  | PatType t -> t
+  | PatVar _ -> any
+  | PatTag (tag, p) -> mk_tag tag (type_of_pat p)
+  | PatAnd (p1, p2) ->
+    cap (type_of_pat p1) (type_of_pat p2)
+  | PatOr (p1, p2) ->
+    cup (type_of_pat p1) (type_of_pat p2)
+  | PatTuple ps -> mk_tuple (List.map type_of_pat ps)
+  | PatCons (p1, p2) ->
+    let t2 = cap (type_of_pat p2) list_typ in
+    mk_cons (type_of_pat p1) t2
+  | PatRecord (fields, o) ->
+    mk_record o (List.map (fun (str, p) -> (str, (false, type_of_pat p))) fields)
+  | PatAssign _ -> any
+
+let rec vars_of_pat pat =
+  let open Ast in
+  match pat with
+  | PatType _ -> VarSet.empty
+  | PatVar x when Variable.equals x dummy_pat_var -> VarSet.empty
+  | PatVar x -> VarSet.singleton x
+  | PatTag (_, p) -> vars_of_pat p
+  | PatOr (p1, p2) ->
+    VarSet.inter (vars_of_pat p1) (vars_of_pat p2)
+  | PatTuple ps -> List.fold_left VarSet.union VarSet.empty (List.map vars_of_pat ps)
+  | PatAnd (p1, p2) | PatCons (p1, p2) -> VarSet.union (vars_of_pat p1) (vars_of_pat p2)
+  | PatRecord (fields, _) ->
+    List.fold_left
+      (fun acc (_, p) -> VarSet.union acc (vars_of_pat p))
+      VarSet.empty fields
+  | PatAssign (x,_) -> VarSet.singleton x
+
+let rec def_of_var_pat pat v e =
+  assert (Variable.equals v Ast.dummy_pat_var |> not) ;
+  let open Ast in
+  let (annot, _) = e in
+  match pat with
+  | PatVar v' when Variable.equals v v' -> e
+  | PatVar _ -> assert false
+  | PatTag (tag, p) ->
+    def_of_var_pat p v (annot, Projection (PiTag tag, e))
+  | PatAnd (p1, p2) ->
+    if vars_of_pat p1 |> VarSet.mem v
+    then def_of_var_pat p1 v e
+    else def_of_var_pat p2 v e
+  | PatTuple ps ->
+    let i = List.find_index (fun p -> vars_of_pat p |> VarSet.mem v) ps |> Option.get in
+    let n = List.length ps in
+    let p = List.nth ps i in
+    def_of_var_pat p v (annot, Projection (Pi (n,i), e))
+  | PatCons (p1, p2) ->
+    if vars_of_pat p1 |> VarSet.mem v
+    then def_of_var_pat p1 v (annot, Projection (Hd, e))
+    else def_of_var_pat p2 v (annot, Projection (Tl, e))
+  | PatRecord (fields, _) ->
+    let (str, p) =
+      fields |> List.find (fun (_, p) -> vars_of_pat p |> VarSet.mem v)
+    in
+    def_of_var_pat p v (annot, Projection (Field str, e))
+  | PatOr (p1, p2) ->
+    let case = Ite (e, type_of_pat p1,
+      def_of_var_pat p1 v e, def_of_var_pat p2 v e) in
+    (annot, case)
+  | PatAssign (v', c) when Variable.equals v v' -> (annot, Const c)
+  | PatAssign _ -> assert false
+  | PatType _ -> assert false
+
+let remove_patterns_and_fixpoints e =
+  let aux (annot,e) =
+    let e =
+      match e with
+      | Ast.PatMatch (e, pats) ->
+        let x = Variable.create_let None in
+        Variable.attach_location x (Position.position annot) ;
+        let (eannot,_) = e in
+        let ex : Ast.annot_expr = (eannot, Var x) in
+        let t = pats |> List.map fst |> List.map type_of_pat |> disj in
+        let body_of_pat pat e' =
+          let vars = vars_of_pat pat in
+          let add_def acc v =
+            let d = def_of_var_pat pat v ex in
+            (annot, Ast.Let (v, Ast.PNoAnnot, d, acc))
+          in
+          List.fold_left add_def e' (VarSet.elements vars)
+        in
+        let add_branch acc (t, e') =
+          (annot, Ast.Ite (ex, t, e', acc))
+        in
+        let pats = pats |> List.map (fun (pat, e') ->
+          (type_of_pat pat, body_of_pat pat e')) |> List.rev in
+        let body = match pats with
+        | [] -> assert false 
+        | (_, e')::pats -> List.fold_left add_branch e' pats
+        in
+        Ast.Let (x, Ast.PNoAnnot, (annot, Ast.TypeConstr (e, t)), body)
+      | Ast.Fixpoint e ->
+        let x = Variable.create_let None in
+        Variable.attach_location x (Position.position annot) ;
+        let (eannot,_) = e in
+        let ex : Ast.annot_expr = (eannot, Var x) in
+        let fix : Ast.annot_expr = (annot, Ast.Var fixpoint_var) in
+        let app = (annot, Ast.App (fix, ex)) in
+        Ast.Let (x, Ast.PNoAnnot, e, app)
+      | e -> e
+    in
+    (annot, e)
+  in
+  Ast.map_ast aux e

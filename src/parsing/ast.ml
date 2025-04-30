@@ -30,9 +30,9 @@ type const =
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 [@@deriving show, ord]
 
-type 'typ lambda_annot = LUnnanoted | LDomain of 'typ list
+type 'typ dom_annot = DNoAnnot | DAnnot of 'typ list
 [@@deriving show, ord]
-type 'typ part_annot = PUnnanoted | PAnnot of 'typ list
+type 'typ part_annot = PNoAnnot | PAnnot of 'typ list
 [@@deriving show, ord]
 
 type ('a, 'typ, 'tag, 'v) pattern =
@@ -53,7 +53,7 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Var of 'v
 | Atom of 'ato
 | Tag of 'tag * ('a, 'typ, 'ato, 'tag, 'v) t
-| Lambda of 'v * 'typ lambda_annot * ('a, 'typ, 'ato, 'tag, 'v) t
+| Lambda of 'v * 'typ dom_annot * ('a, 'typ, 'ato, 'tag, 'v) t
 | Fixpoint of ('a, 'typ, 'ato, 'tag, 'v) t
 | Ite of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
 | App of ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
@@ -145,10 +145,10 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
         | Tag (str, e) -> Tag (get_tag tenv str, aux vtenv env e)
         | Lambda (str,a,e) ->
             let a, vtenv = match a with
-            | LUnnanoted -> LUnnanoted, vtenv
-            | LDomain ts ->
+            | DNoAnnot -> DNoAnnot, vtenv
+            | DAnnot ts ->
                 let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
-                LDomain (ts), vtenv
+                DAnnot (ts), vtenv
             in
             let var = Variable.create_lambda (Some str) in
             Variable.attach_location var pos ;
@@ -163,7 +163,7 @@ let parser_expr_to_annot_expr tenv vtenv name_var_map e =
         | App (e1, e2) -> App (aux vtenv env e1, aux vtenv env e2)
         | Let (str, a, e1, e2) ->
             let a, vtenv = match a with
-            | PUnnanoted -> PUnnanoted, vtenv
+            | PNoAnnot -> PNoAnnot, vtenv
             | PAnnot ts ->
                 let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
                 PAnnot ts, vtenv

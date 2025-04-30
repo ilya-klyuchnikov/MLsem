@@ -33,18 +33,18 @@
         | None -> TVarWeak (fresh_tvar_id ())
         | Some ty -> ty
         end
-      | (LUnnanoted, _)::lst -> TArrow (TVarWeak (fresh_tvar_id ()), aux lst)
-      | (LDomain [ty], _)::lst -> TArrow (ty, aux lst)
-      | (LDomain _, _)::_ -> failwith "Parameters of recursive functions cannot have multiple type annotations."
+      | (DNoAnnot, _)::lst -> TArrow (TVarWeak (fresh_tvar_id ()), aux lst)
+      | (DAnnot [ty], _)::lst -> TArrow (ty, aux lst)
+      | (DAnnot _, _)::_ -> failwith "Parameters of recursive functions cannot have multiple type annotations."
     in
     let self_annot = aux lst in
-    let lst = (LDomain [self_annot], PatVar name)::lst in
+    let lst = (DAnnot [self_annot], PatVar name)::lst in
     let t = multi_param_abstraction startpos endpos lst t in
     annot startpos endpos (Fixpoint t)
 
   let let_pattern startpos endpos pat d t =
     match pat with
-    | PatVar v -> annot startpos endpos (Let (v, PUnnanoted, d, t))
+    | PatVar v -> annot startpos endpos (Let (v, PNoAnnot, d, t))
     | pat -> annot startpos endpos (PatMatch (d, [(pat, t)]))
 
   let double_app startpos endpos f a b =
@@ -183,12 +183,12 @@ term:
 | LET id=generalized_identifier ais=parameter* EQUAL td=term IN t=term
   {
     let td = multi_param_abstraction $startpos $endpos ais td in
-    annot $startpos $endpos (Let (id, PUnnanoted, td, t))
+    annot $startpos $endpos (Let (id, PNoAnnot, td, t))
   }
 | LET REC id=generalized_identifier ais=parameter* oty=optional_typ EQUAL td=term IN t=term
   { 
     let td = multi_param_rec_abstraction $startpos $endpos id ais oty td in
-    annot $symbolstartpos $endpos (Let (id, PUnnanoted, td, t))
+    annot $symbolstartpos $endpos (Let (id, PNoAnnot, td, t))
   }
 | LET LPAREN p = pattern RPAREN EQUAL td=term IN t=term { let_pattern $startpos $endpos p td t }
 | IF t=term ott=optional_test_type THEN t1=term ELSE t2=term { annot $startpos $endpos (Ite (t,ott,t1,t2)) }
@@ -262,13 +262,13 @@ lint:
 | LPAREN MINUS i=LINT RPAREN { Z.neg i }
 
 parameter:
-  arg = ID { (LUnnanoted, PatVar arg) }
+  arg = ID { (DNoAnnot, PatVar arg) }
 | LPAREN arg = pattern opta = optional_param_type_annot RPAREN
 { (opta, arg) }
 
 %inline optional_param_type_annot:
-    { LUnnanoted }
-  | COLON tys = separated_nonempty_list(SEMICOLON, typ) { LDomain tys }
+    { DNoAnnot }
+  | COLON tys = separated_nonempty_list(SEMICOLON, typ) { DAnnot tys }
 
 generalized_identifier:
   | x=ID | LPAREN x=prefix RPAREN | LPAREN x=infix RPAREN { x }
