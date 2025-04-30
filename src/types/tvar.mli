@@ -77,7 +77,6 @@ val is_ground_typ : Base.typ -> bool
 val refresh : TVarSet.t -> Subst.t
 val shorten_names : TVarSet.t -> Subst.t
 val pp_typ_short : Format.formatter -> Base.typ -> unit
-val string_of_type_short : Base.typ -> string
 
 (* Operations on types *)
 

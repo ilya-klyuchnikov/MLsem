@@ -198,8 +198,6 @@ let shorten_names vs =
 let pp_typ_short fmt t =
   let t = Subst.apply (vars t |> shorten_names) t in
   Base.pp_typ fmt t
-let string_of_type_short t =
-  Format.asprintf "%a" pp_typ_short t
 
 (* Operations on types *)
 
