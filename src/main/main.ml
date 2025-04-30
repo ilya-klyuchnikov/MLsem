@@ -4,17 +4,12 @@ open Types.Base
 open Types.Additions
 open Parsing
 open Parsing.Variable
-open Types.Tvar
 
 type def = Variable.t * Ast.expr * typ option
 
 type typecheck_result =
 | TSuccess of typ * Env.t * float
 | TFailure of (Position.t list) * string * float
-
-let generalize_all ~uncorrelate t =
-  let aux = if uncorrelate then uncorrelate_tvars else Utils.identity in
-  Subst.apply (generalize (vars t)) t |> aux |> bot_instance |> simplify_typ
 
 exception IncompatibleType of typ
 let type_check_def _ env (var,_,typ_annot) =
@@ -24,14 +19,11 @@ let type_check_def _ env (var,_,typ_annot) =
     (time1 -. time0 ) *. 1000.
   in
   try
-    let typ = any (* TODO *) |> generalize_all ~uncorrelate:true in
+    let typ = any (* TODO *) in
     let typ =
       match typ_annot with
       | None -> typ
-      | Some typ' ->
-        if subtype_poly typ typ'
-        then typ' |> generalize_all ~uncorrelate:false
-        else raise (IncompatibleType typ)
+      | Some _ -> (* TODO *) raise (IncompatibleType typ)
     in
     let env = Env.add var typ env in
     TSuccess (typ, env, retrieve_time ())

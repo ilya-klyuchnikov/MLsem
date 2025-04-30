@@ -115,7 +115,7 @@ let derecurse_types tenv venv defs =
                 begin match cached with
                 | None ->
                     begin try
-                        let v = TVar.mk_unregistered () in
+                        let v = TVar.mk None in
                         Hashtbl.replace henv name (def, params, (args, v)::lst);
                         let local = List.combine params args |> List.to_seq |> StrMap.of_seq in
                         let t = aux local def in
@@ -147,7 +147,7 @@ let derecurse_types tenv venv defs =
                 | Some n, _ -> n
                 | None, Some t -> TVar.typ t
                 | None, None ->
-                    let t = TVar.mk_mono ~infer:false (Some v) in
+                    let t = TVar.mk ~user:true (Some v) in
                     Hashtbl.add venv v t ;
                     TVar.typ t
                 end
@@ -155,7 +155,7 @@ let derecurse_types tenv venv defs =
                 begin match Hashtbl.find_opt venv v with
                 | Some t -> TVar.typ t
                 | None ->
-                    let t = TVar.mk_mono ~infer:true (Some v) in
+                    let t = TVar.mk ~user:false (Some v) in
                     Hashtbl.add venv v t ;
                     TVar.typ t
                 end
@@ -206,7 +206,7 @@ let derecurse_types tenv venv defs =
             aux_re re |> build
         in
         let res = defs |> List.map (fun (name, params, _) ->
-            let params = List.map (fun _ -> TVar.mk_unregistered ()) params in
+            let params = List.map (fun _ -> TVar.mk None) params in
             let args = params |> List.map TVar.typ in
             let node = get_def args name |> Option.get in
             name, params, node) in
@@ -309,96 +309,8 @@ let instantiate ss t =
     List.map (fun s -> Subst.apply s t) ss
     |> conj
 
-let bot_instance =
-    clean_type ~pos:empty ~neg:any
+let bot_instance mono =
+    clean_type ~pos:empty ~neg:any mono
 
-let top_instance =
-    clean_type ~pos:any ~neg:empty
-
-let clean_types ~pos ~neg lst =
-    let pols = List.map vars_with_polarity lst in
-    let vars = lst |> List.map vars_poly |> TVarSet.union_many in
-    vars |> TVarSet.destruct |> List.map (fun v ->
-        if pols |> List.for_all (fun lst -> lst
-            |> List.for_all (fun (v', k) -> (TVar.equal v v' |> not) || k = `Pos)
-        ) then (v, pos)
-        else if pols |> List.for_all (fun lst -> lst
-            |> List.for_all (fun (v', k) -> (TVar.equal v v' |> not) || k = `Neg)
-        ) then (v, neg)
-        else (v, TVar.typ v)
-    ) |> Subst.construct
-
-let subtypes_poly lst =
-    let m = lst |> List.map snd |> List.map vars
-        |> TVarSet.union_many |> monomorphize
-    in
-    let c = lst |> List.map fst |> clean_types ~pos:empty ~neg:any in
-    lst
-    |> List.map (fun (t1, t2) -> (Subst.apply c t1, Subst.apply m t2))
-    |> test_tallying
-let supertypes_poly lst =
-    let m = lst |> List.map snd |> List.map vars
-        |> TVarSet.union_many |> monomorphize
-    in
-    let c = lst |> List.map fst |> clean_types ~pos:any ~neg:empty in
-    lst
-    |> List.map (fun (t1, t2) -> (Subst.apply m t2, Subst.apply c t1))
-    |> test_tallying
-
-let subtype_poly t1 t2 = subtypes_poly [t1,t2]
-let supertype_poly t1 t2 = supertypes_poly [t1,t2]
-let is_empty_poly t = [bot_instance t,empty] |> test_tallying
-
-let subtype_expand ~max_exp t1 t2 =
-    assert (vars_poly t2 |> TVarSet.is_empty) ;
-    let refresh t = refresh (vars_poly t) in
-    let rec test_subtype exp =
-        if List.length exp > max_exp then None
-        else
-            match tallying [(instantiate exp t1, t2)] with
-            | [] -> test_subtype ((refresh t1)::exp)
-            | sol::_ ->
-                let inst = exp |> List.map (Subst.compose_restr sol) in
-                Some inst
-    in
-    test_subtype [refresh t1]
-
-let subtypes_expand ~max_exp t1 t2s =
-    let res = List.map (subtype_expand ~max_exp t1) t2s in
-    if List.mem None res
-    then None
-    else Some (List.map Option.get res |> List.flatten)
-
-let rec uncorrelate_tvars keep t =
-    if TVarSet.diff (vars_poly t) keep |> TVarSet.is_empty
-    then t
-    else
-        let dnf, non_arrow = dnf t, cap t (neg arrow_any) in
-        (* Refresh branches *)
-        let dnf = dnf |> List.map (fun arrows ->
-            arrows |> List.map (fun (a,b) ->
-                let to_rename = TVarSet.diff (vars_poly a) keep in
-                let rename = refresh to_rename in
-                let keep = TVarSet.union keep (Subst.vars rename) in
-                let a = Subst.apply rename a in
-                let b = Subst.apply rename b |> uncorrelate_tvars keep in
-                (a, b)
-            )
-        ) in
-        (* Avoid useless branches *)
-        let mono = monomorphize keep in
-        let dnf = dnf |> List.map (fun arrows ->
-            arrows |> Utils.filter_among_others (fun c lst ->
-            let others = List.map (fun a -> branch_type [a] |> Subst.apply mono) lst in
-            let current = branch_type [c] |> Subst.apply mono in
-            others |> List.exists (fun o -> subtype_poly o current) |> not
-        ) |> Utils.filter_among_others (fun c lst ->
-            let others = branch_type lst |> Subst.apply mono in
-            let current = branch_type [c] |> Subst.apply mono in
-            subtype_poly others current |> not
-        )) in
-        (* Rebuild type *)
-        let t = List.map branch_type dnf |> disj in
-        cup t non_arrow
-
-let uncorrelate_tvars = uncorrelate_tvars TVarSet.empty
+let top_instance mono =
+    clean_type ~pos:any ~neg:empty mono

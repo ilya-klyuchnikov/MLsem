@@ -90,9 +90,9 @@ let dummy_pat_var_str = "_"
 let dummy_pat_var =
     Variable.create_gen (Some dummy_pat_var_str)
 
-let no_infer_var t =
+let only_user_vars t =
     let open Types.Tvar in
-    vars t |> TVarSet.filter TVar.can_infer |> TVarSet.is_empty
+    vars_internal t |> TVarSet.is_empty
 
 (* TODO: associate a location to each exprid using a hashtbl *)
 let parser_expr_to_expr tenv vtenv name_var_map e =
@@ -151,9 +151,9 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             else raise (SymbolError ("type constraints should be a test type"))
         | TypeCoerce (e, ts) ->
             let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
-            if List.for_all no_infer_var ts
+            if List.for_all only_user_vars ts
             then TypeCoerce (aux vtenv env e, ts)
-            else raise (SymbolError ("type in coercion should not have inferable type variable"))
+            else raise (SymbolError ("type in coercion should not have non-user type variable"))
         | PatMatch (e, pats) ->
             PatMatch (aux vtenv env e, List.map (aux_pat pos vtenv env) pats)
         in

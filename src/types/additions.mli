@@ -79,26 +79,5 @@ val remove_field_info : typ -> string -> typ
 
 val instantiate : Subst.t list -> typ -> typ
 
-val bot_instance : typ -> typ
-val top_instance : typ -> typ
-
-val subtypes_poly : (typ * typ) list -> bool
-val supertypes_poly : (typ * typ) list -> bool
-val subtype_poly : typ -> typ -> bool
-val supertype_poly : typ -> typ -> bool
-val is_empty_poly : typ -> bool
-
-val subtype_expand : max_exp:int -> typ -> typ -> Subst.t list option
-val subtypes_expand : max_exp:int -> typ -> typ list -> Subst.t list option
-
-val uncorrelate_tvars : typ -> typ
-(**
-    [uncorrelate_tvars t] uncorrelates the different branches of the
-    arrow part of [t] by renaming its polymorphic type variables. It also
-    removes redundant branches in order to get a simpler type.
-    The type returned by this function is NOT equivalent to [t].
-    In particular, it removes negative arrows (for simplification purposes),
-    and it may remove some branches and rename some occurrences of type variables.
-    Consequently, it should NOT be used to simplify types during the typing of an
-    expression: it should ONLY be used to simplify types at top-level, after generalization.
-*)
+val bot_instance : TVarSet.t -> typ -> typ
+val top_instance : TVarSet.t -> typ -> typ

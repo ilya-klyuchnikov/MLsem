@@ -3,8 +3,6 @@ open Variable
 open Types.Base
 open Types.Tvar
 
-(* TODO: no more mono/poly var? *)
-
 type e =
 | Abstract of typ
 | Const of Ast.const
@@ -27,10 +25,10 @@ and t = Ast.exprid * e
 
 let fixpoint_var = Variable.create_gen (Some "__builtin_fixpoint")
 let fixpoint_typ =
-  let a = TVar.mk_poly None |> TVar.typ in
-  let b = TVar.mk_poly None |> TVar.typ in
+  let a = TVar.mk None |> TVar.typ in
+  let b = TVar.mk None |> TVar.typ in
   let f = mk_arrow a b in
-  let c = TVar.mk_poly None |> TVar.typ in
+  let c = TVar.mk None |> TVar.typ in
   let fc = cap f c in
   let arg = mk_arrow f fc in
   mk_arrow arg fc
@@ -199,7 +197,7 @@ let from_parser_ast t =
     | Ast.Atom a -> Atom a
     | Ast.Tag (t, e) -> Tag (t, aux e)
     | Ast.Lambda (x, DNoAnnot, e) ->
-      let tv = TVar.mk_mono ~infer:true (Variable.get_name x) |> TVar.typ in
+      let tv = TVar.mk ~user:false (Variable.get_name x) |> TVar.typ in
       Lambda ([tv], x, aux e)
     | Ast.Lambda (x, DAnnot lst, e) -> Lambda (lst, x, aux e)
     | Ast.Fixpoint e -> encode_fixpoint id e |> aux_e

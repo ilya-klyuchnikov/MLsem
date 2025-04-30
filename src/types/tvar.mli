@@ -2,21 +2,14 @@
 module TVar : sig
     type t = Sstt.Var.t
 
-    val is_unregistered : t -> bool
-    val is_mono : t -> bool
-    val is_poly : t -> bool
-    val can_infer : t -> bool
-
+    val from_user : t -> bool
     val equal : t -> t -> bool
     val compare : t -> t -> int
     val name : t -> string
     val display_name : t -> string
 
-    val mk_mono : ?infer:bool -> string option -> t
-    val mk_poly : string option -> t
+    val mk : ?user:bool -> string option -> t
     val mk_fresh : t -> t
-    val mk_unregistered : unit -> t
-
     val typ : t -> Base.typ
 
     val pp : Format.formatter -> t -> unit
@@ -67,44 +60,27 @@ module Subst : sig
 end
 
 val vars : Base.typ -> TVarSet.t
-val vars_mono : Base.typ -> TVarSet.t
-val vars_poly : Base.typ -> TVarSet.t
-val vars_infer : Base.typ -> TVarSet.t
+val vars_user : Base.typ -> TVarSet.t
+val vars_internal : Base.typ -> TVarSet.t
 val top_vars : Base.typ -> TVarSet.t
 val polarity : TVar.t -> Base.typ -> [ `Both | `Neg | `Pos | `None ]
 val vars_with_polarity : Base.typ -> (TVar.t * [ `Both | `Neg | `Pos ]) list
 val check_var : Base.typ -> [ `Not_var | `Pos of TVar.t | `Neg of TVar.t ]
-val is_mono_typ : Base.typ -> bool
-val is_novar_typ : Base.typ -> bool
-
+val is_ground_typ : Base.typ -> bool
 val refresh : TVarSet.t -> Subst.t
-val generalize : TVarSet.t -> Subst.t
-val monomorphize : TVarSet.t -> Subst.t
 val pp_typ_short : Format.formatter -> Base.typ -> unit
 val string_of_type_short : Base.typ -> string
 
 (* Operations on types *)
 
-module Raw : sig
-    (** This module contains raw Cduce functions. In particular,
-        they make no distinction between between polymorphic type variables
-        and monomorphic type variables.
-        Functions defined outside of this module should be preferred. *)
+(** [clean_type p n mono t] substitutes in [t]
+    all type variables not in [mono] and only occurring positively by [p], and
+    all type variables not in [mono] and only occurring negatively by [n] *)
+val clean_type : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ -> Base.typ
+val clean_type_subst : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ -> Subst.t
 
-    (** [clean_type p n mono t] substitutes in [t]
-        all type variables not in [mono] and only occurring positively by [p], and
-        all type variables not in [mono] and only occurring negatively by [n] *)
-    val clean_type : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ -> Base.typ
-
-    val tallying : TVarSet.t -> (Base.typ * Base.typ) list -> Subst.t list
-    val test_tallying : TVarSet.t -> (Base.typ * Base.typ) list -> bool
-end
-
-val clean_type : pos:Base.typ -> neg:Base.typ -> Base.typ -> Base.typ
-val clean_type_subst : pos:Base.typ -> neg:Base.typ -> Base.typ -> Subst.t
-
-val test_tallying : (Base.typ * Base.typ) list -> bool
-val tallying : ?prio:(TVar.t list) -> (Base.typ * Base.typ) list -> Subst.t list
-val tallying_infer : ?noprio:(TVar.t list) -> (Base.typ * Base.typ) list -> Subst.t list
+val test_tallying : TVarSet.t -> (Base.typ * Base.typ) list -> bool
+val tallying : TVarSet.t -> (Base.typ * Base.typ) list -> Subst.t list
+val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Base.typ * Base.typ) list -> Subst.t list
 
 val factorize : TVarSet.t * TVarSet.t -> Base.typ -> Base.typ * Base.typ
