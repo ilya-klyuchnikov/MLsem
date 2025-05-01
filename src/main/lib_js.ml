@@ -30,7 +30,7 @@ let typecheck code callback =
             let (env, res) =
               match type_check_def tenv env (v,e,ta) with
               | TSuccess (t, env, time) ->
-                let typ = Format.asprintf "%a" System.Env.TyScheme.pp_short t in
+                let typ = Format.asprintf "%a" Types.TyScheme.pp_short t in
                 let typ =
                   `Assoc [("name", `String name) ; ("def_pos", json_of_pos def_pos) ;
                   ("typeable", `Bool true) ; ("type", `String typ) ; ("time", `Float time)]

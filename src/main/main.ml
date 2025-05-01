@@ -1,6 +1,7 @@
 open Parsing.IO
 open System
 open Types.Base
+open Types
 open Types.Additions
 open Parsing
 open Parsing.Variable

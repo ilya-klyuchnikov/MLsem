@@ -1,5 +1,6 @@
 open Parsing
 open Variable
+open Types
 open Types.Base
 open Types.Tvar
 open Env
