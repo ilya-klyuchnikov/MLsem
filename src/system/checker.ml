@@ -117,6 +117,18 @@ let rec typeof tenv env annot (id,e) =
       let right_record = mk_record false [label, (false, t')] in
       merge_records t right_record  
     else untypeable id "Invalid field update: not a record."
+  | Let (_, v, e1, e2), ALet (annot1, annots2) ->
+    let s = typeof tenv env annot1 e1 in
+    if subtype s (annots2 |> List.map fst |> disj) then
+      let aux (si,annot2) =
+        let tvs = TVarSet.diff (vars s) (TVarSet.union (Env.tvars env) (vars si)) in
+        let t = TyScheme.mk tvs (cap s si) in
+        let env = Env.add v t env in
+        typeof tenv env annot2 e2
+      in
+      List.map aux annots2 |> disj
+    else
+      untypeable id ("Partition does not cover the type of "^(Variable.show v)^".")
   (* TODO *)
   | _, _ -> assert false (* Expr/annot mismatch *)
 and typeof_branch tenv env bannot e =
