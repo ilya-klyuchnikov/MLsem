@@ -21,7 +21,8 @@ let type_check_def _ env (var,_,typ_annot) =
     (time1 -. time0 ) *. 1000.
   in
   try
-    let typ = TyScheme.mk_mono any (* TODO *) in
+    let typ = any (* TODO *) in
+    let typ = TyScheme.mk_poly typ in
     let typ =
       match typ_annot with
       | None -> typ

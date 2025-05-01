@@ -230,18 +230,6 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
     in
     aux vtenv name_var_map e
 
-let const_to_typ c =
-    match c with
-    | Unit -> unit_typ
-    | Nil -> nil_typ
-    | EmptyRecord -> empty_closed_record
-    | Bool true -> true_typ
-    | Bool false -> false_typ
-    | Int i -> interval (Some i) (Some i)
-    | Float _ -> float_typ
-    | Char c -> char_interval c c
-    | String str -> single_string str
-
 type parser_element =
 | Definition of (int (* log level *) * (string * parser_expr * type_expr option))
 | Types of (string * string list * type_expr) list

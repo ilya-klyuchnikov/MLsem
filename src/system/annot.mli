@@ -6,11 +6,11 @@ module Annot : sig
   and inter = t list
   and part = (typ * t) list
   and t =
-  | AConst
+  | AConst | AAbstract | AAtom
   | AAx of Subst.t
   | ALet of t * part
   | AApp of t * t
-  | AProj of t
+  | AProj of t | ATag of t
   | ATuple of t list
   | AIte of t * branch * branch
   | ALambda of typ * t
@@ -27,11 +27,11 @@ module IAnnot : sig
   | A of Annot.t
   | Infer
   | Untyp
-  | AConst
+  | AConst | AAbstract | AAtom
   | AAx of Subst.t
   | ALet of t * part
   | AApp of t * t
-  | AProj of t
+  | AProj of t | ATag of t
   | ATuple of t list
   | AIte of t * branch * branch
   | ALambda of typ * t

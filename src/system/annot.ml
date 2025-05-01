@@ -6,11 +6,11 @@ module Annot = struct
   and inter = t list
   and part = (typ * t) list
   and t =
-  | AConst
+  | AConst | AAbstract | AAtom
   | AAx of Subst.t
   | ALet of t * part
   | AApp of t * t
-  | AProj of t
+  | AProj of t | ATag of t
   | ATuple of t list
   | AIte of t * branch * branch
   | ALambda of typ * t
@@ -19,11 +19,11 @@ module Annot = struct
   let substitute s t =
     let rec aux t =
     match t with
-    | AConst -> AConst
-    | AAx s' -> AAx (Subst.compose s s')
+    | AConst -> AConst | AAbstract -> AAbstract | AAtom -> AAtom
+    | AAx s' -> AAx (Subst.compose_restr s s')
     | ALet (t, ps) -> ALet (aux t, List.map aux_part ps)
     | AApp (t1, t2) -> AApp (aux t1, aux t2)
-    | AProj t -> AProj (aux t)
+    | AProj t -> AProj (aux t) | ATag t -> ATag (aux t)
     | ATuple ts -> ATuple (List.map aux ts)
     | AIte (t,b1,b2) -> AIte (aux t, aux_branch b1, aux_branch b2)
     | ALambda (ty, t) -> ALambda (Subst.apply s ty, aux t)
@@ -43,11 +43,11 @@ module IAnnot = struct
   | A of Annot.t
   | Infer
   | Untyp
-  | AConst
+  | AConst | AAbstract | AAtom
   | AAx of Subst.t
   | ALet of t * part
   | AApp of t * t
-  | AProj of t
+  | AProj of t | ATag of t
   | ATuple of t list
   | AIte of t * branch * branch
   | ALambda of typ * t
@@ -59,11 +59,11 @@ module IAnnot = struct
     | A a -> A (Annot.substitute s a)
     | Infer -> Infer
     | Untyp -> Untyp
-    | AConst -> AConst
-    | AAx s' -> AAx (Subst.compose s s')
+    | AConst -> AConst | AAbstract -> AAbstract | AAtom -> AAtom
+    | AAx s' -> AAx (Subst.compose_restr s s')
     | ALet (t, ps) -> ALet (aux t, List.map aux_part ps)
     | AApp (t1, t2) -> AApp (aux t1, aux t2)
-    | AProj t -> AProj (aux t)
+    | AProj t -> AProj (aux t) | ATag t -> ATag (aux t)
     | ATuple ts -> ATuple (List.map aux ts)
     | AIte (t,b1,b2) -> AIte (aux t, aux_branch b1, aux_branch b2)
     | ALambda (ty, t) -> ALambda (Subst.apply s ty, aux t)
