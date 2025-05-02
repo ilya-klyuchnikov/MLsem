@@ -67,3 +67,16 @@ let refine env renv e t =
     then Some renv'
     else None
   )
+
+let partition ts =
+  let cap_if_nonempty t t' =
+    let s = cap t t' in
+    if is_empty s then t else s
+  in
+  let rec aux t =
+    if is_empty t then []
+    else
+      let s = List.fold_left cap_if_nonempty t ts in
+      s::(aux (diff t s))
+  in
+  aux any
