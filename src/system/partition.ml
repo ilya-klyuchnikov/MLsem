@@ -95,6 +95,52 @@ let rec infer env renv (id,e) =
     let env = Env.add v t env in
     let e, renvs = infer env renv e in
     Lambda (ts, v, e), renvs
-  | _ -> failwith "TODO"
+  | Ite (e, tau, e1, e2) ->
+    let renvs1' = refine env renv e (neg tau) in
+    let renvs2' = refine env renv e tau in
+    let (e,renvs) = infer env renv e in
+    let (e1,renvs1) = infer env renv e1 in
+    let (e2,renvs2) = infer env renv e2 in
+    Ite (e, tau, e1, e2), [ renvs1';renvs2';renvs;renvs1;renvs2 ] |> List.concat
+  | App (e1, e2) ->
+    let e1, renvs1 = infer env renv e1 in
+    let e2, renvs2 = infer env renv e2 in
+    App (e1, e2), renvs1@renvs2
+  | Tuple es ->
+    let es, renvs = List.map (infer env renv) es |> List.split in
+    Tuple es, List.concat renvs
+  | Cons (e1, e2) ->
+    let e1, renvs1 = infer env renv e1 in
+    let e2, renvs2 = infer env renv e2 in
+    Cons (e1, e2), renvs1@renvs2
+  | Projection (p, e) ->
+    let e, renvs = infer env renv e in
+    Projection (p, e), renvs
+  | RecordUpdate (e, lbl, None) ->
+    let e, renvs = infer env renv e in
+    RecordUpdate (e, lbl, None), renvs
+  | RecordUpdate (e, lbl, Some e') ->
+    let e, renvs = infer env renv e in
+    let e', renvs' = infer env renv e' in
+    RecordUpdate (e, lbl, Some e'), renvs@renvs'
+  | Let (tys, v, e1, e2) ->
+    let e1, renvs1 = infer env renv e1 in
+    let env' = Env.add v (TyScheme.mk_mono any) env in
+    let renv' = REnv.add v (TVar.mk None |> TVar.typ) renv in
+    let e2, renvs2 = infer env' renv' e2 in
+    let part = renvs2 |> List.map (REnv.find v) in
+    let part = partition (part@tys) in
+    let renvs2 = List.map (REnv.rm v) renvs2 in
+    let renvs = part |> List.map (fun s -> refine env renv e1 (neg s)) in
+    Let (part, v, e1, e2), [renvs1 ; renvs2]@renvs |> List.flatten
+  | TypeConstr (e, tys) ->
+    let e, renvs = infer env renv e in
+    TypeConstr (e, tys), renvs
+  | TypeCoerce (e, tys) ->
+    let e, renvs = infer env renv e in
+    TypeCoerce (e, tys), renvs
   in
   (id,e), renvs
+
+let infer env e =
+  infer env REnv.empty e |> fst
