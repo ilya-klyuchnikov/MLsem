@@ -11,7 +11,6 @@ module type TVar = sig
   val display_name : t -> string
 
   val mk : ?user:bool -> string option -> t
-  val mk_fresh : t -> t
   val typ : t -> Base.typ
 
   val pp : Format.formatter -> t -> unit
@@ -73,8 +72,6 @@ module TVar = struct
     TVH.add data var {user; dname=name} ;
     if user then uservars := Sstt.VarSet.add var (!uservars) ;
     var
-  let mk_fresh t =
-    mk ~user:(from_user t) (Some (display_name t))
   let typ = Sstt.Ty.mk_var
 
   let pp = Sstt.Var.pp
@@ -176,7 +173,7 @@ let vars_with_polarity t =
 let is_ground_typ t = vars t |> TVarSet.is_empty
 
 let refresh vars =
-  let f v = (v, TVar.mk_fresh v |> TVar.typ) in
+  let f v = (v, TVar.mk None |> TVar.typ) in
   vars |> TVarSet.destruct |> List.map f |> Subst.construct
 
 let shorten_names vs =

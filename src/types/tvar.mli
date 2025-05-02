@@ -11,7 +11,6 @@ module type TVar = sig
     val display_name : t -> string
 
     val mk : ?user:bool -> string option -> t
-    val mk_fresh : t -> t
     val typ : t -> Base.typ
 
     val pp : Format.formatter -> t -> unit
