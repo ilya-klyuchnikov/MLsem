@@ -1,17 +1,52 @@
 open Parsing.Variable
 open Types
+open Types.Base
 open Types.Tvar
 
-module Env = struct
-  type t = TyScheme.t VarMap.t * TVarSet.t
+module type T = sig
+  type t
+  val fv : t -> TVarSet.t
+  val leq : t -> t -> bool
+  val pp : Format.formatter -> t -> unit
+end  
+
+module type Env = sig
+  type t
+  type ty
+  val empty : t
+  val is_empty : t -> bool
+  val singleton : Variable.t -> ty -> t
+  val construct : (Variable.t * ty) list -> t
+  val add : Variable.t -> ty -> t -> t
+  val domain : t -> Variable.t list
+  val bindings : t -> (Variable.t * ty) list
+  val mem : Variable.t -> t -> bool
+  val find : Variable.t -> t -> ty
+  val rm : Variable.t -> t -> t
+  val rms : Variable.t list -> t -> t
+  val restrict : Variable.t list -> t -> t
+  val map : (ty -> ty) -> t -> t
+  val filter : (Variable.t -> ty -> bool) -> t -> t
+  val tvars : t -> TVarSet.t
+
+  val equiv : t -> t -> bool
+  val leq : t -> t -> bool
+
+  val show : t -> string
+  val pp : Format.formatter -> t -> unit
+  val pp_filtered : string list -> Format.formatter -> t -> unit
+end
+
+module Make(T:T) = struct
+  type t = T.t VarMap.t * TVarSet.t
 
   let empty = (VarMap.empty, TVarSet.empty)
   let is_empty (m,_) =  VarMap.is_empty m
-  let singleton v t = (VarMap.singleton v t, TyScheme.fv t)
+  let singleton v t = (VarMap.singleton v t, T.fv t)
   let construct lst = (VarMap.of_seq (List.to_seq lst),
-    List.map snd lst |> List.map TyScheme.fv |> TVarSet.union_many)
+    List.map snd lst |> List.map T.fv |> TVarSet.union_many)
 
-  let add v t (m,s) = (VarMap.add v t m, TVarSet.union s (TyScheme.fv t))
+  let add v t (m,s) = (VarMap.add v t m, TVarSet.union s (T.fv t))
 
   let domain (m, _) = VarMap.bindings m |> List.map fst
 
@@ -37,7 +72,7 @@ module Env = struct
 
   let leq (m1,_) (m2,_) =
     VarMap.for_all (fun v t ->
-      VarMap.mem v m1 && TyScheme.leq (VarMap.find v m1) t
+      VarMap.mem v m1 && T.leq (VarMap.find v m1) t
     ) m2
 
   let equiv env1 env2 = leq env1 env2 && leq env2 env1
@@ -45,7 +80,7 @@ module Env = struct
   let pp fmt (m, _) =
     VarMap.bindings m
     |> List.iter (fun (v, ts) ->
-      Format.fprintf fmt "%a: %a\n" Variable.pp v TyScheme.pp ts
+      Format.fprintf fmt "%a: %a\n" Variable.pp v T.pp ts
     )
 
   let show = Format.asprintf "%a" pp
@@ -61,3 +96,17 @@ module Env = struct
   let map f t =
     bindings t |> List.map (fun (v,t) -> (v,f t)) |> construct
 end
+
+module Env = Make(struct
+  type t = TyScheme.t
+  let fv = TyScheme.fv
+  let leq = TyScheme.leq
+  let pp = TyScheme.pp
+end)
+
+module REnv = Make(struct
+  type t = typ
+  let fv = vars
+  let leq = subtype
+  let pp = pp_typ
+end)
