@@ -46,6 +46,13 @@ let proj p ty =
   | Tl -> destruct_list ty |> snd
   | PiTag tag -> destruct_tag tag ty
 
+let tv_proj = TVar.mk None
+let typeof_proj p =
+  let tv = TVar.typ tv_proj in
+  let dom = domain_of_proj p tv in
+  let ty = mk_arrow dom tv in
+  TyScheme.mk (TVarSet.construct [tv_proj]) ty
+
 (* Expressions *)
 
 exception Untypeable of Parsing.Ast.exprid * string

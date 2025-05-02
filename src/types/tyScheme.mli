@@ -6,6 +6,7 @@ val mk : TVarSet.t -> typ -> t
 val mk_mono : typ -> t
 val mk_poly : typ -> t
 val get : t -> TVarSet.t * typ
+val get_fresh : t -> TVarSet.t * typ
 val fv : t -> TVarSet.t
 val leq : t -> t -> bool
 val equiv : t -> t -> bool
