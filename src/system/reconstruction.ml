@@ -5,10 +5,10 @@ open Types
 open Env
 open Ast
 
-type result =
-| Ok of Annot.t * typ
+type ('a,'b) result =
+| Ok of 'a * typ
 | Fail
-| Subst of Subst.t list * IAnnot.t * IAnnot.t
+| Subst of Subst.t list * 'b * 'b
 
 let rec infer env annot (id, e) =
   let open IAnnot in
@@ -50,14 +50,15 @@ let rec infer env annot (id, e) =
     | Fail -> Fail
     | Subst (ss,a,a') -> Subst (ss,AIte (a,a1,a2),AIte (a',a1,a2))
     | Ok (a0, s) ->
-      begin match a1, a2 with
-      | BInfer, a2 ->
-        let ss = tallying (TVar.user_vars ()) [(s,neg tau)] in
-        Subst (ss, AIte(A a0,BSkip,a2), AIte(A a0,BType Infer,a2))
-      | a1, BInfer ->
-        let ss = tallying (TVar.user_vars ()) [(s,tau)] in
-        Subst (ss, AIte(A a0,a1,BSkip), AIte(A a0,a1,BType Infer))
-      | a1, a2 -> failwith "TODO"
+      begin match infer_b' env a1 e1 s tau with
+      | Fail -> Fail
+      | Subst (ss,a,a') -> Subst (ss,AIte(A a0,a,a2), AIte(A a0,a',a2))
+      | Ok (a1, _) ->
+        begin match infer_b' env a2 e2 s (neg tau) with
+        | Fail -> Fail
+        | Subst (ss,a,a') -> Subst (ss,AIte(A a0,B a1,a), AIte(A a0,B a1,a'))
+        | Ok (a2, _) -> infer env (A (Annot.AIte(a0,a1,a2))) (id, e)
+        end
       end
     end
   | _, _ -> failwith "TODO"
@@ -78,6 +79,18 @@ and infer' env annot e =
     let annot = IAnnot.AInter (branches@[a2]) in
     infer' env annot e
   | Subst (ss, a1, a2) -> Subst (ss, a1, a2)
+and infer_b' env bannot e s tau =
+  match bannot with
+  | IAnnot.B b -> Ok (b, Checker.typeof_b env b e)
+  | IAnnot.BInfer ->
+    let ss = tallying (TVar.user_vars ()) [(s,neg tau)] in
+    Subst (ss, IAnnot.B Annot.BSkip, IAnnot.BType Infer)
+  | IAnnot.BType annot ->
+    begin match infer' env annot e with
+    | Ok (a, ty) -> Ok (Annot.BType a, ty)
+    | Subst (ss,a1,a2) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2)
+    | Fail -> Fail
+    end
 
 let infer env e =
   match infer env IAnnot.Infer e with

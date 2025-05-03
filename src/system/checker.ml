@@ -85,8 +85,8 @@ let rec typeof env annot (id,e) =
     then untypeable id "First branch is reachable and must be typed." ;
     if b2 = BSkip && not (subtype s tau)
     then untypeable id "Second branch is reachable and must be typed." ;
-    let t1 = typeof_branch env b1 e1 in
-    let t2 = typeof_branch env b2 e2 in
+    let t1 = typeof_b env b1 e1 in
+    let t2 = typeof_b env b2 e2 in
     cup t1 t2
   | App (e1, e2), AApp (annot1, annot2) ->
     let t1 = typeof env annot1 e1 in
@@ -147,7 +147,7 @@ let rec typeof env annot (id,e) =
     if subtype t ty then ty
     else untypeable id "Impossible type coercion."
   | _, _ -> assert false (* Expr/annot mismatch *)
-and typeof_branch env bannot e =
+and typeof_b env bannot e =
   match bannot with
   | BType annot -> typeof env annot e
   | BSkip -> empty
