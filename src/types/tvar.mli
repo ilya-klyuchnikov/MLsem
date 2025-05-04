@@ -93,6 +93,6 @@ val clean_subst' : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ list ->
 val test_tallying : TVarSet.t -> (Base.typ * Base.typ) list -> bool
 val tallying : TVarSet.t -> (Base.typ * Base.typ) list -> Subst.t list
 val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Base.typ * Base.typ) list -> Subst.t list
-val tallying_with_result : TVarSet.t -> TVar.t -> (Base.typ * Base.typ) list -> Subst.t list
+val tallying_with_result : TVarSet.t -> TVar.t -> (Base.typ * Base.typ) list -> (Subst.t * Base.typ) list
 
 val factorize : TVarSet.t * TVarSet.t -> Base.typ -> Base.typ * Base.typ

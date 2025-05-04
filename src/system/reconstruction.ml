@@ -74,7 +74,9 @@ let rec infer env annot (id, e) =
       | Ok (a2,t2) ->
         let tv = TVar.mk None in
         let arrow = mk_arrow t2 (TVar.typ tv) in
-        let ss = tallying_with_result (TVar.user_vars ()) tv [(t1, arrow)] in
+        let ss =
+          tallying_with_result (TVar.user_vars ()) tv [(t1, arrow)]
+          |> List.map fst in
         Subst (ss, A (Annot.AApp(a1,a2)), Untyp)
       end
     end
