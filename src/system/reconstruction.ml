@@ -49,7 +49,7 @@ let rec infer env annot (id, e) =
   | Tag (_, e'), ATag annot' ->
     begin match infer' env annot' e' with
     | Ok (annot', _) -> retry_with (A (Annot.ATag annot'))
-    | Subst (ss,a1,a2) -> Subst (ss,ATag a1,ATag a2)
+    | Subst (ss,a,a') -> Subst (ss,ATag a,ATag a')
     | Fail -> Fail
     end
   | Lambda (tys,_,_), Infer ->
@@ -64,7 +64,7 @@ let rec infer env annot (id, e) =
     let env' = Env.add v (TyScheme.mk_mono ty) env in
     begin match infer' env' annot' e' with
     | Ok (annot', _) -> retry_with (A (Annot.ATag annot'))
-    | Subst (ss,a1,a2) -> Subst (ss,ALambda (ty, a1),ALambda (ty, a2))
+    | Subst (ss,a,a') -> Subst (ss,ALambda (ty, a),ALambda (ty, a'))
     | Fail -> Fail
     end
   | Ite _, Infer -> retry_with (AIte (Infer, BInfer, BInfer))
@@ -124,8 +124,28 @@ let rec infer env annot (id, e) =
         tallying_with_result (TVar.user_vars ()) tv [(s, ty)]
         |> List.map fst in
       Subst (ss, A (Annot.AProj annot'), Untyp)
-    | Subst (ss,a1,a2) -> Subst (ss,AProj a1,AProj a2)
+    | Subst (ss,a,a') -> Subst (ss,AProj a,AProj a')
     | Fail -> Fail
+    end
+  | RecordUpdate (_,_,None), Infer -> retry_with (AUpdate (Infer, None))
+  | RecordUpdate (_,_,Some _), Infer -> retry_with (AUpdate (Infer, Some Infer))
+  | RecordUpdate (e', _, None), AUpdate (annot', None) ->
+    begin match infer' env annot' e' with
+    | Ok (annot', s) ->
+      let ss = tallying (TVar.user_vars ()) [(s,record_any)] in
+      Subst (ss, A (Annot.AUpdate(annot',None)), Untyp)
+    | Subst (ss,a,a') -> Subst (ss,AUpdate (a,None),AUpdate (a',None))
+    | Fail -> Fail
+    end
+  | RecordUpdate (e1, _, Some e2), AUpdate (a1, Some a2) ->
+    begin match infer_seq' env [(a1,e1);(a2,e2)] with
+    | OneFail -> Fail
+    | OneSubst (ss, [a1;a2], [a1';a2']) ->
+      Subst (ss,AUpdate(a1,Some a2),AUpdate(a1',Some a2'))
+    | AllOk ([a1;a2],[s;_]) ->
+      let ss = tallying (TVar.user_vars ()) [(s,record_any)] in
+      Subst (ss, A (Annot.AUpdate(a1,Some a2)), Untyp)
+    | _ -> assert false
     end
   | _, _ -> failwith "TODO"
 and infer' env annot e =
