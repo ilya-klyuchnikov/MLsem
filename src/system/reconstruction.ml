@@ -10,6 +10,28 @@ type ('a,'b) result =
 | Fail
 | Subst of Subst.t list * 'b * 'b
 
+type ('a,'b) result_seq =
+| AllOk of 'a list * typ list
+| OneFail
+| OneSubst of Subst.t list * 'b list * 'b list
+
+let rec seq (f : 'b -> Ast.t -> ('a,'b) result) (c : 'a->
+  'b) (lst:('b*Ast.t) list) : ('a,'b) result_seq =
+  match lst with
+  | [] -> AllOk ([],[])
+  | (annot,e)::lst ->
+    begin match f annot e with
+    | Fail -> OneFail
+    | Subst (ss,a,a') -> OneSubst (ss,a::(List.map fst lst),a'::(List.map fst lst))
+    | Ok (a,t) ->
+      begin match seq f c lst with
+      | AllOk (annots, tys) -> AllOk (a::annots, t::tys)
+      | OneFail -> OneFail
+      | OneSubst (ss, annots, annots') ->
+        OneSubst (ss, (c a)::annots, (c a)::annots') 
+      end
+    end
+
 let rec infer env annot (id, e) =
   let open IAnnot in
   let retry_with a = infer env a (id, e) in
@@ -51,34 +73,28 @@ let rec infer env annot (id, e) =
     | Fail -> Fail
     | Subst (ss,a,a') -> Subst (ss,AIte (a,a1,a2),AIte (a',a1,a2))
     | Ok (a0, s) ->
-      begin match infer_b' env a1 e1 s tau with
-      | Fail -> Fail
-      | Subst (ss,a,a') -> Subst (ss,AIte(A a0,a,a2), AIte(A a0,a',a2))
-      | Ok (a1, _) ->
-        begin match infer_b' env a2 e2 s (neg tau) with
-        | Fail -> Fail
-        | Subst (ss,a,a') -> Subst (ss,AIte(A a0,B a1,a), AIte(A a0,B a1,a'))
-        | Ok (a2, _) -> retry_with (A (Annot.AIte(a0,a1,a2)))
-        end
+      begin match infer_b_seq' env [(a1,e1);(a2,e2)] s tau with
+      | OneFail -> Fail
+      | OneSubst (ss, [a1;a2], [a1';a2']) ->
+        Subst (ss, AIte(A a0,a1,a2), AIte(A a0,a1',a2'))
+      | AllOk ([a1;a2],_) -> retry_with (A (Annot.AIte(a0,a1,a2)))
+      | _ -> assert false
       end
     end
   | App _, Infer -> retry_with (AApp (Infer, Infer))
   | App (e1, e2), AApp (a1,a2) ->
-    begin match infer' env a1 e1 with
-    | Fail -> Fail
-    | Subst (ss,a,a') -> Subst (ss,AApp(a,a2),AApp(a',a2))
-    | Ok (a1,t1) ->
-      begin match infer' env a2 e2 with
-      | Fail -> Fail
-      | Subst (ss,a,a') -> Subst (ss,AApp(A a1,a),AApp(A a1,a'))
-      | Ok (a2,t2) ->
-        let tv = TVar.mk None in
-        let arrow = mk_arrow t2 (TVar.typ tv) in
-        let ss =
-          tallying_with_result (TVar.user_vars ()) tv [(t1, arrow)]
-          |> List.map fst in
-        Subst (ss, A (Annot.AApp(a1,a2)), Untyp)
-      end
+    begin match infer_seq' env [(a1,e1);(a2,e2)] with
+    | OneFail -> Fail
+    | OneSubst (ss, [a1;a2], [a1';a2']) ->
+      Subst (ss,AApp(a1,a2),AApp(a1',a2'))
+    | AllOk ([a1;a2],[t1;t2]) ->
+      let tv = TVar.mk None in
+      let arrow = mk_arrow t2 (TVar.typ tv) in
+      let ss =
+        tallying_with_result (TVar.user_vars ()) tv [(t1, arrow)]
+        |> List.map fst in
+      Subst (ss, A (Annot.AApp(a1,a2)), Untyp)
+    | _ -> assert false
     end
   | _, _ -> failwith "TODO"
 and infer' env annot e =
@@ -110,6 +126,9 @@ and infer_b' env bannot e s tau =
     | Subst (ss,a1,a2) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2)
     | Fail -> Fail
     end
+and infer_seq' env lst = seq (infer' env) (fun a -> A a) lst
+and infer_b_seq' env lst s tau =
+  seq (fun b e -> infer_b' env b e s tau) (fun b -> B b) lst
 
 let infer env e =
   match infer env IAnnot.Infer e with
