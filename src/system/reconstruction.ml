@@ -150,15 +150,19 @@ let rec infer env annot (id, e) =
   | Let _, _ -> failwith "TODO"
   | TypeConstr _, Infer -> retry_with (AConstr Infer)
   | TypeCoerce _, Infer -> retry_with (ACoerce Infer)
-  | TypeConstr (e', ts), AConstr annot' ->
+  | TypeConstr (e', t), AConstr annot' ->
     begin match infer' env annot' e' with
-    | Ok (annot', s) -> failwith "TODO"
+    | Ok (annot', s) ->
+      let ss = tallying (TVar.user_vars ()) [(s,t)] in
+      Subst (ss, A (Annot.AConstr(annot')), Untyp)
     | Subst (ss,a,a') -> Subst (ss,AConstr a,AConstr a')
     | Fail -> Fail
     end
-  | TypeCoerce (e', ts), ACoerce annot' ->
+  | TypeCoerce (e', t), ACoerce annot' ->
     begin match infer' env annot' e' with
-    | Ok (annot', s) -> failwith "TODO"
+    | Ok (annot', s) ->
+      let ss = tallying (TVar.user_vars ()) [(s,t)] in
+      Subst (ss, A (Annot.ACoerce(annot')), Untyp)
     | Subst (ss,a,a') -> Subst (ss,ACoerce a,ACoerce a')
     | Fail -> Fail
     end

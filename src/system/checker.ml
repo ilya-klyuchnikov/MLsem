@@ -136,14 +136,12 @@ let rec typeof env annot (id,e) =
       List.map aux annots2 |> disj
     else
       untypeable id ("Partition does not cover the type of "^(Variable.show v)^".")
-  | TypeConstr (e, tys), AConstr annot ->
+  | TypeConstr (e, ty), AConstr annot ->
     let t = typeof env annot e in
-    let ty = conj tys in
     if subtype t ty then t
     else untypeable id "Type constraint not satisfied."
-  | TypeCoerce (e, tys), ACoerce annot -> 
+  | TypeCoerce (e, ty), ACoerce annot -> 
     let t = typeof env annot e in
-    let ty = conj tys in
     if subtype t ty then ty
     else untypeable id "Impossible type coercion."
   | _, _ -> assert false (* Expr/annot mismatch *)

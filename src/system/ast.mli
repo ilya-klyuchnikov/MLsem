@@ -17,8 +17,8 @@ type e =
 | Projection of Ast.projection * t
 | RecordUpdate of t * string * t option
 | Let of (typ list) * Variable.t * t * t
-| TypeConstr of t * typ list
-| TypeCoerce of t * typ list
+| TypeConstr of t * typ
+| TypeCoerce of t * typ
 and t = Ast.exprid * e
 
 val initial_env : Env.t

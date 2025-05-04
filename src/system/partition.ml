@@ -49,7 +49,7 @@ let rec constr env renv (_,e) =
     [], record_any
   | Let _ -> [], any
   | TypeConstr (e, _) -> constr env renv e
-  | TypeCoerce (_, tys) -> [], conj tys
+  | TypeCoerce (_, ty) -> [], ty
 
 let refine env renv e t =
   let cs, s = constr env renv e in

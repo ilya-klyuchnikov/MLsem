@@ -62,8 +62,8 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Cons of ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
 | Projection of projection * ('a, 'typ, 'ato, 'tag, 'v) t
 | RecordUpdate of ('a, 'typ, 'ato, 'tag, 'v) t * string * ('a, 'typ, 'ato, 'tag, 'v) t option
-| TypeConstr of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ list
-| TypeCoerce of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ list
+| TypeConstr of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ
+| TypeCoerce of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ
 | PatMatch of ('a, 'typ, 'ato, 'tag, 'v) t * (('a, 'typ, 'tag, 'v) pattern * ('a, 'typ, 'ato, 'tag, 'v) t) list
 [@@deriving ord]
 
@@ -144,16 +144,16 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         | Projection (p, e) -> Projection (p, aux vtenv env e)
         | RecordUpdate (e1, l, e2) ->
             RecordUpdate (aux vtenv env e1, l, Option.map (aux vtenv env) e2)
-        | TypeConstr (e, ts) ->
-            let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
-            if List.for_all is_test_type ts
-            then TypeConstr (aux vtenv env e, ts)
-            else raise (SymbolError ("type constraints should be a test type"))
-        | TypeCoerce (e, ts) ->
-            let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
-            if List.for_all only_user_vars ts
-            then TypeCoerce (aux vtenv env e, ts)
-            else raise (SymbolError ("type in coercion should not have non-user type variable"))
+        | TypeConstr (e, ty) ->
+            let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
+            if is_test_type ty
+            then TypeConstr (aux vtenv env e, ty)
+            else raise (SymbolError ("type constraint should be a test type"))
+        | TypeCoerce (e, ty) ->
+            let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
+            if only_user_vars ty
+            then TypeCoerce (aux vtenv env e, ty)
+            else raise (SymbolError ("type coercion should not have non-user type variables"))
         | PatMatch (e, pats) ->
             PatMatch (aux vtenv env e, List.map (aux_pat pos vtenv env) pats)
         in
