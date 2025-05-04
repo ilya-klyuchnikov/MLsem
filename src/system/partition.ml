@@ -40,10 +40,10 @@ let rec constr env renv (_,e) =
     let cs2, t2 = constr env renv e2 in
     cs1@cs2, mk_cons t1 t2
   | Projection (p, e) ->
-    let _, t1 = Checker.typeof_proj p |> TyScheme.get_fresh in
-    let cs, t2 = constr env renv e in
+    let cs, s = constr env renv e in
     let tv = TVar.mk None |> TVar.typ in
-    (t1, mk_arrow t2 tv)::cs, tv
+    let t = Checker.domain_of_proj p tv in
+    (s, t)::cs, tv
   | RecordUpdate _ ->
     (* TODO: we could be more precise with row polymorphism *)
     [], record_any

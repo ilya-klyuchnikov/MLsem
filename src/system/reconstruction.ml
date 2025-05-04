@@ -114,6 +114,19 @@ let rec infer env annot (id, e) =
       Subst (ss, A (Annot.ACons(a1,a2)), Untyp)
     | _ -> assert false
     end
+  | Projection _, Infer -> retry_with (AProj Infer)
+  | Projection (p,e'), AProj annot' ->
+    begin match infer' env annot' e' with
+    | Ok (annot', s) ->
+      let tv = TVar.mk None in
+      let ty = Checker.domain_of_proj p (TVar.typ tv) in
+      let ss =
+        tallying_with_result (TVar.user_vars ()) tv [(s, ty)]
+        |> List.map fst in
+      Subst (ss, A (Annot.AProj annot'), Untyp)
+    | Subst (ss,a1,a2) -> Subst (ss,AProj a1,AProj a2)
+    | Fail -> Fail
+    end
   | _, _ -> failwith "TODO"
 and infer' env annot e =
   let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
