@@ -3,8 +3,11 @@ open Types.Tvar
 
 module Annot = struct
   type branch = BType of t | BSkip
+  [@@deriving show]
   and inter = t list
+  [@@deriving show]
   and part = (typ * t) list
+  [@@deriving show]
   and t =
   | AConst | AAbstract | AAtom
   | AAx of Subst.t
@@ -16,6 +19,7 @@ module Annot = struct
   | AIte of t * branch * branch
   | ALambda of typ * t
   | AInter of inter
+  [@@deriving show]
 
   let substitute s t =
     let rec aux t =
@@ -59,8 +63,11 @@ end
 
 module IAnnot = struct
   type branch = BType of t | BSkip | BInfer
+  [@@deriving show]
   and inter = t list
+  [@@deriving show]
   and part = (typ * t) list
+  [@@deriving show]
   and t =
   | A of Annot.t
   | Infer
@@ -75,6 +82,7 @@ module IAnnot = struct
   | AIte of t * branch * branch
   | ALambda of typ * t
   | AInter of inter
+  [@@deriving show]
 
   let substitute s t =
     let rec aux t =

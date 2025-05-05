@@ -19,7 +19,7 @@ let typecheck code callback =
   let res =
     try (
       match parse_and_resolve (`String (Js.to_string code)) initial_varm with
-      | PSuccess (tenv, lst) ->
+      | PSuccess (_, lst) ->
         let ok_answer res =
           `Assoc [("exit_code", `Int 0); ("results", `List (List.rev res))]
         in
@@ -28,7 +28,7 @@ let typecheck code callback =
             let name = Parsing.Variable.Variable.get_name v |> Option.get in
             let def_pos = Parsing.Variable.Variable.get_locations v |> List.hd in
             let (env, res) =
-              match type_check_def tenv env (v,e,ta) with
+              match type_check_def env (v,e,ta) with
               | TSuccess (t, env, time) ->
                 let typ = Format.asprintf "%a" Types.TyScheme.pp_short t in
                 let typ =

@@ -20,6 +20,7 @@ module Annot : sig
 
   val substitute : Subst.t -> t -> t
   val tvars : t -> TVarSet.t
+  val pp : Format.formatter -> t -> unit
 end
 
 module IAnnot : sig
@@ -43,4 +44,5 @@ module IAnnot : sig
 
   val substitute : Subst.t -> t -> t
   val tvars : t -> TVarSet.t
+  val pp : Format.formatter -> t -> unit
 end

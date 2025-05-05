@@ -14,14 +14,21 @@ type typecheck_result =
 | TFailure of (Position.t list) * string * float
 
 exception IncompatibleType of TyScheme.t
-let type_check_def _ env (var,_,typ_annot) =
+let type_check_def env (var,e,typ_annot) =
   let time0 = Unix.gettimeofday () in
   let retrieve_time () =
     let time1 = Unix.gettimeofday () in
     (time1 -. time0 ) *. 1000.
   in
   try
-    let typ = any (* TODO *) |> simplify_typ in
+    let e = System.Ast.from_parser_ast e in
+    let e = Partition.infer env e in
+    let annot =
+      match Reconstruction.infer env e with
+      | None -> raise (Checker.Untypeable (fst e, "Annotation reconstruction failed."))
+      | Some annot-> annot
+    in
+    let typ = Checker.typeof env annot e |> simplify_typ in
     let typ = TyScheme.mk_poly typ in
     let typ =
       match typ_annot with
@@ -35,8 +42,9 @@ let type_check_def _ env (var,_,typ_annot) =
     let env = Env.add var typ env in
     TSuccess (typ, env, retrieve_time ())
   with
-  (* | Algorithmic.Untypeable (pos, str) ->
-    TFailure (pos, str, retrieve_time ()) *)
+  | Checker.Untypeable (_, str) ->
+    (* TODO: retrieve pos of exprid *)
+    TFailure ([], str, retrieve_time ())
   | IncompatibleType _ ->
     TFailure (Variable.get_locations var,
       "the type inferred is not a subtype of the type specified",

@@ -7,13 +7,13 @@ let () =
         let fn = ref "test.ml" in
         if Array.length Sys.argv > 1 then fn := Sys.argv.(1) ;
         match parse_and_resolve (`File !fn) initial_varm with
-        | PSuccess (tenv, lst) ->
+        | PSuccess (_, lst) ->
             let time0 = Unix.gettimeofday () in
             List.fold_left (fun env (ll, (v, e, ta)) ->
                 Utils.log_level := ll ;
                 Format.printf "@{<blue;bold>%s@}: %!"
                     (Parsing.Variable.Variable.get_name v |> Option.get) ;
-                match type_check_def tenv env (v,e,ta) with
+                match type_check_def env (v,e,ta) with
                 | TSuccess (t, env, time) ->
                     Format.printf "%a @{<italic;yellow>(checked in %.00fms)@}\n%!"
                         Types.TyScheme.pp_short t time ;

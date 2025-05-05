@@ -179,7 +179,10 @@ let rec infer env annot (id, e) =
     | Subst (ss,a,a') -> Subst (ss,ACoerce a,ACoerce a')
     | Fail -> Fail
     end
-  | _, _ -> assert false
+  (* TODO: IInter *)
+  | e, a ->
+    Format.printf "e:@.%a@.@.a:@.%a@.@." Ast.pp_e e IAnnot.pp a ;
+    assert false
 and infer' env annot e =
   let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
   let subst_disjoint s =
