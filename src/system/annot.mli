@@ -2,6 +2,7 @@ open Types.Base
 open Types.Tvar
 
 module Annot : sig
+  (* TODO: cache *)
   type branch = BType of t | BSkip
   and inter = t list
   and part = (typ * t) list
