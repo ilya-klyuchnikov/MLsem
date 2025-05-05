@@ -12,7 +12,7 @@ type ('a,'b) result =
 
 type ('a,'b) result_seq =
 | AllOk of 'a list * typ list
-| OneFail
+| OneFail of 'b list * 'b list
 | OneSubst of Subst.t list * 'b list * 'b list
 
 let rec seq (f : 'b -> Ast.t -> ('a,'b) result) (c : 'a->
@@ -21,12 +21,12 @@ let rec seq (f : 'b -> Ast.t -> ('a,'b) result) (c : 'a->
   | [] -> AllOk ([],[])
   | (annot,e)::lst ->
     begin match f annot e with
-    | Fail -> OneFail
+    | Fail -> OneFail ([], List.map fst lst)
     | Subst (ss,a,a') -> OneSubst (ss,a::(List.map fst lst),a'::(List.map fst lst))
     | Ok (a,t) ->
       begin match seq f c lst with
       | AllOk (annots, tys) -> AllOk (a::annots, t::tys)
-      | OneFail -> OneFail
+      | OneFail (lst1, lst2) -> OneFail ((c a)::lst1, lst2)
       | OneSubst (ss, annots, annots') ->
         OneSubst (ss, (c a)::annots, (c a)::annots') 
       end
@@ -74,7 +74,7 @@ let rec infer env annot (id, e) =
     | Subst (ss,a,a') -> Subst (ss,AIte (a,a1,a2),AIte (a',a1,a2))
     | Ok (a0, s) ->
       begin match infer_b_seq' env [(a1,e1);(a2,e2)] s tau with
-      | OneFail -> Fail
+      | OneFail _ -> Fail
       | OneSubst (ss, [a1;a2], [a1';a2']) ->
         Subst (ss, AIte(A a0,a1,a2), AIte(A a0,a1',a2'))
       | AllOk ([a1;a2],_) -> retry_with (A (Annot.AIte(a0,a1,a2)))
@@ -84,7 +84,7 @@ let rec infer env annot (id, e) =
   | App _, Infer -> retry_with (AApp (Infer, Infer))
   | App (e1, e2), AApp (a1,a2) ->
     begin match infer_seq' env [(a1,e1);(a2,e2)] with
-    | OneFail -> Fail
+    | OneFail _ -> Fail
     | OneSubst (ss, [a1;a2], [a1';a2']) ->
       Subst (ss,AApp(a1,a2),AApp(a1',a2'))
     | AllOk ([a1;a2],[t1;t2]) ->
@@ -99,14 +99,14 @@ let rec infer env annot (id, e) =
   | Tuple es, Infer -> retry_with (ATuple (List.map (fun _ -> Infer) es))
   | Tuple es, ATuple annots ->
     begin match infer_seq' env (List.combine annots es) with
-    | OneFail -> Fail
+    | OneFail _ -> Fail
     | OneSubst (ss, a, a') -> Subst (ss,ATuple a,ATuple a')
     | AllOk (annots,_) -> retry_with (A (Annot.ATuple annots))
     end
   | Cons _, Infer -> retry_with (ACons (Infer, Infer))
   | Cons (e1,e2), ACons (a1,a2) ->
     begin match infer_seq' env [(a1,e1);(a2,e2)] with
-    | OneFail -> Fail
+    | OneFail _ -> Fail
     | OneSubst (ss, [a1;a2], [a1';a2']) ->
       Subst (ss,ACons(a1,a2),ACons(a1',a2'))
     | AllOk ([a1;a2],[_;t2]) ->
@@ -139,7 +139,7 @@ let rec infer env annot (id, e) =
     end
   | RecordUpdate (e1, _, Some e2), AUpdate (a1, Some a2) ->
     begin match infer_seq' env [(a1,e1);(a2,e2)] with
-    | OneFail -> Fail
+    | OneFail _ -> Fail
     | OneSubst (ss, [a1;a2], [a1';a2']) ->
       Subst (ss,AUpdate(a1,Some a2),AUpdate(a1',Some a2'))
     | AllOk ([a1;a2],[s;_]) ->
@@ -156,7 +156,7 @@ let rec infer env annot (id, e) =
     | Ok (annot1, s) ->
       let parts = parts |> List.filter (fun (t,_) -> disjoint s t |> not) in
       begin match infer_part_seq' env e2 v s parts with
-      | OneFail -> Fail
+      | OneFail _ -> Fail
       | OneSubst (ss,p,p') -> Subst (ss,ALet(A annot1,p),ALet(A annot1,p'))
       | AllOk (p,_) -> retry_with (A (Annot.ALet (annot1, p)))
       end
@@ -179,7 +179,17 @@ let rec infer env annot (id, e) =
     | Subst (ss,a,a') -> Subst (ss,ACoerce a,ACoerce a')
     | Fail -> Fail
     end
-  (* TODO: IInter *)
+  | e, AInter lst ->
+    begin match lst with
+    | [] -> Fail
+    | [a] -> retry_with a
+    | lst ->
+      begin match infer_seq' env (List.map (fun a -> (a,(id, e))) lst) with
+      | OneFail (ls,rs) -> retry_with (AInter (ls@rs))
+      | OneSubst (ss,a,a') -> Subst(ss,AInter(a),AInter(a'))
+      | AllOk (a,_) -> retry_with (A (Annot.AInter a))
+      end
+    end
   | e, a ->
     Format.printf "e:@.%a@.@.a:@.%a@.@." Ast.pp_e e IAnnot.pp a ;
     assert false
