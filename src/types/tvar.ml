@@ -230,12 +230,6 @@ let tallying mono cs =
   Sstt.Tallying.tally mono cs
 let tallying_with_prio mono prio cs =
   Sstt.Tallying.tally_with_priority prio mono cs
-let tallying_with_result mono tv cs =
-  let (tys1,tys2) = List.split cs in
-  let tvs = vars' (tys1@tys2) in
-  let prio = TVarSet.diff tvs (TVarSet.add tv mono) in
-  let ss = tallying_with_prio mono (TVarSet.destruct prio) cs in
-  ss |> List.map (fun s -> Subst.rm tv s, Subst.find s tv)
 let test_tallying mono cs = tallying mono cs <> []
 
 let factorize (pvs, nvs) t =

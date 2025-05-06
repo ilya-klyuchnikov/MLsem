@@ -1,9 +1,83 @@
 open Annot
 open Types.Base
 open Types.Tvar
+open Types.Additions
 open Types
 open Env
 open Ast
+open Utils
+
+(* Auxiliary *)
+
+let simplify_tallying env sols =
+  let tvars = Env.tvars env in
+  let vars_involved' dom sol =
+    let sol = Subst.restrict sol dom in
+    TVarSet.union (Subst.vars sol) dom
+  in
+  let vars_involved sol = vars_involved' tvars sol in
+  let leq_sol (s1,r1) (s2,r2) =
+    let r1 = TyScheme.mk_poly_except (vars_involved s1) r1 in
+    let r2 = TyScheme.mk_poly_except (vars_involved s2) r2 in
+    TyScheme.leq_inst r1 r2
+  in
+  let order sols =
+    let arr = Array.of_list sols in
+    let elts = 0 -- ((Array.length arr) - 1) in
+    let inst = elts |> add_others |> List.map (fun (e,es) ->
+      let t = arr.(e) in
+      let edges = es |> List.filter (fun e' -> leq_sol (arr.(e')) t) in
+      (e,edges)
+    ) in
+    Tsort.sort_strongly_connected_components inst
+    |> List.flatten |> List.map (fun e -> arr.(e))
+  in
+  sols
+  (* TODO *)
+  (* (* Generalize vars in the result when possible *)
+  |> List.map (fun (sol, res) ->
+    let mono = vars_involved tvars sol in
+    let gen = generalize_inferable (TVarSet.diff (vars res) mono) in
+    let sol, res = Subst.compose_restr gen sol, Subst.apply gen res in
+    let clean = clean_type_subst ~pos:empty ~neg:any res in
+    (Subst.compose_restr clean sol, Subst.apply clean res)
+  )
+  (* Try remove var substitutions *)
+  |> List.map (fun (sol, res) ->
+    List.fold_left (fun (sol, res) v ->
+      let t = Subst.find sol v in
+      let mono = vars_involved' (TVarSet.rm v tvars) sol in
+      let pvs = TVarSet.diff (vars t) mono in
+      let g = generalize_inferable pvs in
+      let t = Subst.apply g t in
+      let tallying_res = tallying [(TVar.typ v, t) ; (t, TVar.typ v)]
+      |> List.map (fun s ->
+        let s = Subst.compose_restr s g in
+        Subst.compose_restr (Subst.vars s |> monomorphize) s
+      )
+      |> List.filter (fun s ->
+        let res' = Subst.apply s res in
+        let res' = Subst.apply (vars res' |> generalize) res' in
+        subtype_poly res' res
+      )
+      in
+      match tallying_res with
+      | [] -> (sol, res)
+      | s::_ -> (Subst.rm v sol, Subst.apply s res)  
+    ) (sol, res) (Subst.dom sol |> TVarSet.destruct)
+  )
+  (* Regroup equivalent solutions *)
+  |> regroup_equiv (fun (s1, _) (s2, _) -> Subst.equiv s1 s2)
+  |> List.map (fun to_merge ->
+    let sol = List.hd to_merge |> fst in
+    let res = List.map snd to_merge |> conj in
+    (sol, res)
+  ) *)
+  (* Order solutions (more precise results first) *)
+  |> order
+  |> List.map fst
+
+(* Reconstruction algorithm *)
 
 type ('a,'b) result =
 | Ok of 'a * typ

@@ -3,6 +3,7 @@ open Tvar
 
 type t
 val mk : TVarSet.t -> typ -> t
+val mk_poly_except : TVarSet.t -> typ -> t
 val mk_mono : typ -> t
 val mk_poly : typ -> t
 val get : t -> TVarSet.t * typ

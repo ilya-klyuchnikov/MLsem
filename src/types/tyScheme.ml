@@ -5,6 +5,9 @@ type t = TVarSet.t * typ
 let mk tvs ty =
   let tvs = TVarSet.inter tvs (vars ty) in
   (tvs, ty)
+let mk_poly_except mono ty =
+  let tvs = TVarSet.diff (vars ty) mono in
+  (tvs, ty)
 let mk_mono ty = mk TVarSet.empty ty
 let mk_poly ty = mk (vars ty) ty
 let get (tvs, ty) = (tvs, ty)

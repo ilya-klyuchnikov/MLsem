@@ -81,3 +81,5 @@ val instantiate : Subst.t list -> typ -> typ
 
 val bot_instance : TVarSet.t -> typ -> typ
 val top_instance : TVarSet.t -> typ -> typ
+
+val tallying_with_result : TVarSet.t -> TVar.t -> (Base.typ * Base.typ) list -> (Subst.t * Base.typ) list
