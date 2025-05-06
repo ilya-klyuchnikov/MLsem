@@ -40,10 +40,11 @@ let rec infer env annot (id, e) =
   | _, Untyp -> Fail
   | Abstract _, Infer -> retry_with (A Annot.AAbstract)
   | Const _, Infer -> retry_with (A Annot.AConst)
-  | Var v, Infer ->
+  | Var v, Infer when Env.mem v env ->
     let (tvs,_) = Env.find v env |> TyScheme.get in
     let s = refresh tvs in
     retry_with (A (Annot.AAx s))
+  | Var _, Infer -> Fail
   | Atom _, Infer -> retry_with (A Annot.AAtom)
   | Tag _, Infer -> retry_with (ATag Infer)
   | Tag (_, e'), ATag annot' ->
