@@ -9,6 +9,15 @@ open Utils
 
 (* Auxiliary *)
 
+let tsort leq lst =
+  let rec add_elt lst ne =
+    match lst with
+    | [] -> [ne]
+    | e::lst when leq ne e -> ne::e::lst
+    | e::lst -> e::(add_elt lst ne)
+  in
+  List.fold_left add_elt [] (List.rev lst)
+
 let simplify_tallying env sols =
   let tvars = Env.tvars env in
   let vars_involved' dom sol =
@@ -20,17 +29,6 @@ let simplify_tallying env sols =
     let r1 = TyScheme.mk_poly_except (vars_involved s1) r1 in
     let r2 = TyScheme.mk_poly_except (vars_involved s2) r2 in
     TyScheme.leq_inst r1 r2
-  in
-  let order sols =
-    let arr = Array.of_list sols in
-    let elts = 0 -- ((Array.length arr) - 1) in
-    let inst = elts |> add_others |> List.map (fun (e,es) ->
-      let t = arr.(e) in
-      let edges = es |> List.filter (fun e' -> leq_sol (arr.(e')) t) in
-      (e,edges)
-    ) in
-    Tsort.sort_strongly_connected_components inst
-    |> List.flatten |> List.map (fun e -> arr.(e))
   in
   sols
   (* TODO *)
@@ -74,7 +72,7 @@ let simplify_tallying env sols =
     (sol, res)
   ) *)
   (* Order solutions (more precise results first) *)
-  |> order
+  |> tsort leq_sol
   |> List.map fst
 
 (* Reconstruction algorithm *)
