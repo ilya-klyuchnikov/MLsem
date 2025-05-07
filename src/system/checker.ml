@@ -59,6 +59,12 @@ exception Untypeable of Parsing.Ast.exprid * string
 
 let untypeable id msg = raise (Untypeable (id, msg))
 
+let generalize ~e env s =
+  ignore e ; (* TODO: value restriction *)
+  let s = Additions.simplify_typ s in
+  let tvs = TVarSet.diff (vars s) (Env.tvars env) in
+  TyScheme.mk tvs s |> TyScheme.clean
+
 let rec typeof env annot (id,e) =
   let open Annot in
   match e, annot with
@@ -154,6 +160,4 @@ and typeof_b env bannot (id,e) s tau =
     then untypeable id "Branch is reachable and must be typed." ;
     empty
 and typeof_def env annot e =
-  let s = typeof env annot e |> Additions.simplify_typ in
-  let tvs = TVarSet.diff (vars s) (Env.tvars env) in
-  TyScheme.mk tvs s |> TyScheme.clean
+  typeof env annot e |> generalize ~e env

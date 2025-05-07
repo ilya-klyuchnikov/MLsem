@@ -213,8 +213,8 @@ let rec infer env annot (id, e) =
     begin match infer' env annot1 e1 with
     | Fail -> Fail
     | Subst (ss,a,a') -> Subst (ss,ALet (a,parts),ALet (a',parts))
-    | Ok (annot1, _) ->
-      let tvs, s = Checker.typeof_def env annot1 e1 |> TyScheme.get in
+    | Ok (annot1, s) ->
+      let tvs, s = Checker.generalize ~e:e1 env s |> TyScheme.get in
       let parts = parts |> List.filter (fun (t,_) -> disjoint s t |> not) in
       begin match infer_part_seq' env e2 v (tvs,s) parts with
       | OneFail _ -> Fail
