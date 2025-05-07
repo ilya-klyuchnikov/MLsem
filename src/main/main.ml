@@ -28,13 +28,12 @@ let type_check_def env (var,e,typ_annot) =
       | None -> raise (Checker.Untypeable (fst e, "Annotation reconstruction failed."))
       | Some annot-> annot
     in
-    let typ = Checker.typeof env annot e |> simplify_typ in
-    let typ = TyScheme.mk_poly typ |> TyScheme.clean in
+    let typ = Checker.typeof_def env annot e in
     let typ =
       match typ_annot with
       | None -> typ
       | Some tya ->
-        let tya = TyScheme.mk_poly tya in
+        let tya = TyScheme.mk_poly_except (Env.tvars env) tya in
         if TyScheme.leq_inst typ tya
         then tya
         else raise (IncompatibleType typ)

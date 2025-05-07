@@ -121,9 +121,16 @@ let rec typeof env annot (id,e) =
       merge_records t right_record  
     else untypeable id "Invalid field update: not a record."
   | Let (_, v, e1, e2), ALet (annot1, annots2) ->
-    let s = typeof env annot1 e1 in
-    if subtype s (annots2 |> List.map fst |> disj) then
-      List.map (typeof_part env e2 v s) annots2 |> disj
+    let tvs,s = typeof_def env annot1 e1 |> TyScheme.get in
+    let aux (si, annot) =
+      if TVarSet.inter tvs (vars si) |> TVarSet.is_empty then
+        let s = TyScheme.mk tvs (cap s si) in
+        typeof (Env.add v s env) annot e2
+      else
+        untypeable id ("Partition of "^(Variable.show v)^" contains generalized variables.")
+    in
+    if subtype s (List.map fst annots2 |> disj) then
+      List.map aux annots2 |> disj
     else
       untypeable id ("Partition does not cover the type of "^(Variable.show v)^".")
   | TypeConstr (e, ty), AConstr annot ->
@@ -146,8 +153,7 @@ and typeof_b env bannot (id,e) s tau =
     if disjoint s tau |> not
     then untypeable id "Branch is reachable and must be typed." ;
     empty
-and typeof_part env e v s (si,annot) =
-  let tvs = TVarSet.diff (vars s) (TVarSet.union (Env.tvars env) (vars si)) in
-  let t = TyScheme.mk tvs (cap s si) in
-  let env = Env.add v t env in
-  typeof env annot e
+and typeof_def env annot e =
+  let s = typeof env annot e |> Additions.simplify_typ in
+  let tvs = TVarSet.diff (vars s) (Env.tvars env) in
+  TyScheme.mk tvs s |> TyScheme.clean

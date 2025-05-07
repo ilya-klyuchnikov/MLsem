@@ -213,9 +213,10 @@ let rec infer env annot (id, e) =
     begin match infer' env annot1 e1 with
     | Fail -> Fail
     | Subst (ss,a,a') -> Subst (ss,ALet (a,parts),ALet (a',parts))
-    | Ok (annot1, s) ->
+    | Ok (annot1, _) ->
+      let tvs, s = Checker.typeof_def env annot1 e1 |> TyScheme.get in
       let parts = parts |> List.filter (fun (t,_) -> disjoint s t |> not) in
-      begin match infer_part_seq' env e2 v s parts with
+      begin match infer_part_seq' env e2 v (tvs,s) parts with
       | OneFail _ -> Fail
       | OneSubst (ss,p,p') -> Subst (ss,ALet(A annot1,p),ALet(A annot1,p'))
       | AllOk (p,_) -> retry_with (A (Annot.ALet (annot1, p)))
@@ -282,8 +283,7 @@ and infer_b' env bannot e s tau =
     | Subst (ss,a1,a2) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2)
     | Fail -> Fail
     end
-and infer_part' env e v s (si,annot) =
-  let tvs = TVarSet.diff (vars s) (TVarSet.union (Env.tvars env) (vars si)) in
+and infer_part' env e v (tvs, s) (si,annot) =
   let t = TyScheme.mk tvs (cap s si) in
   let env = Env.add v t env in
   match infer' env annot e with
