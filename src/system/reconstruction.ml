@@ -61,6 +61,8 @@ let tallying_with_result tv cs =
 
 (* Reconstruction algorithm *)
 
+(* TODO: inter branches pruning *)
+
 type ('a,'b) result =
 | Ok of 'a * typ
 | Fail
