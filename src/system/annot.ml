@@ -92,7 +92,7 @@ module IAnnot = struct
   | AInter of inter
   [@@deriving show]
 
-  let substitute s t =
+  let substitute s =
     let rec aux t =
       match t with
       | A a -> A (Annot.substitute s a)
@@ -123,9 +123,12 @@ module IAnnot = struct
       let coverage = Option.map aux_coverage coverage in
       { coverage ; ann=aux ann }
     in
-    aux t
+    (aux, aux_ib)
+  
+  let substitute_ib s = substitute s |> snd
+  let substitute s = substitute s |> fst
 
-  let tvars t =
+  let tvars =
     let rec aux t =
       let vs = match t with
         | A t -> [Annot.tvars t]
@@ -144,7 +147,9 @@ module IAnnot = struct
     and aux_b b = match b with
       | BInfer | BSkip -> TVarSet.empty
       | BType t -> aux t
-    and aux_ib { ann ; _ } = aux ann
-    in
-    aux t
+    and aux_ib { ann ; _ } = aux ann in
+    (aux, aux_ib)
+
+  let tvars_ib = snd tvars
+  let tvars = fst tvars
 end
