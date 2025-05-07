@@ -11,3 +11,4 @@ val typeof_proj : Parsing.Ast.projection -> TyScheme.t
 exception Untypeable of Parsing.Ast.exprid * string
 
 val typeof : Env.t -> Annot.t -> Ast.t -> typ
+(* TODO: typeof_def that returns a cleaned type scheme *)

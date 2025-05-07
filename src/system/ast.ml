@@ -191,6 +191,7 @@ let encode_fixpoint id e =
   let app = (Ast.unique_exprid (), Ast.App (fix, ex)) in
   (id, Ast.Let (x, Ast.PNoAnnot, e, app))
 
+(* TODO: Add a let binding for each lambda var. Update Partition.infer accordingly. *)
 let from_parser_ast t =
   let rec aux_e (id,e) =
     match e with
