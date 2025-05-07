@@ -29,6 +29,7 @@ let clean (tvs,t) =
   let mono = TVarSet.diff (vars t) tvs in
   let t = Additions.bot_instance mono t in
   mk tvs t
+let simplify (tvs,ty) = (tvs, Additions.simplify_typ ty)
 let pp fmt (tvs, ty) =
   Format.fprintf fmt "∀%a.%a"
     (Utils.pp_list TVar.pp) (TVarSet.destruct tvs) pp_typ ty

@@ -61,8 +61,6 @@ let tallying_with_result tv cs =
 
 (* Reconstruction algorithm *)
 
-(* TODO: inter branches pruning *)
-
 type ('a,'b) result =
 | Ok of 'a * typ
 | Fail
@@ -70,21 +68,21 @@ type ('a,'b) result =
 
 type ('a,'b) result_seq =
 | AllOk of 'a list * typ list
-| OneFail of 'b list * 'b list
+| OneFail
 | OneSubst of Subst.t list * 'b list * 'b list
 
-let rec seq (f : 'b -> Ast.t -> ('a,'b) result) (c : 'a->
-  'b) (lst:('b*Ast.t) list) : ('a,'b) result_seq =
+let rec seq (f : 'b -> 'c -> ('a,'b) result) (c : 'a->'b) (lst:('b*'c) list)
+  : ('a,'b) result_seq =
   match lst with
   | [] -> AllOk ([],[])
   | (annot,e)::lst ->
     begin match f annot e with
-    | Fail -> OneFail ([], List.map fst lst)
+    | Fail -> OneFail
     | Subst (ss,a,a') -> OneSubst (ss,a::(List.map fst lst),a'::(List.map fst lst))
     | Ok (a,t) ->
       begin match seq f c lst with
       | AllOk (annots, tys) -> AllOk (a::annots, t::tys)
-      | OneFail (lst1, lst2) -> OneFail ((c a)::lst1, lst2)
+      | OneFail -> OneFail
       | OneSubst (ss, annots, annots') ->
         OneSubst (ss, (c a)::annots, (c a)::annots') 
       end
@@ -119,7 +117,7 @@ let rec infer env annot (id, e) =
       Subst.apply s ty
     in
     let tys = List.map refresh_internal tys in
-    let branches = List.map (fun ty -> ALambda (ty, Infer)) tys in
+    let branches = List.map (fun ty -> { coverage=None ; ann=ALambda (ty, Infer) }) tys in
     retry_with (AInter branches)
   | Lambda (_,v,e'), ALambda (ty, annot') ->
     let env' = Env.add v (TyScheme.mk_mono ty) env in
@@ -152,7 +150,7 @@ let rec infer env annot (id, e) =
   | App _, Infer -> retry_with (AApp (Infer, Infer))
   | App (e1, e2), AApp (a1,a2) ->
     begin match infer_seq' env [(a1,e1);(a2,e2)] with
-    | OneFail _ -> Fail
+    | OneFail -> Fail
     | OneSubst (ss, [a1;a2], [a1';a2']) ->
       Subst (ss,AApp(a1,a2),AApp(a1',a2'))
     | AllOk ([a1;a2],[t1;t2]) ->
@@ -165,14 +163,14 @@ let rec infer env annot (id, e) =
   | Tuple es, Infer -> retry_with (ATuple (List.map (fun _ -> Infer) es))
   | Tuple es, ATuple annots ->
     begin match infer_seq' env (List.combine annots es) with
-    | OneFail _ -> Fail
+    | OneFail -> Fail
     | OneSubst (ss, a, a') -> Subst (ss,ATuple a,ATuple a')
     | AllOk (annots,_) -> retry_with (nc (Annot.ATuple annots))
     end
   | Cons _, Infer -> retry_with (ACons (Infer, Infer))
   | Cons (e1,e2), ACons (a1,a2) ->
     begin match infer_seq' env [(a1,e1);(a2,e2)] with
-    | OneFail _ -> Fail
+    | OneFail -> Fail
     | OneSubst (ss, [a1;a2], [a1';a2']) ->
       Subst (ss,ACons(a1,a2),ACons(a1',a2'))
     | AllOk ([a1;a2],[_;t2]) ->
@@ -203,7 +201,7 @@ let rec infer env annot (id, e) =
     end
   | RecordUpdate (e1, _, Some e2), AUpdate (a1, Some a2) ->
     begin match infer_seq' env [(a1,e1);(a2,e2)] with
-    | OneFail _ -> Fail
+    | OneFail -> Fail
     | OneSubst (ss, [a1;a2], [a1';a2']) ->
       Subst (ss,AUpdate(a1,Some a2),AUpdate(a1',Some a2'))
     | AllOk ([a1;a2],[s;_]) ->
@@ -221,7 +219,7 @@ let rec infer env annot (id, e) =
       let tvs, s = Checker.generalize ~e:e1 env s |> TyScheme.get in
       let parts = parts |> List.filter (fun (t,_) -> disjoint s t |> not) in
       begin match infer_part_seq' env e2 v (tvs,s) parts with
-      | OneFail _ -> Fail
+      | OneFail -> Fail
       | OneSubst (ss,p,p') -> Subst (ss,ALet(A annot1,p),ALet(A annot1,p'))
       | AllOk (p,_) -> retry_with (nc (Annot.ALet (annot1, p)))
       end
@@ -245,15 +243,30 @@ let rec infer env annot (id, e) =
     | Fail -> Fail
     end
   | e, AInter lst ->
-    begin match lst with
-    | [] -> Fail
-    | [a] -> retry_with a
-    | lst ->
-      begin match infer_seq' env (List.map (fun a -> (a,(id, e))) lst) with
-      | OneFail (ls,rs) -> retry_with (AInter (ls@rs))
-      | OneSubst (ss,a,a') -> Subst(ss,AInter(a),AInter(a'))
-      | AllOk (a,_) -> retry_with (nc (Annot.AInter a))
-      end
+    let rec aux () lst =
+      match lst with
+      | [] -> Either.left []
+      | { coverage ; ann }::lst ->
+        (* TODO: prune redundant branches *)
+        begin match infer' env ann (id,e) with
+        | Fail -> aux () lst
+        | Subst (ss,a,a') ->
+          let a, a' = { coverage ; ann=a }, { coverage ; ann=a' } in
+          Either.right (ss,a::lst,a'::lst)
+        | Ok (a,_) ->
+          begin match aux () lst with
+          | Either.Left lst -> Either.Left (a::lst)
+          | Either.Right (ss,lst,lst') ->
+            let c = { coverage ; ann=A a } in
+            Either.Right (ss,c::lst,c::lst')
+          end
+        end
+    in
+    begin match aux () lst with
+    | Either.Left [] -> Fail
+    | Either.Left [a] -> retry_with (A a)
+    | Either.Left lst -> retry_with (nc (Annot.AInter lst))
+    | Either.Right (ss,a,a') -> Subst (ss,AInter(a),AInter(a'))
     end
   | e, a ->
     Format.printf "e:@.%a@.@.a:@.%a@.@." Ast.pp_e e IAnnot.pp a ;
@@ -270,9 +283,11 @@ and infer' env annot e =
     let branches = ss |> List.map (fun s ->
       let annot = IAnnot.substitute s a1 in
       let tvs = TVarSet.diff (IAnnot.tvars annot) mono in
-      IAnnot.substitute (refresh tvs) annot
+      let ann = IAnnot.substitute (refresh tvs) annot in
+      { IAnnot.coverage=None ; ann }
       ) in
-    let annot = IAnnot.AInter (branches@[a2]) in
+    (* TODO: annotate branch with captured renv *)
+    let annot = IAnnot.AInter (branches@[{ coverage=None ; ann=a2 }]) in
     infer' env annot e
   | Subst (ss, a1, a2) -> Subst (ss, a1, a2)
 and infer_b' env bannot e s tau =
@@ -296,9 +311,9 @@ and infer_part' env e v (tvs, s) (si,annot) =
   | Ok (a,ty) -> Ok ((si,a),ty)
 and infer_seq' env lst = seq (infer' env) (fun a -> A a) lst
 and infer_part_seq' env e v s lst =
-  seq (fun a e -> infer_part' env e v s a)
+  seq (fun a () -> infer_part' env e v s a)
     (fun (si,annot) -> (si, A annot))
-    (lst |> List.map (fun a -> (a,e)))
+    (lst |> List.map (fun a -> (a,())))
 
 let infer env e =
   match infer' env IAnnot.Infer e with

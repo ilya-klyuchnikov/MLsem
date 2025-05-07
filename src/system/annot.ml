@@ -1,5 +1,6 @@
 open Types.Base
 open Types.Tvar
+open Env
 
 module Annot = struct
   type branch = BType of t | BSkip
@@ -69,7 +70,9 @@ end
 module IAnnot = struct
   type branch = BType of t | BSkip | BInfer
   [@@deriving show]
-  and inter = t list
+  and inter_branch = { coverage: REnv.t option ; ann: t }
+  [@@deriving show]
+  and inter = inter_branch list
   [@@deriving show]
   and part = (typ * t) list
   [@@deriving show]
@@ -106,11 +109,19 @@ module IAnnot = struct
       | ATuple ts -> ATuple (List.map aux ts)
       | AIte (t,b1,b2) -> AIte (aux t, aux_b b1, aux_b b2)
       | ALambda (ty, t) -> ALambda (Subst.apply s ty, aux t)
-      | AInter ts -> AInter (List.map aux ts)
+      | AInter bs -> AInter (List.map aux_ib bs)
     and aux_b b =
       match b with
       | BType t -> BType (aux t)
       | BInfer -> BInfer | BSkip -> BSkip
+    and aux_ib { coverage ; ann } =
+      let aux_coverage coverage =
+        REnv.bindings coverage
+        |> List.map (fun (x,t) -> (x,Subst.apply s t))
+        |> REnv.construct
+      in
+      let coverage = Option.map aux_coverage coverage in
+      { coverage ; ann=aux ann }
     in
     aux t
 
@@ -124,7 +135,8 @@ module IAnnot = struct
           (aux t)::(List.map (fun (s, t) -> TVarSet.union (vars s) (aux t)) ps)
         | AApp (t1, t2) | ACons (t1, t2) | AUpdate (t1, Some t2) -> [aux t1 ; aux t2]
         | AProj t | ATag t | AConstr t | ACoerce t | AUpdate (t, None) -> [aux t]
-        | ATuple ts | AInter ts -> List.map aux ts
+        | ATuple ts -> List.map aux ts
+        | AInter ts -> List.map aux_ib ts
         | AIte (t,b1,b2) -> [ aux t ; aux_b b1 ; aux_b b2 ]
         | ALambda (ty, t) -> [ vars ty ; aux t ]
       in
@@ -132,6 +144,7 @@ module IAnnot = struct
     and aux_b b = match b with
       | BInfer | BSkip -> TVarSet.empty
       | BType t -> aux t
+    and aux_ib { ann ; _ } = aux ann
     in
     aux t
 end

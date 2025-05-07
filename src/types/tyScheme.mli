@@ -14,5 +14,6 @@ val equiv : t -> t -> bool
 val leq_inst : t -> t -> bool
 val equiv_inst : t -> t -> bool
 val clean : t -> t
+val simplify : t -> t
 val pp : Format.formatter -> t -> unit
 val pp_short : Format.formatter -> t -> unit

@@ -1,5 +1,6 @@
 open Types.Base
 open Types.Tvar
+open Env
 
 module Annot : sig
   type branch = BType of t | BSkip
@@ -27,7 +28,8 @@ end
 
 module IAnnot : sig
   type branch = BType of t | BSkip | BInfer
-  and inter = t list
+  and inter_branch = { coverage: REnv.t option ; ann: t }
+  and inter = inter_branch list
   and part = (typ * t) list
   and t =
   | A of Annot.t

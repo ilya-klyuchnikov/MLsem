@@ -61,7 +61,6 @@ let untypeable id msg = raise (Untypeable (id, msg))
 
 let generalize ~e env s =
   ignore e ; (* TODO: value restriction *)
-  let s = Additions.simplify_typ s in
   let tvs = TVarSet.diff (vars s) (Env.tvars env) in
   TyScheme.mk tvs s |> TyScheme.clean
 

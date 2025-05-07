@@ -28,7 +28,7 @@ let type_check_def env (var,e,typ_annot) =
       | None -> raise (Checker.Untypeable (fst e, "Annotation reconstruction failed."))
       | Some annot-> annot
     in
-    let typ = Checker.typeof_def env annot e in
+    let typ = Checker.typeof_def env annot e |> TyScheme.simplify in
     let typ =
       match typ_annot with
       | None -> typ
