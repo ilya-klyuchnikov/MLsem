@@ -12,6 +12,7 @@ module Variable : sig
   val is_let_var : t -> bool
   val is_lambda_var : t -> bool
   val get_name : t -> string option
+  val get_unique_name : t -> string
 end
 
 module VarMap : Map.S with type key=Variable.t

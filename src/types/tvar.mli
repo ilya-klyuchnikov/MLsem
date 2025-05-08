@@ -8,7 +8,6 @@ module type TVar = sig
     val equal : t -> t -> bool
     val compare : t -> t -> int
     val name : t -> string
-    val display_name : t -> string
 
     val mk : ?user:bool -> string option -> t
     val typ : t -> Base.typ

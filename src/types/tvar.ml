@@ -8,7 +8,6 @@ module type TVar = sig
   val equal : t -> t -> bool
   val compare : t -> t -> int
   val name : t -> string
-  val display_name : t -> string
 
   val mk : ?user:bool -> string option -> t
   val typ : t -> Base.typ
@@ -44,8 +43,7 @@ module TVar = struct
   type t = Sstt.Var.t
 
   type vardata = {
-    user: bool ;
-    dname: string
+    user: bool
   }
 
   let data = TVH.create 100
@@ -56,8 +54,6 @@ module TVar = struct
   let equal = Sstt.Var.equal
   let compare = Sstt.Var.compare
   let name = Sstt.Var.name
-  let display_name t =
-    try (TVH.find data t).dname with Not_found -> name t
 
   let unique_id =
     let last = ref 0 in
@@ -68,8 +64,8 @@ module TVar = struct
     let id = unique_id () in
     let norm_name = (if user then "" else "_")^(string_of_int id) in
     let name = match name with None -> norm_name | Some str -> str in
-    let var = Sstt.Var.mk norm_name in
-    TVH.add data var {user; dname=name} ;
+    let var = Sstt.Var.mk name in
+    TVH.add data var {user} ;
     if user then uservars := Sstt.VarSet.add var (!uservars) ;
     var
   let typ = Sstt.Ty.mk_var

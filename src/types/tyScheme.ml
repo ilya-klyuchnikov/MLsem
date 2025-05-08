@@ -24,7 +24,10 @@ let leq_inst t1 (_,ty2) =
   let mono1, ty1 = get_fresh t1 in
   let mono = TVarSet.union mono1 (vars ty2) in
   test_tallying mono [ty1,ty2]
-let equiv_inst t1 t2 = leq_inst t1 t2 && leq_inst t2 t1
+let geq_inst t1 (_,ty2) =
+  let mono1, ty1 = get_fresh t1 in
+  let mono = TVarSet.union mono1 (vars ty2) in
+  test_tallying mono [ty2,ty1]
 let clean (tvs,t) =
   let mono = TVarSet.diff (vars t) tvs in
   let t = Additions.bot_instance mono t in

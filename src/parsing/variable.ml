@@ -47,6 +47,10 @@ module Variable = struct
     let (name, _, _) = Hashtbl.find data id in
     name
 
+  let get_unique_name id =
+    let prefix = match get_name id with None -> "" | Some str -> str in
+    prefix^"_"^(string_of_int id)
+
   let pp fmt t =
     match get_name t with
     | None -> Format.fprintf fmt "%d" t
