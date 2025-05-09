@@ -16,6 +16,11 @@ let get_fresh (tvs, ty) =
   let s = refresh tvs in
   mono, Subst.apply s ty
 let fv (tvs, ty) = TVarSet.diff (vars ty) tvs
+
+let substitute s (tvs, ty) =
+  let s = Subst.remove s tvs in
+  (tvs, Subst.apply s ty)
+
 let leq (tvs1,ty1) (tvs2,ty2) =
   TVarSet.subset tvs2 tvs1 &&
   subtype ty1 ty2

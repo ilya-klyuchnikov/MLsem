@@ -7,6 +7,7 @@ module type T = sig
     type t
     val fv : t -> TVarSet.t
     val leq : t -> t -> bool
+    val substitute : Subst.t -> t -> t
     val pp : Format.formatter -> t -> unit
   end  
 
@@ -28,6 +29,7 @@ module type Env = sig
     val map : (ty -> ty) -> t -> t
     val filter : (Variable.t -> ty -> bool) -> t -> t
     val tvars : t -> TVarSet.t
+    val substitute : Subst.t -> t -> t
 
     val equiv : t -> t -> bool
     val leq : t -> t -> bool

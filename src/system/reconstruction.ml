@@ -288,12 +288,12 @@ and infer' dom env annot e =
   | Fail -> Fail
   | Subst (ss, a1, a2, (eid,r)) when ss |> List.map fst |> List.for_all subst_disjoint ->
     let branches = ss |> List.map (fun (s,ty) ->
-      let coverage = Some (Some (eid, ty), r) in
-      let ib = { IAnnot.coverage ; ann=a1 } in
-      let ib = IAnnot.substitute_ib s ib in
-      let tvs = TVarSet.diff (IAnnot.tvars_ib ib) mono in
-      let ib = IAnnot.substitute_ib (refresh tvs) ib in
-      ib
+      let ann = IAnnot.substitute s a1 in
+      let refresh = TVarSet.diff (IAnnot.tvars ann) mono |> refresh in
+      let ann = IAnnot.substitute refresh ann in
+      let coverage = (Some (eid, Subst.apply refresh ty),
+        REnv.substitute s r |> REnv.substitute refresh) in
+      { IAnnot.coverage=(Some coverage) ; ann }
       ) in
     let coverage = Some (None, r) in
     let annot = IAnnot.AInter (branches@[{ coverage ; ann=a2 }]) in

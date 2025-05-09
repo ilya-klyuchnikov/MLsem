@@ -7,6 +7,7 @@ module type T = sig
   type t
   val fv : t -> TVarSet.t
   val leq : t -> t -> bool
+  val substitute : Subst.t -> t -> t
   val pp : Format.formatter -> t -> unit
 end  
 
@@ -28,6 +29,7 @@ module type Env = sig
   val map : (ty -> ty) -> t -> t
   val filter : (Variable.t -> ty -> bool) -> t -> t
   val tvars : t -> TVarSet.t
+  val substitute : Subst.t -> t -> t
 
   val equiv : t -> t -> bool
   val leq : t -> t -> bool
@@ -77,6 +79,11 @@ module Make(T:T) = struct
 
   let equiv env1 env2 = leq env1 env2 && leq env2 env1
 
+  let substitute s t =
+    bindings t
+    |> List.map (fun (x,t) -> (x,T.substitute s t))
+    |> construct
+
   let pp fmt (m, _) =
     VarMap.bindings m
     |> List.iter (fun (v, ts) ->
@@ -101,6 +108,7 @@ module Env = Make(struct
   type t = TyScheme.t
   let fv = TyScheme.fv
   let leq = TyScheme.leq
+  let substitute = TyScheme.substitute
   let pp = TyScheme.pp
 end)
 
@@ -108,5 +116,6 @@ module REnv = Make(struct
   type t = typ
   let fv = vars
   let leq = subtype
+  let substitute = Subst.apply
   let pp = pp_typ
 end)

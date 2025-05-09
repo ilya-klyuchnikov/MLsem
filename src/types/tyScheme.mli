@@ -9,6 +9,7 @@ val mk_poly : typ -> t
 val get : t -> TVarSet.t * typ
 val get_fresh : t -> TVarSet.t * typ
 val fv : t -> TVarSet.t
+val substitute : Subst.t -> t -> t
 val leq : t -> t -> bool
 val equiv : t -> t -> bool
 val leq_inst : t -> typ -> bool

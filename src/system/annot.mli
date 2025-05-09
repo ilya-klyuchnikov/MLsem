@@ -47,9 +47,7 @@ module IAnnot : sig
   | ALambda of typ * t
   | AInter of inter
 
-  val substitute_ib : Subst.t -> inter_branch -> inter_branch
   val substitute : Subst.t -> t -> t
-  val tvars_ib : inter_branch -> TVarSet.t
   val tvars : t -> TVarSet.t
   val pp : Format.formatter -> t -> unit
   val pp_coverage : Format.formatter -> coverage -> unit

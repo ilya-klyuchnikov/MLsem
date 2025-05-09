@@ -117,21 +117,16 @@ module IAnnot = struct
       | BType t -> BType (aux t)
       | BInfer -> BInfer | BSkip -> BSkip
     and aux_ib { coverage ; ann } =
-      let aux_coverage (res,renv) =
-        let aux_res (eid,ty) = (eid, Subst.apply s ty) in
-        let renv = REnv.bindings renv
-        |> List.map (fun (x,t) -> (x,Subst.apply s t))
-        |> REnv.construct
-        in
-        (Option.map aux_res res, renv)
+      let aux_coverage (o,renv) =
+        let o = o |> Option.map (fun (eid,ty) -> (eid, Subst.apply s ty)) in
+        let renv = REnv.substitute s renv in
+        (o, renv)
       in
       let coverage = Option.map aux_coverage coverage in
-      { coverage ; ann=aux ann }
+      let ann = aux ann in
+      { coverage ; ann }
     in
-    (aux, aux_ib)
-  
-  let substitute_ib s = substitute s |> snd
-  let substitute s = substitute s |> fst
+    aux
 
   let tvars =
     let rec aux t =
@@ -153,8 +148,5 @@ module IAnnot = struct
       | BInfer | BSkip -> TVarSet.empty
       | BType t -> aux t
     and aux_ib { ann ; _ } = aux ann in
-    (aux, aux_ib)
-
-  let tvars_ib = snd tvars
-  let tvars = fst tvars
+    aux
 end
