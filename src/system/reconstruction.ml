@@ -1,7 +1,6 @@
 open Annot
 open Types.Base
 open Types.Tvar
-open Types.Additions
 open Types
 open Env
 open Ast
@@ -21,6 +20,8 @@ let tsort leq lst =
 let simplify_tallying poly sols =
   let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
   sols
+  (* Remove poly assignments *)
+  |> List.map (fun (sol, res) -> (Subst.remove sol poly, res))
   (* Try remove unnecessary var substitutions *)
   |> List.map (fun (sol, res) ->
     List.fold_left (fun (sol, res) v ->
@@ -49,12 +50,12 @@ let simplify_tallying poly sols =
   (* Order solutions (more precise results first) *)
   |> tsort leq_sol
 
-let tallying cs =
-  tallying (TVar.user_vars ()) cs |> List.map (fun ty -> ty, empty)
+let tallying_no_result cs =
+  tallying (TVar.user_vars ()) cs |> List.map (fun s -> s, empty)
   |> simplify_tallying TVarSet.empty
 
 let tallying_with_result tv cs =
-  tallying_with_result (TVar.user_vars ()) tv cs
+  tallying_with_unprio (TVar.user_vars ()) [tv] cs |> List.map (fun s -> s, Subst.find s tv)
   |> simplify_tallying (TVarSet.construct [tv])
 
 (* Reconstruction algorithm *)
@@ -174,7 +175,7 @@ let rec infer dom env annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,ACons(a1,a2),ACons(a1',a2'),r)
     | AllOk ([a1;a2],[_;t2]) ->
-      let ss = tallying [(t2,list_typ)] in
+      let ss = tallying_no_result [(t2,list_typ)] in
       Subst (ss, nc (Annot.ACons(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -194,7 +195,7 @@ let rec infer dom env annot (id, e) =
   | RecordUpdate (e', _, None), AUpdate (annot', None) ->
     begin match infer' dom env annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying [(s,record_any)] in
+      let ss = tallying_no_result [(s,record_any)] in
       Subst (ss, nc (Annot.AUpdate(annot',None)), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AUpdate (a,None),AUpdate (a',None),r)
     | Fail -> Fail
@@ -205,7 +206,7 @@ let rec infer dom env annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,AUpdate(a1,Some a2),AUpdate(a1',Some a2'),r)
     | AllOk ([a1;a2],[s;_]) ->
-      let ss = tallying [(s,record_any)] in
+      let ss = tallying_no_result [(s,record_any)] in
       Subst (ss, nc (Annot.AUpdate(a1,Some a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -229,7 +230,7 @@ let rec infer dom env annot (id, e) =
   | TypeConstr (e', t), AConstr annot' ->
     begin match infer' dom env annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying [(s,t)] in
+      let ss = tallying_no_result [(s,t)] in
       Subst (ss, nc (Annot.AConstr(annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AConstr a,AConstr a',r)
     | Fail -> Fail
@@ -237,7 +238,7 @@ let rec infer dom env annot (id, e) =
   | TypeCoerce (e', t), ACoerce annot' ->
     begin match infer' dom env annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying [(s,t)] in
+      let ss = tallying_no_result [(s,t)] in
       Subst (ss, nc (Annot.ACoerce(annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,ACoerce a,ACoerce a',r)
     | Fail -> Fail
@@ -303,7 +304,7 @@ and infer_b' dom env bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
   | IAnnot.BInfer ->
-    let ss = tallying [(s,neg tau)] in
+    let ss = tallying_no_result [(s,neg tau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType Infer, empty_cov)
   | IAnnot.BSkip -> Ok (Annot.BSkip, empty)
   | IAnnot.BType annot ->
