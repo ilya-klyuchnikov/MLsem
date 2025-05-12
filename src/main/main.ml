@@ -10,8 +10,8 @@ open Env
 type def = Variable.t * Ast.expr * typ option
 
 type typecheck_result =
-| TSuccess of TyScheme.t * Env.t * float
-| TFailure of (Position.t list) * string * float
+| TCSuccess of TyScheme.t * float
+| TCFailure of (Position.t list) * string * float
 
 exception IncompatibleType of TyScheme.t
 let type_check_def env (var,e,typ_annot) =
@@ -37,20 +37,58 @@ let type_check_def env (var,e,typ_annot) =
         then TyScheme.mk_poly_except (Env.tvars env) tya
         else raise (IncompatibleType typ)
     in
-    let env = Env.add var typ env in
-    TSuccess (typ, env, retrieve_time ())
+    TCSuccess (typ, retrieve_time ())
   with
   | Checker.Untypeable (_, str) ->
     (* TODO: retrieve pos of exprid *)
-    TFailure ([], str, retrieve_time ())
+    TCFailure ([], str, retrieve_time ())
   | IncompatibleType _ ->
-    TFailure (Variable.get_locations var,
+    TCFailure (Variable.get_locations var,
       "the type inferred is not a subtype of the type specified",
       retrieve_time ())
 
-type parsing_result =
-| PSuccess of type_env * (def list)
-| PFailure of Position.t * string
+type 'a treat_result =
+| TSuccess of Variable.t * TyScheme.t * float
+| TDone
+| TFailure of Variable.t option * (Position.t list) * string * float
+
+let treat (tenv,varm,env) (annot, elem) =
+  let pos = [Position.position annot] in
+  try  
+    match elem with
+    | Ast.Definition (name, expr, tyo) ->
+      let var = Variable.create_let (Some name) in
+      Variable.attach_location var (Position.position annot) ;
+      begin try
+        let tyo = match tyo with
+        | None -> None
+        | Some expr -> let (t, _) = type_expr_to_typ tenv empty_vtenv expr in Some t
+        in
+        let expr = Ast.parser_expr_to_expr tenv empty_vtenv varm expr in
+        match type_check_def env (var,expr,tyo) with
+        | TCSuccess (ty,f) ->
+          let varm = StrMap.add name var varm in
+          let env = Env.add var ty env in
+          (tenv,varm,env), TSuccess (var,ty,f)
+        | TCFailure (pos,msg,f) -> (tenv,varm,env), TFailure (Some var,pos,msg,f)
+      with
+      | Ast.SymbolError msg -> (tenv,varm,env), TFailure (Some var, pos, msg, 0.0)
+      end
+    | Ast.Command (str, c) ->
+      begin match str, c with
+      | "log", Int i -> Config.log_level := Z.to_int i
+      | "value_restriction", Bool b -> Config.value_restriction := b
+      | _ -> failwith ("Invalid command "^str)
+      end ;
+      (tenv,varm,env), TDone
+    | Ast.Types lst ->
+      let tenv = define_types tenv empty_vtenv lst in
+      (tenv,varm,env), TDone
+    | Ast.AbsType (name, vs) ->
+      let tenv = define_abstract tenv name vs in
+      (tenv,varm,env), TDone
+  with
+  | TypeDefinitionError msg -> (tenv,varm,env), TFailure (None, pos, msg, 0.0)
 
 let builtin_functions =
   let arith_operators_typ =
@@ -76,47 +114,20 @@ let initial_env =
     Env.add var t env
   ) System.Ast.initial_env
 
-let parse_and_resolve f varm =
-  let last_pos = ref Position.dummy in
+let initial_tenv = empty_tenv
+
+type parsing_result =
+| PSuccess of Ast.parser_program
+| PFailure of Position.t * string
+
+let parse f =
   try
-    let ast =
-      match f with
-        `File fn -> parse_program_file fn
+    let p = match f with
+      | `File fn -> parse_program_file fn
       | `String s -> parse_program_string s
     in
-    let treat_elem (tenv,varm,defs) (annot, elem) =
-      last_pos := Position.position annot ;
-      match elem with
-      | Ast.Definition (name, expr, tyo) ->
-        let tyo = match tyo with
-        | None -> None
-        | Some expr -> let (t, _) = type_expr_to_typ tenv empty_vtenv expr in Some t
-        in
-        let expr = Ast.parser_expr_to_expr tenv empty_vtenv varm expr in
-        let var = Variable.create_let (Some name) in
-        Variable.attach_location var (Position.position annot) ;
-        let varm = StrMap.add name var varm in
-        (tenv,varm,(var,expr,tyo)::defs)
-      | Ast.Command (str, c) ->
-        (* TODO: dont execute all commands before typing *)
-        begin match str, c with
-        | "log", Int i -> Config.log_level := Z.to_int i
-        | "value_restriction", Bool b -> Config.value_restriction := b
-        | _ -> failwith ("Invalid command "^str)
-        end ;
-        (tenv,varm,defs)
-      | Ast.Types lst ->
-        let tenv = define_types tenv empty_vtenv lst in
-        (tenv,varm,defs)
-      | Ast.AbsType (name, vs) ->
-        let tenv = define_abstract tenv name vs in
-        (tenv,varm,defs)
-    in
-    let (tenv, _, defs) =
-      List.fold_left treat_elem (empty_tenv, varm, []) ast in
-    PSuccess (tenv, List.rev defs)
+    PSuccess p
   with
-    | Ast.LexicalError(pos, msg) -> PFailure (pos, msg)
-    | Ast.SyntaxError (pos, msg) -> PFailure (pos, msg)
-    | Ast.SymbolError msg -> PFailure (!last_pos, msg)
-    | TypeDefinitionError msg -> PFailure (!last_pos, msg)
+  | Ast.LexicalError(pos, msg) -> PFailure (pos, msg)
+  | Ast.SyntaxError (pos, msg) -> PFailure (pos, msg)
+
