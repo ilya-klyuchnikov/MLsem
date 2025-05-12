@@ -1,5 +1,4 @@
 open Types.Base
-open Types
 open Parsing.Variable
 open Env
 open Annot
@@ -17,21 +16,19 @@ let env_to_typ renv =
   in
   mk_record true bindings
 
-let more_specific mono res1 res2 =
+let more_specific res1 res2 =
   match res1, res2 with
   | _, None -> true
   | None, _ -> false
   | Some (eid1,ty1), Some (eid2,ty2) when eid1=eid2 ->
-    let t1 = TyScheme.mk_poly_except mono ty1 in
-    TyScheme.leq_inst t1 ty2
+    subtype ty1 ty2
   | Some _, Some _ -> false
 
-let covers mono t (res,renv) =
+let covers t (res,renv) =
   let renvs = t
-    |> List.filter (fun (res',_) -> more_specific mono res' res)
+    |> List.filter (fun (res',_) -> more_specific res' res)
     |> List.map (fun (_,renv) -> renv)
   in
   let a = renvs |> List.map env_to_typ |> disj in
-  let a = TyScheme.mk_poly_except mono a in
   let b = env_to_typ renv in
-  TyScheme.geq_inst a b
+  subtype b a

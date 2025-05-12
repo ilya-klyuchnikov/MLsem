@@ -6,8 +6,8 @@ open Env
 open Ast
 
 (* Type variable caching *)
-let res_tvars = Hashtbl.create 100
 
+let res_tvars = Hashtbl.create 100
 let tvar_for_res eid =
   match Hashtbl.find_opt res_tvars eid with
   | Some tv -> tv
@@ -16,7 +16,6 @@ let tvar_for_res eid =
     Hashtbl.replace res_tvars eid tv ; tv
 
 let ax_tvars = Hashtbl.create 100
-
 let tvar_for_ax eid tvar =
     match Hashtbl.find_opt ax_tvars (eid, tvar) with
   | Some tv -> tv
@@ -36,30 +35,15 @@ let tsort leq lst =
   in
   List.fold_left add_elt [] (List.rev lst)
 
-let simplify_tallying sols =
-  let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
-  sols
-  (* Regroup equivalent solutions *)
-  (* TODO: partially apply subst as we propagate up,
-     and regroup equiv solutions there? *)
-  (* |> regroup_equiv (fun (s1, _) (s2, _) -> Subst.equiv s1 s2)
-  |> List.map (fun to_merge ->
-    let sol = List.hd to_merge |> fst in
-    let res = List.map snd to_merge |> conj in
-    (sol, res)
-  ) *)
-  (* Order solutions (more precise results first) *)
-  |> tsort leq_sol
-
 let tallying_no_result env cs =
   tallying_with_prio (TVar.user_vars ()) (Env.tvars env |> TVarSet.destruct) cs
   |> List.map (fun s -> s, empty)
-  |> simplify_tallying
 
 let tallying_with_result env tv cs =
+  let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
   tallying_with_prio (TVar.user_vars ()) (Env.tvars env |> TVarSet.destruct) cs
   |> List.map (fun s -> s, Subst.find s tv)
-  |> simplify_tallying
+  |> tsort leq_sol
 
 (* Reconstruction algorithm *)
 
@@ -249,7 +233,6 @@ let rec infer dom env annot (id, e) =
     | Fail -> Fail
     end
   | e, AInter lst ->
-    let mono = Env.tvars env in
     let rec aux dom lst =
       match lst with
       | [] -> Either.left []
@@ -257,7 +240,7 @@ let rec infer dom env annot (id, e) =
         let dom', useless =
           match coverage with
           | None -> dom, false
-          | Some cov -> Domain.add cov dom, Domain.covers mono dom cov
+          | Some cov -> Domain.add cov dom, Domain.covers dom cov
         in
         if useless then aux dom lst
         else
