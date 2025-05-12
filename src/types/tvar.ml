@@ -227,13 +227,13 @@ let tallying mono cs =
 let tallying_with_prio mono prio cs =
   Sstt.Tallying.tally_with_priority prio mono cs
 let test_tallying mono cs = tallying mono cs <> []
-let tallying_with_unprio mono unprio cs =
+(* let tallying_with_unprio mono unprio cs =
   let (tys1,tys2) = List.split cs in
   let prio = TVarSet.diff
     (vars' (tys1@tys2))
     (TVarSet.union (TVarSet.construct unprio) mono)
     |> TVarSet.destruct in
-  tallying_with_prio mono (prio@(List.rev unprio)) cs
+  tallying_with_prio mono (prio@(List.rev unprio)) cs *)
 
 let factorize (pvs, nvs) t =
   let dnf = Sstt.Ty.def t |> Sstt.VDescr.dnf in

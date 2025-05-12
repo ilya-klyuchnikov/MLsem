@@ -4,7 +4,6 @@ open Types.Tvar
 open Types
 open Env
 open Ast
-open Utils
 
 (* Auxiliary *)
 
@@ -17,18 +16,22 @@ let tsort leq lst =
   in
   List.fold_left add_elt [] (List.rev lst)
 
-let simplify_tallying poly sols =
+let simplify_tallying mono sols =
   let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
   sols
-  (* Remove poly assignments *)
-  |> List.map (fun (sol, res) -> (Subst.remove sol poly, res))
   (* Try remove unnecessary var substitutions *)
   |> List.map (fun (sol, res) ->
+    let mono_dom = TVarSet.inter (Subst.dom sol) mono in
     List.fold_left (fun (sol, res) v ->
+      (* TODO: not convinced... quite specific *)
+      let involved = Subst.restrict sol mono |> Subst.destruct
+      |> List.map (fun (v',ty) ->
+        if TVar.equal v v' then TVarSet.construct [v] else vars ty)
+      in
+      let involved = TVarSet.union_many (mono::involved) in
       let t = Subst.find sol v in
-      let mono = TVarSet.diff (TVarSet.add v (vars t)) poly in
       let tallying_res =
-        tallying mono [(TVar.typ v, t) ; (t, TVar.typ v)]
+        tallying involved [(TVar.typ v, t) ; (t, TVar.typ v)]
         |> List.filter (fun s ->
           let res' = Subst.apply s res in
           let res' = TyScheme.mk_poly res' in
@@ -37,26 +40,32 @@ let simplify_tallying poly sols =
       in
       match tallying_res with
       | [] -> (sol, res)
-      | s::_ -> (Subst.rm v sol, Subst.apply s res)  
-    ) (sol, res) (Subst.dom sol |> TVarSet.destruct)
+      | s::_ -> (Subst.compose s sol |> Subst.rm v, Subst.apply s res)
+    ) (sol, res) (TVarSet.destruct mono_dom)
   )
   (* Regroup equivalent solutions *)
-  |> regroup_equiv (fun (s1, _) (s2, _) -> Subst.equiv s1 s2)
+  (* TODO: partially apply subst as we propagate up,
+     and regroup equiv solutions there? *)
+  (* |> regroup_equiv (fun (s1, _) (s2, _) -> Subst.equiv s1 s2)
   |> List.map (fun to_merge ->
     let sol = List.hd to_merge |> fst in
     let res = List.map snd to_merge |> conj in
     (sol, res)
-  )
+  ) *)
   (* Order solutions (more precise results first) *)
   |> tsort leq_sol
 
-let tallying_no_result cs =
-  tallying (TVar.user_vars ()) cs |> List.map (fun s -> s, empty)
-  |> simplify_tallying TVarSet.empty
+let tallying_no_result env cs =
+  let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
+  tallying_with_prio (TVar.user_vars ()) (TVarSet.destruct mono) cs
+  |> List.map (fun s -> s, empty)
+  |> simplify_tallying mono
 
-let tallying_with_result tv cs =
-  tallying_with_unprio (TVar.user_vars ()) [tv] cs |> List.map (fun s -> s, Subst.find s tv)
-  |> simplify_tallying (TVarSet.construct [tv])
+let tallying_with_result env tv cs =
+  let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
+  tallying_with_prio (TVar.user_vars ()) (TVarSet.destruct mono) cs
+  |> List.map (fun s -> s, Subst.find s tv)
+  |> simplify_tallying mono
 
 (* Reconstruction algorithm *)
 
@@ -99,6 +108,7 @@ let rec infer dom env annot (id, e) =
   | Abstract _, Infer -> retry_with (nc Annot.AAbstract)
   | Const _, Infer -> retry_with (nc Annot.AConst)
   | Var v, Infer when Env.mem v env ->
+    (* TODO: reuse type variables when possible *)
     let (tvs,_) = Env.find v env |> TyScheme.get in
     let s = refresh tvs in
     retry_with (nc (Annot.AAx s))
@@ -112,11 +122,11 @@ let rec infer dom env annot (id, e) =
     | Fail -> Fail
     end
   | Lambda (tys,_,_), Infer ->
-    let refresh_internal ty =
+    (* let refresh_internal ty =
       let s = refresh (vars_internal ty) in
       Subst.apply s ty
     in
-    let tys = List.map refresh_internal tys in
+    let tys = List.map refresh_internal tys in *)
     let branches = List.map (fun ty -> { coverage=None ; ann=ALambda (ty, Infer) }) tys in
     retry_with (AInter branches)
   | Lambda (_,v,e'), ALambda (ty, annot') ->
@@ -155,9 +165,10 @@ let rec infer dom env annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,AApp(a1,a2),AApp(a1',a2'),r)
     | AllOk ([a1;a2],[t1;t2]) ->
+      (* TODO: reuse type variables when possible *)
       let tv = TVar.mk None in
       let arrow = mk_arrow t2 (TVar.typ tv) in
-      let ss = tallying_with_result tv [(t1, arrow)] in
+      let ss = tallying_with_result env tv [(t1, arrow)] in
       Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -175,7 +186,7 @@ let rec infer dom env annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,ACons(a1,a2),ACons(a1',a2'),r)
     | AllOk ([a1;a2],[_;t2]) ->
-      let ss = tallying_no_result [(t2,list_typ)] in
+      let ss = tallying_no_result env [(t2,list_typ)] in
       Subst (ss, nc (Annot.ACons(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -183,9 +194,10 @@ let rec infer dom env annot (id, e) =
   | Projection (p,e'), AProj annot' ->
     begin match infer' dom env annot' e' with
     | Ok (annot', s) ->
+      (* TODO: reuse type variables when possible *)
       let tv = TVar.mk None in
       let ty = Checker.domain_of_proj p (TVar.typ tv) in
-      let ss = tallying_with_result tv [(s, ty)] in
+      let ss = tallying_with_result env tv [(s, ty)] in
       Subst (ss, nc (Annot.AProj annot'), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AProj a,AProj a',r)
     | Fail -> Fail
@@ -195,7 +207,7 @@ let rec infer dom env annot (id, e) =
   | RecordUpdate (e', _, None), AUpdate (annot', None) ->
     begin match infer' dom env annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying_no_result [(s,record_any)] in
+      let ss = tallying_no_result env [(s,record_any)] in
       Subst (ss, nc (Annot.AUpdate(annot',None)), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AUpdate (a,None),AUpdate (a',None),r)
     | Fail -> Fail
@@ -206,7 +218,7 @@ let rec infer dom env annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,AUpdate(a1,Some a2),AUpdate(a1',Some a2'),r)
     | AllOk ([a1;a2],[s;_]) ->
-      let ss = tallying_no_result [(s,record_any)] in
+      let ss = tallying_no_result env [(s,record_any)] in
       Subst (ss, nc (Annot.AUpdate(a1,Some a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -230,7 +242,7 @@ let rec infer dom env annot (id, e) =
   | TypeConstr (e', t), AConstr annot' ->
     begin match infer' dom env annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying_no_result [(s,t)] in
+      let ss = tallying_no_result env [(s,t)] in
       Subst (ss, nc (Annot.AConstr(annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AConstr a,AConstr a',r)
     | Fail -> Fail
@@ -238,7 +250,7 @@ let rec infer dom env annot (id, e) =
   | TypeCoerce (e', t), ACoerce annot' ->
     begin match infer' dom env annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying_no_result [(s,t)] in
+      let ss = tallying_no_result env [(s,t)] in
       Subst (ss, nc (Annot.ACoerce(annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,ACoerce a,ACoerce a',r)
     | Fail -> Fail
@@ -290,10 +302,11 @@ and infer' dom env annot e =
   | Subst (ss, a1, a2, (eid,r)) when ss |> List.map fst |> List.for_all subst_disjoint ->
     let branches = ss |> List.map (fun (s,ty) ->
       let ann = IAnnot.substitute s a1 in
-      let refresh = TVarSet.diff (IAnnot.tvars ann) mono |> refresh in
+      (* let refresh = TVarSet.diff (IAnnot.tvars ann) mono |> refresh in
       let ann = IAnnot.substitute refresh ann in
       let coverage = (Some (eid, Subst.apply refresh ty),
-        REnv.substitute s r |> REnv.substitute refresh) in
+        REnv.substitute s r |> REnv.substitute refresh) in *)
+      let coverage = (Some (eid, ty), REnv.substitute s r) in
       { IAnnot.coverage=(Some coverage) ; ann }
       ) in
     let coverage = Some (None, r) in
@@ -304,7 +317,7 @@ and infer_b' dom env bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
   | IAnnot.BInfer ->
-    let ss = tallying_no_result [(s,neg tau)] in
+    let ss = tallying_no_result env [(s,neg tau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType Infer, empty_cov)
   | IAnnot.BSkip -> Ok (Annot.BSkip, empty)
   | IAnnot.BType annot ->
