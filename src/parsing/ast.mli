@@ -75,6 +75,7 @@ type parser_element =
 | Definition of (int (* log level *) * (string * parser_expr * type_expr option))
 | Types of (string * string list * type_expr) list
 | AbsType of string * variance list
+(* TODO: config command for enabling/disabling value restriction *)
 
 type parser_program = (annotation * parser_element) list
 

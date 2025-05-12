@@ -1,5 +1,7 @@
 %{ (* Emacs, use -*- tuareg -*- to open this file. *)
 
+(* TODO: sequence ';' *)
+
   open Ast
   open Types.Additions
   open Types.Base
@@ -190,7 +192,7 @@ term:
     let td = multi_param_rec_abstraction $startpos $endpos id ais oty td in
     annot $symbolstartpos $endpos (Let (id, PNoAnnot, td, t))
   }
-| LET LPAREN p = pattern RPAREN EQUAL td=term IN t=term { let_pattern $startpos $endpos p td t }
+| LET p=ppattern EQUAL td=term IN t=term { let_pattern $startpos $endpos p td t }
 | IF t=term ott=optional_test_type THEN t1=term ELSE t2=term { annot $startpos $endpos (Ite (t,ott,t1,t2)) }
 | MATCH t=term WITH pats=patterns END { annot $startpos $endpos (PatMatch (t,pats)) }
 | hd=simple_term COMMA tl=separated_nonempty_list(COMMA, simple_term) { annot $startpos $endpos (Tuple (hd::tl)) }
@@ -375,6 +377,10 @@ atomic_re:
 %inline pat_line:
   p=pattern ARROW t=term { (p,t) }
 
+%inline ppattern:
+| LPAREN RPAREN { PatType (TBase TUnit) }
+| LPAREN p=pattern RPAREN { p }
+
 pattern:
   p=simple_pattern { p }
 | hd=simple_pattern COMMA tl=separated_nonempty_list(COMMA, simple_pattern) { PatTuple (hd::tl) }
@@ -394,8 +400,8 @@ atomic_pattern:
 | a=CID { PatType (TAtom a) }
 | t=PCID p=pattern RPAREN { PatTag (t,p) }
 | t=PCID RPAREN { PatType (TTag (t,TBase TUnit)) }
-| LPAREN RPAREN { PatType (TBase TUnit) }
 | LBRACE fs=separated_list(SEMICOLON, pat_field) o=optional_open RBRACE { PatRecord (fs, o) }
+| LPAREN RPAREN { PatType (TBase TUnit) }
 | LPAREN p=pattern RPAREN { p }
 | v=ID EQUAL c=literal { PatAssign (v, c) }
 | LBRACKET lst=separated_list(SEMICOLON, pattern) RBRACKET { list_of_pats lst }
