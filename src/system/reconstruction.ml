@@ -36,33 +36,9 @@ let tsort leq lst =
   in
   List.fold_left add_elt [] (List.rev lst)
 
-let simplify_tallying mono sols =
+let simplify_tallying sols =
   let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
   sols
-  (* Try remove unnecessary var substitutions *)
-  |> List.map (fun (sol, res) ->
-    let mono_dom = TVarSet.inter (Subst.dom sol) mono in
-    List.fold_left (fun (sol, res) v ->
-      (* TODO: not convinced... quite specific *)
-      let involved = Subst.restrict sol mono |> Subst.destruct
-      |> List.map (fun (v',ty) ->
-        if TVar.equal v v' then TVarSet.construct [v] else vars ty)
-      in
-      let involved = TVarSet.union_many (mono::involved) in
-      let t = Subst.find sol v in
-      let tallying_res =
-        tallying involved [(TVar.typ v, t) ; (t, TVar.typ v)]
-        |> List.filter (fun s ->
-          let res' = Subst.apply s res in
-          let res' = TyScheme.mk_poly res' in
-          TyScheme.leq_inst res' res
-        )
-      in
-      match tallying_res with
-      | [] -> (sol, res)
-      | s::_ -> (Subst.compose s sol |> Subst.rm v, Subst.apply s res)
-    ) (sol, res) (TVarSet.destruct mono_dom)
-  )
   (* Regroup equivalent solutions *)
   (* TODO: partially apply subst as we propagate up,
      and regroup equiv solutions there? *)
@@ -76,16 +52,14 @@ let simplify_tallying mono sols =
   |> tsort leq_sol
 
 let tallying_no_result env cs =
-  let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
-  tallying_with_prio (TVar.user_vars ()) (TVarSet.destruct mono) cs
+  tallying_with_prio (TVar.user_vars ()) (Env.tvars env |> TVarSet.destruct) cs
   |> List.map (fun s -> s, empty)
-  |> simplify_tallying mono
+  |> simplify_tallying
 
 let tallying_with_result env tv cs =
-  let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
-  tallying_with_prio (TVar.user_vars ()) (TVarSet.destruct mono) cs
+  tallying_with_prio (TVar.user_vars ()) (Env.tvars env |> TVarSet.destruct) cs
   |> List.map (fun s -> s, Subst.find s tv)
-  |> simplify_tallying mono
+  |> simplify_tallying
 
 (* Reconstruction algorithm *)
 
