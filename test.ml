@@ -143,6 +143,76 @@ let map map f lst =
 
 let map = fixpoint map
 
+(* let rec filter_noannot f l =
+  match l with
+  | [] -> []
+  | e::l ->
+    let l = filter_noannot f l in
+    if f e is true then e::l else l
+  end *)
+
+let rec filter (f: ('a->any) & ('b -> ~true)) (l:[('a|'b)*]) =
+  match l with
+  | [] -> []
+  | e::l ->
+    if f e is true
+    then e::(filter f l)
+    else filter f l
+  end
+
+(* ===== BAL ===== *)
+
+let (>=) = <int -> int -> bool>
+let (>) = <int -> int -> bool>
+let invalid_arg = <string -> empty>
+
+type t('a) =
+  Nil | (t('a), Key, 'a, t('a), int)
+
+let height x =
+  match x with
+  | :Nil -> 0
+  | (_,_,_,_,h) -> h
+  end
+
+let create l x d r =
+  let hl = height l in
+  let hr = height r in
+  (l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
+
+let bal (l:t('a)) (x: Key) (d:'a) (r:t('a)) =
+  let hl = match l with :Nil -> 0 | (_,_,_,_,h) -> h end in
+  let hr = match r with :Nil -> 0 | (_,_,_,_,h) -> h end in
+  if hl > (hr + 2) then
+    match l with
+    | :Nil -> invalid_arg "Map.bal"
+    | (ll, lv, ld, lr, _) ->
+      if (height ll) >= (height lr) then
+        create ll lv ld (create lr x d r)
+      else
+        match lr with
+        | :Nil -> invalid_arg "Map.bal"
+        | (lrl, lrv, lrd, lrr, _)->
+          create (create ll lv ld lrl) lrv lrd (create lrr x d r)
+        end
+    end
+  else if hr > (hl + 2) then
+    match r with
+    | :Nil -> invalid_arg "Map.bal"
+    | (rl, rv, rd, rr, _) ->
+      if (height rr) >= (height rl) then
+        create (create l x d rl) rv rd rr
+      else
+        match rl with
+        | :Nil -> invalid_arg "Map.bal"
+        | (rll, rlv, rld, rlr, _) ->
+          create (create l x d rll) rlv rld (create rlr rv rd rr)
+        end
+    end
+  else (l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
+
+let bal : t('a) -> Key -> 'a -> t('a) -> t('a) = bal
+
 (*
 (*************************************************
 *          Tobin-Hochstadt & Felleisen           *
