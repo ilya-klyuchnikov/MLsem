@@ -46,12 +46,11 @@ let tallying_with_result env tv cs =
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
   |> List.map (fun s -> Subst.rm tv s, Subst.find s tv)
   (* Simplify result if it does not impact the domains *)
-  (* TODO: fix map *)
   |> List.map (fun (s,r) ->
     let mono = Subst.restrict s tvars |> Subst.vars in
     let mono = TVarSet.union mono tvars in
     let clean = clean_subst ~pos:empty ~neg:any mono r in
-    (Subst.compose_restr clean s, Subst.apply clean r)
+    (Subst.compose clean s, Subst.apply clean r)
   )
   |> tsort leq_sol
 
