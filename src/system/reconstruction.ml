@@ -46,6 +46,7 @@ let tallying_with_result env tv cs =
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
   |> List.map (fun s -> Subst.rm tv s, Subst.find s tv)
   (* Simplify result if it does not impact the domains *)
+  (* TODO: fix map *)
   |> List.map (fun (s,r) ->
     let mono = Subst.restrict s tvars |> Subst.vars in
     let mono = TVarSet.union mono tvars in
@@ -278,7 +279,7 @@ let rec infer cache env annot (id, e) =
   | e, a ->
     Format.printf "e:@.%a@.@.a:@.%a@.@." Ast.pp_e e IAnnot.pp a ;
     assert false
-and infer' cache env annot e =
+and infer_nc' cache env annot e =
   let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
   let subst_disjoint s =
     TVarSet.inter (Subst.dom s) mono |> TVarSet.is_empty
@@ -300,6 +301,12 @@ and infer' cache env annot e =
     let annot = IAnnot.AInter (branches@[{ coverage ; ann=a2 }]) in
     infer' cache env annot e
   | Subst (ss, a1, a2, r) -> Subst (ss, a1, a2, r)
+and infer' cache env annot e =
+  match Cache.get e env annot cache.cache with
+  | Some r -> r
+  | None ->
+    let r = infer_nc' cache env annot e in
+    Cache.add e env annot r cache.cache ; r
 and infer_b' cache env bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
