@@ -25,6 +25,10 @@ let log ?(level=0) a =
   else Format.ifprintf Format.std_formatter a
   
 let identity x = x
+let ccmp f e1 e2 r =
+  match r with
+  | 0 -> f e1 e2
+  | n -> n
 let filter_options x = List.filter_map identity x
 
 let rec split3 lst =

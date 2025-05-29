@@ -4,6 +4,7 @@ open Types.Tvar
 open Types
 open Env
 open Ast
+open Caching
 
 (* Type variable caching *)
 
