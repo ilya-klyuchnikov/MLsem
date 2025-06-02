@@ -5,6 +5,7 @@ module type TVar = sig
 
     val user_vars : unit -> set
     val from_user : t -> bool
+    val internal : t -> bool
     val equal : t -> t -> bool
     val compare : t -> t -> int
     val name : t -> string

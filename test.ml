@@ -39,6 +39,7 @@ let set = <ref('a) -> 'a -> ()>
 let get = <ref('a) -> 'a>
 
 let test_ref = ref 42
+let test_ref : ref(int) = ref 42
 let test_ref x =
   let y = ref x in
   let () = set y 42 in

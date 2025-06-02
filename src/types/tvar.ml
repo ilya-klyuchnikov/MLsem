@@ -5,6 +5,7 @@ module type TVar = sig
 
   val user_vars : unit -> set
   val from_user : t -> bool
+  val internal : t -> bool
   val equal : t -> t -> bool
   val compare : t -> t -> int
   val name : t -> string
@@ -50,6 +51,7 @@ module TVar = struct
   let uservars = ref Sstt.VarSet.empty
   let from_user t =
     try (TVH.find data t).user with Not_found -> false
+  let internal t = from_user t |> not
   let user_vars () = !uservars
   let equal = Sstt.Var.equal
   let compare = Sstt.Var.compare
@@ -149,7 +151,7 @@ end
 let vars_user t =
   TVarSet.filter TVar.from_user (vars t)
 let vars_internal t =
-  TVarSet.filter (fun v -> TVar.from_user v |> not) (vars t)
+  TVarSet.filter TVar.internal (vars t)
 let vpol = Sstt.Var.mk "__pol__" |> Sstt.Ty.mk_var
 let polarity v t =
   let vt = Sstt.Ty.mk_var v in

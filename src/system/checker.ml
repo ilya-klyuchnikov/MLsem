@@ -70,8 +70,7 @@ let rec is_value (id,e) =
 
 let generalize ~e env s =
   if not (!Config.value_restriction) || is_value e then
-    let tvs = TVarSet.diff (vars s) (Env.tvars env) in
-    TyScheme.mk tvs s |> TyScheme.bot_instance
+    TyScheme.mk_poly_except (Env.tvars env) s |> TyScheme.bot_instance
   else
     TyScheme.mk_mono s
 

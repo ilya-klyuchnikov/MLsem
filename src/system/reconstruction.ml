@@ -306,5 +306,5 @@ let infer env e =
   let cache = { dom = Domain.empty ; cache = Cache.empty () ; tvcache = TVCache.empty () } in
   match infer' cache env IAnnot.Infer e with
   | Fail -> None
-  | Subst _ -> assert false
+  | Subst _ -> failwith "Top-level environment should not contain an unresolved type variable."
   | Ok (a,_) -> Some a

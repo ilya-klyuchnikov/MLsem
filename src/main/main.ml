@@ -1,8 +1,9 @@
 open Parsing.IO
 open System
 open Types.Base
-open Types
 open Types.Additions
+open Types.Tvar
+open Types
 open Parsing
 open Parsing.Variable
 open Env
@@ -14,6 +15,7 @@ type typecheck_result =
 | TCFailure of (Position.t list) * string * float
 
 exception IncompatibleType of TyScheme.t
+exception UnresolvedType of TyScheme.t
 let type_check_def env (var,e,typ_annot) =
   let time0 = Unix.gettimeofday () in
   let retrieve_time () =
@@ -29,14 +31,20 @@ let type_check_def env (var,e,typ_annot) =
       | Some annot-> annot
     in
     let typ = Checker.typeof_def env annot e |> TyScheme.simplify in
+    let mono = Env.tvars env in
     let typ =
       match typ_annot with
       | None -> typ
       | Some tya ->
-        if TyScheme.leq_inst typ tya
-        then TyScheme.mk_poly_except (Env.tvars env) tya
+        let (tvs, mty) = TyScheme.get typ in
+        let tvs = TVarSet.union tvs (TVarSet.diff (vars mty) mono) in
+        let gty = TyScheme.mk tvs mty in
+        if TyScheme.leq_inst gty tya
+        then Checker.generalize ~e env tya
         else raise (IncompatibleType typ)
     in
+    if TVarSet.diff (TyScheme.fv typ) mono |> TVarSet.is_empty |> not
+    then raise (UnresolvedType typ) ;
     TCSuccess (typ, retrieve_time ())
   with
   | Checker.Untypeable (_, str) ->
@@ -45,6 +53,10 @@ let type_check_def env (var,e,typ_annot) =
   | IncompatibleType _ ->
     TCFailure (Variable.get_locations var,
       "the type inferred is not a subtype of the type specified",
+      retrieve_time ())
+  | UnresolvedType _ ->
+    TCFailure (Variable.get_locations var,
+      "the type inferred is not fully resolved",
       retrieve_time ())
 
 type 'a treat_result =
