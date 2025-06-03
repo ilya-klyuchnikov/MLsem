@@ -133,16 +133,19 @@ unique_term: t=term EOF { t }
 
 element:
   LET id=generalized_identifier COLON ty=typ EQUAL t=term
-  { annot $symbolstartpos $endpos (Definition (id, t, Some ty)) }
+  {
+    let t = annot $symbolstartpos $endpos (TypeCoerce (t, ty)) in
+    annot $symbolstartpos $endpos (Definition (id, t))
+  }
 | LET id=generalized_identifier EQUAL t=term
-  { annot $symbolstartpos $endpos (Definition (id, t, None)) }
+  { annot $symbolstartpos $endpos (Definition (id, t)) }
 | LET r=isrec id=generalized_identifier ais=parameter+ oty=optional_typ EQUAL t=term
   {
     let t = if r
       then multi_param_rec_abstraction $startpos $endpos id ais oty t
       else multi_param_abstraction $startpos $endpos ais oty t
     in
-    annot $symbolstartpos $endpos (Definition (id, t, None))
+    annot $symbolstartpos $endpos (Definition (id, t))
   }
 | TYPE ts=separated_nonempty_list(TYPE_AND, param_type_def) { annot $symbolstartpos $endpos (Types ts) }
 | ABSTRACT TYPE name=ID params=abs_params { annot $symbolstartpos $endpos (AbsType (name, params)) }

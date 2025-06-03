@@ -16,14 +16,11 @@ type typecheck_result =
 
 exception IncompatibleType of TyScheme.t
 exception UnresolvedType of TyScheme.t
-let is_inst_of_annot mono typ tya =
-  let (tvs, mty) = TyScheme.get typ in
-  let tvs = TVarSet.union tvs (TVarSet.diff (vars mty) mono) in
-  let gty = TyScheme.mk tvs mty in
-  TyScheme.leq_inst gty tya
-let sig_to_tyscheme mono sigs =
-  sigs |> conj |> TyScheme.mk_poly_except mono
-let type_check_def env sigs (var,e,typ_annot) =
+let sigs_to_tyscheme mono sigs =
+  if sigs |> List.for_all (fun ty -> vars_internal ty |> TVarSet.is_empty) then
+    Some (sigs |> conj |> TyScheme.mk_poly_except mono)
+  else None
+let type_check_def env sigs (var,e) =
   let time0 = Unix.gettimeofday () in
   let retrieve_time () =
     let time1 = Unix.gettimeofday () in
@@ -39,14 +36,7 @@ let type_check_def env sigs (var,e,typ_annot) =
     in
     let typ = Checker.typeof_def env annot e |> TyScheme.simplify in
     let mono = Env.tvars env in
-    let typ =
-      match typ_annot with
-      | None -> typ
-      | Some tya ->
-        if is_inst_of_annot mono typ tya
-        then Checker.generalize ~e env tya
-        else raise (IncompatibleType typ)
-    in
+    (* TODO *)
     let typ =
       match sigs with
       | None -> typ
@@ -89,17 +79,13 @@ let treat (tenv,varm,senv,env) (annot, elem) =
   let pos = [Position.position annot] in
   try  
     match elem with
-    | Ast.Definition (name, expr, tyo) ->
+    | Ast.Definition (name, expr) ->
       let sigs = sigs_of_def varm senv env name in
       let var = Variable.create_let (Some name) in
       Variable.attach_location var (Position.position annot) ;
       begin try
-        let tyo = match tyo with
-        | None -> None
-        | Some expr -> let (t, _) = type_expr_to_typ tenv empty_vtenv expr in Some t
-        in
         let expr = Ast.parser_expr_to_expr tenv empty_vtenv varm expr in
-        match type_check_def env sigs (var,expr,tyo) with
+        match type_check_def env sigs (var,expr) with
         | TCSuccess (ty,f) ->
           let varm = StrMap.add name var varm in
           let env = Env.add var ty env in
@@ -108,20 +94,19 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       with
       | Ast.SymbolError msg -> (tenv,varm,senv,env), TFailure (Some var, pos, msg, 0.0)
       end
-    | Ast.SigDef (name, ty) ->
-      let sigs = match sigs_of_def varm senv env name with
-      | None -> []
-      | Some (sigs,_) -> sigs
-      in
+    | Ast.SigDef (name, tys) ->
       let v = Variable.create_let (Some name) in
       Variable.attach_location v (Position.position annot) ;
-      let varm = StrMap.add name v varm in
-      let (ty, _) = type_expr_to_typ tenv empty_vtenv ty in
-      let sigs = ty::sigs in
-      let ty = sig_to_tyscheme (Env.tvars env) sigs in
-      let senv = VarMap.add v sigs senv in
-      let env = Env.add v ty env in
-      (tenv,varm,senv,env), TDone
+      let (sigs, _) = type_exprs_to_typs tenv empty_vtenv tys in
+      begin match sigs_to_tyscheme (Env.tvars env) sigs with
+      | None -> (tenv,varm,senv,env),
+        TFailure (Some v, pos, "Signatures cannot contain weak variables.", 0.0)
+      | Some ty ->
+        let varm = StrMap.add name v varm in
+        let senv = VarMap.add v sigs senv in
+        let env = Env.add v ty env in
+        (tenv,varm,senv,env), TDone
+      end
     | Ast.Command (str, c) ->
       begin match str, c with
       | "log", Int i -> Config.log_level := Z.to_int i

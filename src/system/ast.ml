@@ -245,3 +245,11 @@ let from_parser_ast t =
     (id,e)
   in
   aux t
+
+let rec push_coercions t =
+  match t with
+  | _ -> ignore push ; failwith "TODO"
+
+and push _ t =
+  match t with
+  | _ -> failwith "TODO"

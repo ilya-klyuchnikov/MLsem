@@ -72,8 +72,8 @@ val dummy_pat_var : Variable.t
 val parser_expr_to_expr : type_env -> var_type_env -> name_var_map -> parser_expr -> expr
 
 type parser_element =
-| Definition of string * parser_expr * type_expr option
-| SigDef of string * type_expr
+| Definition of string * parser_expr
+| SigDef of string * type_expr list
 | Types of (string * string list * type_expr) list
 | AbsType of string * variance list
 | Command of string * const
