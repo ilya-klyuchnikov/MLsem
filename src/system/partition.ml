@@ -18,6 +18,7 @@ let rec constr env renv (_,e) =
     let cs, t = constr env renv e in
     cs, mk_tag tag t
   | Lambda _ -> [], arrow_any
+  | LambdaRec _ -> [], any
   | Ite (_,_,e1,e2) ->
     let cs1, t1 = constr env renv e1 in
     let cs2, t2 = constr env renv e2 in
@@ -87,6 +88,12 @@ let typeof env (_,e) =
   | _ -> TyScheme.mk_mono any
 
 let rec infer env renv (id,e) =
+  let aux_lambda (d,v,e) =
+    let t = TyScheme.mk_mono d in
+    let env = Env.add v t env in
+    let e, renvs = infer env renv e in
+    (d,v,e), renvs
+  in
   let e, renvs = match e with
   | Abstract t -> Abstract t, []
   | Const c -> Const c, []
@@ -96,10 +103,11 @@ let rec infer env renv (id,e) =
     let e, renvs = infer env renv e in
     Tag (tag, e), renvs
   | Lambda (d, v, e) ->
-    let t = TyScheme.mk_mono d in
-    let env = Env.add v t env in
-    let e, renvs = infer env renv e in
-    Lambda (d, v, e), renvs
+    let (d,v,e), renvs = aux_lambda (d,v,e) in
+    Lambda (d,v,e), renvs
+  | LambdaRec lst ->
+    let (lst, renvs) = lst |> List.map aux_lambda |> List.split in
+    LambdaRec lst, List.concat renvs
   | Ite (e, tau, e1, e2) ->
     let renvs1' = refine env renv e (neg tau) in
     let renvs2' = refine env renv e tau in

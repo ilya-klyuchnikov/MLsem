@@ -9,6 +9,7 @@ type e =
 | Atom of atom
 | Tag of tag * t
 | Lambda of typ * Variable.t * t
+| LambdaRec of (typ * Variable.t * t) list
 | Ite of t * typ * t * t
 | App of t * t
 | Tuple of t list

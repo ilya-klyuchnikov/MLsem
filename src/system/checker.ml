@@ -61,7 +61,7 @@ let untypeable id msg = raise (Untypeable (id, msg))
 
 let rec is_value (_,e) =
   match e with
-  | Const _ | Atom _ | Lambda _ | Abstract _ -> true
+  | Const _ | Atom _ | Lambda _ | LambdaRec _ | Abstract _ -> true
   | Tag (_, e) -> is_value e
   | Tuple es -> List.for_all is_value es
   | Cons (e1, e2) -> is_value e1 && is_value e2
@@ -93,6 +93,7 @@ let rec typeof' env annot (id,e) =
     let env = Env.add v (TyScheme.mk_mono s) env in
     let t = typeof env annot e in
     mk_arrow s t
+  | LambdaRec _, _ -> failwith "TODO"
   | Ite (e, tau, e1, e2), AIte (annot, b1, b2) ->
     let s = typeof env annot e in
     let t1 = typeof_b env b1 e1 s tau in

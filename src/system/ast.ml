@@ -10,6 +10,7 @@ type e =
 | Atom of atom
 | Tag of tag * t
 | Lambda of typ * Variable.t * t
+| LambdaRec of (typ * Variable.t * t) list
 | Ite of t * typ * t * t
 | App of t * t
 | Tuple of t list
@@ -33,6 +34,7 @@ let map f =
       | Atom a -> Atom a
       | Tag (t,e) -> Tag (t, aux e)
       | Lambda (d, v, e) -> Lambda (d, v, aux e)
+      | LambdaRec lst -> LambdaRec (List.map (fun (ty,v,e) -> (ty,v,aux e)) lst)
       | Ite (e, t, e1, e2) -> Ite (aux e, t, aux e1, aux e2)
       | App (e1, e2) -> App (aux e1, aux e2)
       | Tuple es -> Tuple (List.map aux es)
@@ -54,6 +56,7 @@ let fold f =
     | Tag (_, e) | Lambda (_,_, e) | Projection (_, e)
     | RecordUpdate (e, _, None) | TypeConstr (e,_) | TypeCoerce (e,_) -> [e]
     | Ite (e,_,e1,e2) -> [e ; e1 ; e2]
+    | LambdaRec lst -> lst |> List.map (fun (_,_,e) -> e)
     | App (e1,e2) | Cons (e1,e2)
     | RecordUpdate (e1,_,Some e2) | Let (_,_,e1,e2) -> [e1 ; e2]
     | Tuple es -> es
@@ -71,6 +74,8 @@ let fv' (_,e) accs =
   | RecordUpdate _ | TypeConstr _ | TypeCoerce _ -> acc
   | Var v -> VarSet.add v acc
   | Let (_, v, _, _) | Lambda (_, v, _) -> VarSet.remove v acc
+  | LambdaRec lst ->
+    VarSet.diff acc (lst |> List.map (fun (_,v,_) -> v) |> VarSet.of_list)
 
 let fv t = fold fv' t
 
@@ -178,6 +183,22 @@ let encode_pattern_matching id e pats =
   (id, Ast.Let (x, Ast.PNoAnnot, def, body))
 
 let from_parser_ast t =
+  let lambda_annot ~addlet x a e =
+    match a with
+    | None ->
+      let d = TVar.mk ~user:false (Variable.get_name x) |> TVar.typ in
+      d, e
+    | Some d ->
+      let x' = Variable.create_let (Variable.get_name x) in
+      Variable.get_locations x |> List.iter (Variable.attach_location x') ;
+      let e =
+        if addlet then
+          Ast.unique_exprid (),
+          Let ([], x', (Ast.unique_exprid (), Var x), substitute x x' e)
+        else e
+      in
+      d, e
+  in
   let rec aux_e (id,e) =
     match e with
     | Ast.Abstract t -> Abstract t
@@ -185,16 +206,17 @@ let from_parser_ast t =
     | Ast.Var v -> Var v
     | Ast.Atom a -> Atom a
     | Ast.Tag (t, e) -> Tag (t, aux e)
-    | Ast.Lambda (x, (None, t_res), e) ->
-      let tv = TVar.mk ~user:false (Variable.get_name x) |> TVar.typ in
-      Lambda (tv, x, aux' e t_res)
-    | Ast.Lambda (x, (Some d, t_res), e) ->
+    | Ast.Lambda (x, (a, t_res), e) ->
       let e = aux' e t_res in
-      let x' = Variable.create_let (Variable.get_name x) in
-      Variable.get_locations x |> List.iter (Variable.attach_location x') ;
-      Lambda (d, x, (Ast.unique_exprid (), Let ([], x',
-        (Ast.unique_exprid (), Var x), substitute x x' e)))
-    | Ast.LambdaRec _ -> failwith "TODO"
+      let d, e = lambda_annot ~addlet:true x a e in
+      Lambda (d, x, e)
+    | Ast.LambdaRec lst ->
+      let aux (x,a,e) =
+        let e = aux e in
+        let d,e = lambda_annot ~addlet:false x a e in
+        (d, x, e)
+      in
+      LambdaRec (List.map aux lst)
     | Ast.Ite (e,t,e1,e2) -> Ite (aux e, t, aux e1, aux e2)
     | Ast.App (e1,e2) -> App (aux e1, aux e2)
     | Ast.Let (x, PNoAnnot, e1, e2) -> Let ([], x, aux e1, aux e2)

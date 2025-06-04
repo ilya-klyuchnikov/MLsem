@@ -101,6 +101,7 @@ let rec infer cache env annot (id, e) =
       Subst (ss,ALambda (ty, a),ALambda (ty, a'),(eid,REnv.add v ty r))
     | Fail -> Fail
     end
+  | LambdaRec _, _ -> failwith "TODO"
   | Ite _, Infer -> retry_with (AIte (Infer, BInfer, BInfer))
   | Ite (e0,tau,e1,e2), AIte (a0,a1,a2) ->
     let to_i =
