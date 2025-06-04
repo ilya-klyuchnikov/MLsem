@@ -162,7 +162,7 @@ let initial_env =
   builtin_functions |> List.fold_left (fun env (name, t) ->
     let var = StrMap.find name initial_varm in
     Env.add var t env
-  ) System.Ast.initial_env
+  ) Env.empty
 
 let initial_senv = VarMap.empty
 

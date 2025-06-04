@@ -1,7 +1,6 @@
 open Parsing
 open Variable
 open Types.Base
-open Env
 
 type e =
 | Abstract of typ
@@ -21,8 +20,6 @@ type e =
 | TypeCoerce of t * typ
 and t = Ast.exprid * e
 
-val initial_env : Env.t
-val is_fixpoint : t -> bool
 val map : (t -> t) -> t -> t
 val fold : (t -> 'a list -> 'a) -> t -> 'a
 val fv : t -> VarSet.t

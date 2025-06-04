@@ -1,9 +1,7 @@
 open Parsing
 open Variable
-open Types
 open Types.Base
 open Types.Tvar
-open Env
 
 type e =
 | Abstract of typ
@@ -24,25 +22,6 @@ type e =
 [@@deriving show]
 and t = Ast.exprid * e
 [@@deriving show]
-
-let fixpoint_var = Variable.create_gen (Some "__builtin_fixpoint")
-let fixpoint_scheme =
-  let a = TVar.mk None |> TVar.typ in
-  let b = TVar.mk None |> TVar.typ in
-  let c = TVar.mk None |> TVar.typ in
-  let f = mk_arrow a b in
-  let fc = cap f c in
-  let arg = mk_arrow f fc in
-  TyScheme.mk_poly (mk_arrow arg fc)
-
-let initial_env =
-  Env.construct [(fixpoint_var, fixpoint_scheme)]
-
-let rec is_fixpoint (_,e) =
-  match e with
-  | App ((_, Var v), _) when Variable.equals v fixpoint_var -> true
-  | Let (_,_,_,e) -> is_fixpoint e
-  | _ -> false
 
 let map f =
   let rec aux (id,e) =
@@ -198,13 +177,6 @@ let encode_pattern_matching id e pats =
   let def = (Ast.unique_exprid (), Ast.TypeConstr (e, t)) in
   (id, Ast.Let (x, Ast.PNoAnnot, def, body))
 
-let encode_fixpoint id e =
-  let x = Variable.create_let None in
-  let ex : Ast.expr = (Ast.unique_exprid (), Var x) in
-  let fix : Ast.expr = (Ast.unique_exprid (), Ast.Var fixpoint_var) in
-  let app = (Ast.unique_exprid (), Ast.App (fix, ex)) in
-  (id, Ast.Let (x, Ast.PNoAnnot, e, app))
-
 let from_parser_ast t =
   let rec aux_e (id,e) =
     match e with
@@ -222,7 +194,7 @@ let from_parser_ast t =
       Variable.get_locations x |> List.iter (Variable.attach_location x') ;
       Lambda (d, x, (Ast.unique_exprid (), Let ([], x',
         (Ast.unique_exprid (), Var x), substitute x x' e)))
-    | Ast.Fixpoint e -> encode_fixpoint id e |> aux_e
+    | Ast.LambdaRec _ -> failwith "TODO"
     | Ast.Ite (e,t,e1,e2) -> Ite (aux e, t, aux e1, aux e2)
     | Ast.App (e1,e2) -> App (aux e1, aux e2)
     | Ast.Let (x, PNoAnnot, e1, e2) -> Let ([], x, aux e1, aux e2)

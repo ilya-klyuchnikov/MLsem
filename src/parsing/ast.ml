@@ -54,7 +54,7 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Atom of 'ato
 | Tag of 'tag * ('a, 'typ, 'ato, 'tag, 'v) t
 | Lambda of 'v * 'typ lambda_annot * ('a, 'typ, 'ato, 'tag, 'v) t
-| Fixpoint of ('a, 'typ, 'ato, 'tag, 'v) t
+| LambdaRec of ('v * 'typ option * ('a, 'typ, 'ato, 'tag, 'v) t) list
 | Ite of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
 | App of ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
 | Let of 'v * 'typ part_annot * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
@@ -118,7 +118,14 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             Variable.attach_location var pos ;
             let env = StrMap.add str var env in
             Lambda (var, (da,ra), aux vtenv env e)
-        | Fixpoint e -> Fixpoint (aux vtenv env e)
+        | LambdaRec lst ->
+            let aux (str,tyo,e) =
+                let var = Variable.create_lambda (Some str) in
+                Variable.attach_location var pos ;
+                let env = StrMap.add str var env in
+                var, Option.map (fun ty -> type_expr_to_typ tenv vtenv ty |> fst) tyo, aux vtenv env e
+            in 
+            LambdaRec (List.map aux lst)
         | Ite (e, t, e1, e2) ->
             let (t, vtenv) = type_expr_to_typ tenv vtenv t in
             if is_test_type t

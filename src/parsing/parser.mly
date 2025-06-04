@@ -41,9 +41,8 @@
       | (None, _)::lst -> TArrow (TVarWeak (fresh_tvar_id ()), aux lst)
       | (Some ty, _)::lst -> TArrow (ty, aux lst)
     in
-    let lst = (Some (aux lst), PatVar name)::lst in
     let t = multi_param_abstraction startpos endpos lst t_res t in
-    annot startpos endpos (Fixpoint t)
+    annot startpos endpos (LambdaRec [name, Some (aux lst), t])
 
   let let_pattern startpos endpos pat d t =
     match pat with
