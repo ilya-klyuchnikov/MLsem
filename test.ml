@@ -1,5 +1,14 @@
 (* ========= SIGNATURES ======== *)
 
+let rec fact_rec (x:int) : int =
+  if x is 0 then 1 else x * (fact_rec (x-1))
+
+let rec map_rec f (lst:['a*]) =
+  match lst with
+  | [] -> []
+  | a::lst -> (f a)::(map_rec f lst)
+  end
+
 val val42 : int
 let val42 = true
 let val42 = 42

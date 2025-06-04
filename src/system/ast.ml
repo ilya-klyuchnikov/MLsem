@@ -254,7 +254,6 @@ let rec push id' ty (id,t) =
     if equiv ty (mk_arrow d cd)
     then id', Lambda (d, v, push (Ast.unique_exprid ()) cd e)
     else id', TypeCoerce ((id,t), ty)
-  (* TODO: fixpoints ? *)
   | t -> id', TypeCoerce ((id,t), ty)
 
 let push_coercions t =

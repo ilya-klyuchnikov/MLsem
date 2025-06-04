@@ -92,6 +92,13 @@ let dummy_pat_var =
 
 (* TODO: associate a location to each exprid using a hashtbl *)
 let parser_expr_to_expr tenv vtenv name_var_map e =
+    let aux_a tyo vtenv =
+        match tyo with
+        | None -> None, vtenv
+        | Some ty ->
+            let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
+            Some ty, vtenv
+    in
     let rec aux vtenv env ((exprid,pos),e) =
         let e = match e with
         | Abstract t ->
@@ -105,13 +112,6 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         | Atom str -> Atom (get_atom tenv str)
         | Tag (str, e) -> Tag (get_tag tenv str, aux vtenv env e)
         | Lambda (str,(da,ra),e) ->
-            let aux_a tyo vtenv =
-                match tyo with
-                | None -> None, vtenv
-                | Some ty ->
-                    let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
-                    Some ty, vtenv
-            in
             let da, vtenv = aux_a da vtenv in
             let ra, vtenv = aux_a ra vtenv in
             let var = Variable.create_lambda (Some str) in
@@ -123,7 +123,8 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
                 let var = Variable.create_lambda (Some str) in
                 Variable.attach_location var pos ;
                 let env = StrMap.add str var env in
-                var, Option.map (fun ty -> type_expr_to_typ tenv vtenv ty |> fst) tyo, aux vtenv env e
+                let a, vtenv = aux_a tyo vtenv in
+                var, a, aux vtenv env e
             in 
             LambdaRec (List.map aux lst)
         | Ite (e, t, e1, e2) ->
