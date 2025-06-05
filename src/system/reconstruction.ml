@@ -29,7 +29,7 @@ let tallying_with_result env res cs =
   (* Simplify result if it does not impact the domains *)
   |> List.map (fun (s,r) ->
     let mono = Subst.restrict s tvars |> Subst.vars in
-    let mono = TVarSet.union mono tvars in
+    let mono = TVarSet.union_many [mono ; tvars ; TVar.user_vars ()] in
     let clean = clean_subst ~pos:empty ~neg:any mono r in
     (Subst.compose clean s, Subst.apply clean r)
   )
@@ -75,6 +75,7 @@ let rec infer cache env annot (id, e) =
   match e, annot with
   | _, A a -> Ok (a, Checker.typeof env a (id, e))
   | _, Untyp -> Fail
+  (* TODO: Abstract may contain unresolved type vars... *)
   | Abstract _, Infer -> retry_with (nc Annot.AAbstract)
   | Const _, Infer -> retry_with (nc Annot.AConst)
   | Var v, Infer when Env.mem v env ->
