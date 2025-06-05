@@ -20,6 +20,7 @@ let sigs_to_tyscheme mono sigs =
   if sigs |> List.for_all (fun ty -> vars_internal ty |> TVarSet.is_empty) then
     Some (sigs |> conj |> TyScheme.mk_poly_except mono)
   else None
+(* TODO: support for multiple definitions *)
 let type_check_def env (sigs,aty) (var,e) =
   let time0 = Unix.gettimeofday () in
   let retrieve_time () =
@@ -27,9 +28,18 @@ let type_check_def env (sigs,aty) (var,e) =
     (time1 -. time0 ) *. 1000.
   in
   try
-    let e = System.Ast.from_parser_ast e in
+    let lambdarec oty e =
+      Parsing.Ast.unique_exprid (), Parsing.Ast.LambdaRec [(var,oty,e)]
+    in
+    let coerce ty e =
+      Parsing.Ast.unique_exprid (), Parsing.Ast.TypeCoerce (e,ty)
+    in
+    let es = match sigs with
+    | [] -> [lambdarec None e]
+    | sigs -> List.map (fun s -> lambdarec (Some s) e |> coerce (mk_tuple [s])) sigs
+    in
     let infer e =
-      let e = System.Ast.push_coercions e in
+      let e = System.Ast.from_parser_ast e in
       let e = Partition.infer env e in
       let annot =
         match Reconstruction.infer env e with
@@ -38,11 +48,8 @@ let type_check_def env (sigs,aty) (var,e) =
           raise (Checker.Untypeable (fst e, "Annotation reconstruction failed."))
         | Some annot-> annot
       in
-      Checker.typeof_def env annot e |> TyScheme.simplify
-    in
-    let es = match sigs with
-    | [] -> [e]
-    | sigs -> List.map (System.Ast.add_coercion e) sigs
+      let tvs, ty = Checker.typeof_def env annot e |> TyScheme.simplify |> TyScheme.get in
+      TyScheme.mk tvs (pi 1 0 ty)
     in
     let typs = List.map infer es in
     let tscap t1 t2 =
@@ -73,31 +80,46 @@ type 'a treat_result =
 | TFailure of Variable.t option * (Position.t list) * string * float
 
 exception AlreadyDefined of Variable.t
+exception InconsistentSig of Variable.t
 
 let check_not_defined varm str =
   if StrMap.mem str varm then
     raise (AlreadyDefined (StrMap.find str varm))
 
-let sigs_of_def varm senv env str =
-  match StrMap.find_opt str varm with
-  | None ->
-    let var = Variable.create_let (Some str) in
-    var, [], TyScheme.mk_mono any
-  | Some v ->
-    begin match VarMap.find_opt v senv with
-    | None -> raise (AlreadyDefined v)
-    | Some sigs -> v, sigs, Env.find v env
-    end
+let sigs_of_def varm senv env str oty =
+  let v, sigs, aty =
+    match StrMap.find_opt str varm with
+    | None ->
+      let var = Variable.create_let (Some str) in
+      var, [], TyScheme.mk_mono any
+    | Some v ->
+      begin match VarMap.find_opt v senv with
+      | None -> raise (AlreadyDefined v)
+      | Some sigs -> v, sigs, Env.find v env
+      end
+  in
+  let sigs = match sigs, oty with
+  | sigs, None -> sigs
+  | [], Some ty -> [ty]
+  | _::_, Some _ -> raise (InconsistentSig v)
+  in
+  v, sigs, aty
 
 let treat (tenv,varm,senv,env) (annot, elem) =
   let pos = [Position.position annot] in
   try  
     match elem with
-    | Ast.Definition (name, expr) ->
-      let var, sigs, aty = sigs_of_def varm senv env name in
+    | Ast.Definitions [(name, oty, expr)] ->
+      let oty, vtenv = match oty with
+      | None -> None, empty_vtenv
+      | Some ty ->
+        let (ty, vtenv) = type_expr_to_typ tenv empty_vtenv ty in
+        Some ty, vtenv
+      in
+      let var, sigs, aty = sigs_of_def varm senv env name oty in
       Variable.attach_location var (Position.position annot) ;
       begin try
-        let expr = Ast.parser_expr_to_expr tenv empty_vtenv varm expr in
+        let expr = Ast.parser_expr_to_expr tenv vtenv varm expr in
         match type_check_def env (sigs,aty) (var,expr) with
         | TCSuccess (ty,f) ->
           let varm = StrMap.add name var varm in
@@ -108,6 +130,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       with
       | Ast.SymbolError msg -> (tenv,varm,senv,env), TFailure (Some var, pos, msg, 0.0)
       end
+    | Ast.Definitions _ -> failwith "TODO"
     | Ast.SigDef (name, tys) ->
       check_not_defined varm name ;
       let v = Variable.create_let (Some name) in
@@ -139,6 +162,8 @@ let treat (tenv,varm,senv,env) (annot, elem) =
   | TypeDefinitionError msg -> (tenv,varm,senv,env), TFailure (None, pos, msg, 0.0)
   | AlreadyDefined v ->
     (tenv,varm,senv,env), TFailure (Some v, pos, "Symbol already defined.", 0.0)
+  | InconsistentSig v ->
+    (tenv,varm,senv,env), TFailure (Some v, pos, "Inconsistent type annotations.", 0.0)  
 
 let builtin_functions =
   let arith_operators_typ =

@@ -129,14 +129,21 @@ program: e=element* EOF { e }
 
 unique_term: t=term EOF { t }
 
+%inline tl_let:
+| id=generalized_identifier oty=optional_typ EQUAL t=term
+{ (id, oty, t) }
+| id=generalized_identifier ais=parameter+ oty=optional_typ EQUAL t=term
+{
+  let t = multi_param_abstraction $startpos $endpos ais oty t in
+  let st = self_type ais oty in
+  (id, Some st, t)
+}
+
 element:
-  LET id=generalized_identifier COLON ty=typ EQUAL t=term
-  {
-    let t = annot $symbolstartpos $endpos (TypeCoerce (t, ty)) in
-    annot $symbolstartpos $endpos (Definition (id, t))
-  }
-| LET id=generalized_identifier EQUAL t=term
-  { annot $symbolstartpos $endpos (Definition (id, t)) }
+| LET ds=separated_nonempty_list(AND, tl_let)
+{
+  annot $symbolstartpos $endpos (Definitions ds)
+}
 | VAL id=generalized_identifier COLON tys=separated_nonempty_list(SEMICOLON, typ)
 { annot $symbolstartpos $endpos (SigDef (id, tys)) }
 | TYPE ts=separated_nonempty_list(TYPE_AND, param_type_def) { annot $symbolstartpos $endpos (Types ts) }

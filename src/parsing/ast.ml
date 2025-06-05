@@ -236,7 +236,7 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
     aux vtenv name_var_map e
 
 type parser_element =
-| Definition of string * parser_expr
+| Definitions of (string * type_expr option * parser_expr) list
 | SigDef of string * type_expr list
 | Types of (string * string list * type_expr) list
 | AbsType of string * variance list

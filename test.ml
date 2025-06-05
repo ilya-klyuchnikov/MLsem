@@ -1,9 +1,9 @@
 (* ========= SIGNATURES ======== *)
 
-let rec fact_rec (x:int) : int =
+let fact_rec (x:int) : int =
   if x is 0 then 1 else x * (fact_rec (x-1))
 
-let rec map_rec f (lst:['a*]) =
+let map_rec f (lst:['a*]) =
   match lst with
   | [] -> []
   | a::lst -> (f a)::(map_rec f lst)
@@ -30,7 +30,7 @@ let filter_sig f l =
 
 type objF('a) = { f :? 'a ; proto :? objF('a) ..}
 
-let rec call_f (o:objF('a)) =
+let call_f (o:objF('a)) =
   if o is { f : any ..} then o.f
   else if o is { proto : any ..}
   then call_f o.proto
@@ -100,7 +100,7 @@ let proj_ab x =
   end
 
 type clist('a) = Nil | Cons('a, clist('a))
-let rec map_clist f (lst:clist('a)) =
+let map_clist f (lst:clist('a)) =
   match lst with
   | Cons(v,tail) -> Cons(f v, map_clist f tail)
   | Nil -> Nil
@@ -172,7 +172,7 @@ let map_stub map f lst =
 
 let map = fixpoint map_stub
 
-(* let rec filter_noannot f l =
+(* let filter_noannot f l =
   match l with
   | [] -> []
   | e::l ->
@@ -180,7 +180,7 @@ let map = fixpoint map_stub
     if f e is true then e::l else l
   end *)
 
-let rec filter (f: ('a->any) & ('b -> ~true)) (l:[('a|'b)*]) =
+let filter (f: ('a->any) & ('b -> ~true)) (l:[('a|'b)*]) =
   match l with
   | [] -> []
   | e::l ->

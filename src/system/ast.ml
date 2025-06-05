@@ -182,6 +182,27 @@ let encode_pattern_matching id e pats =
   let def = (Ast.unique_exprid (), Ast.TypeConstr (e, t)) in
   (id, Ast.Let (x, Ast.PNoAnnot, def, body))
 
+let rec push id' ty (id,t) =
+  match t with
+  | TypeCoerce (t, _) -> push id' ty t
+  | Let (tys, v, e1, e2) ->
+    id', Let (tys, v, e1, push (Ast.unique_exprid ()) ty e2)
+  | Lambda (_,v,e) ->
+    let d = domain ty in
+    let cd = apply ty d in
+    if equiv ty (mk_arrow d cd)
+    then id', Lambda (d, v, push (Ast.unique_exprid ()) cd e)
+    else id', TypeCoerce ((id,t), ty)
+  | t -> id', TypeCoerce ((id,t), ty)
+
+let push_coercions t =
+  let aux (id,t) =
+    match t with
+    | TypeCoerce (t, ty) -> push id ty t
+    | t -> (id,t)
+  in
+  map aux t
+
 let from_parser_ast t =
   let lambda_annot ~addlet x a e =
     match a with
@@ -238,28 +259,4 @@ let from_parser_ast t =
     let (id, _) = t in
     (id,e)
   in
-  aux t
-
-let add_coercion t ty =
-  (Ast.unique_exprid (), TypeCoerce (t, ty))
-
-let rec push id' ty (id,t) =
-  match t with
-  | TypeCoerce (t, _) -> push id' ty t
-  | Let (tys, v, e1, e2) ->
-    id', Let (tys, v, e1, push (Ast.unique_exprid ()) ty e2)
-  | Lambda (_,v,e) ->
-    let d = domain ty in
-    let cd = apply ty d in
-    if equiv ty (mk_arrow d cd)
-    then id', Lambda (d, v, push (Ast.unique_exprid ()) cd e)
-    else id', TypeCoerce ((id,t), ty)
-  | t -> id', TypeCoerce ((id,t), ty)
-
-let push_coercions t =
-  let aux (id,t) =
-    match t with
-    | TypeCoerce (t, ty) -> push id ty t
-    | t -> (id,t)
-  in
-  map aux t
+  aux t |> push_coercions
