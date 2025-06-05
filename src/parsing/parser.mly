@@ -41,7 +41,8 @@
       | (None, _)::lst -> TArrow (TVarWeak (fresh_tvar_id ()), aux lst)
       | (Some ty, _)::lst -> TArrow (ty, aux lst)
     in
-    aux lst
+    if t_res = None && List.for_all (fun (o,_) -> o = None) lst
+    then None else Some (aux lst)
 
   let let_pattern startpos endpos pat d t =
     match pat with
@@ -136,7 +137,7 @@ unique_term: t=term EOF { t }
 {
   let t = multi_param_abstraction $startpos $endpos ais oty t in
   let st = self_type ais oty in
-  (id, Some st, t)
+  (id, st, t)
 }
 
 element:
@@ -191,7 +192,7 @@ term:
   }
 | LET REC ds=separated_nonempty_list(AND, letfundef) IN t=term
   {
-    let ds = List.map (fun (id,td,self) -> (id, Some self, td)) ds in
+    let ds = List.map (fun (id,td,self) -> (id, self, td)) ds in
     let lambda = annot $startpos $endpos (LambdaRec ds) in
     let names = List.map (fun (id,_,_) -> PatVar id) ds in
     let_pattern $startpos $endpos (PatTuple names) lambda t
