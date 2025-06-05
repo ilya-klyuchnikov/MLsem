@@ -82,11 +82,8 @@ type 'a treat_result =
 
 exception AlreadyDefined of Variable.t
 
-let check_not_defined varm env str =
-  match StrMap.find_opt str varm with
-  | None -> ()
-  | Some v ->
-    if Env.mem v env then raise (AlreadyDefined (StrMap.find str varm))
+let check_not_defined varm str =
+  if StrMap.mem str varm then raise (AlreadyDefined (StrMap.find str varm))
 
 let sigs_of_def varm senv env str oty =
   let v, sigs, aty =
@@ -120,11 +117,12 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       in
       let var, sigs, aty = sigs_of_def varm senv env name oty in
       Variable.attach_location var (Position.position annot) ;
-      let varm = StrMap.add name var varm in
+      let varm' = StrMap.add name var varm in
       begin try
-        let expr = Ast.parser_expr_to_expr tenv vtenv varm expr in
+        let expr = Ast.parser_expr_to_expr tenv vtenv varm' expr in
         match type_check_def env (sigs,aty) (var,expr) with
         | TCSuccess (ty,f) ->
+          let varm = varm' in
           let senv = VarMap.remove var senv in
           let env = if Env.mem var env then env else Env.add var ty env in
           (tenv,varm,senv,env), TSuccess (var,ty,f)
@@ -134,7 +132,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       end
     | Ast.Definitions _ -> failwith "TODO"
     | Ast.SigDef (name, tys) ->
-      check_not_defined varm env name ;
+      check_not_defined varm name ;
       let v = Variable.create_let (Some name) in
       Variable.attach_location v (Position.position annot) ;
       let (sigs, _) = type_exprs_to_typs tenv empty_vtenv tys in
