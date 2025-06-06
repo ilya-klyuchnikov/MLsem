@@ -106,6 +106,18 @@ let test_map x =
   let map = add_map map "key" 0 in
   (map, get_map map false)
 
+
+abstract type arr('a)
+let set_arr = <arr('a) -> int -> 'a -> ()>
+let get_arr = <arr('a) -> int -> 'a>
+let mk_arr = <int -> arr('a)>
+let push_arr = <arr('a) -> 'a -> ()>
+let filter_arr (f:('a -> any) & ('b -> ~true)) (arr:arr('a|'b)) =
+  let res = mk_arr 0 in
+  let e = get_arr arr 0 in (* TODO: loops, if statements with no else, sequence *)
+  let () = if f e then push_arr res e else () in
+  res
+
 #value_restriction = false
 
 (* ========= TAGGED VALUES ======== *)
