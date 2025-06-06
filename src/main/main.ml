@@ -51,14 +51,16 @@ let type_check_with_sigs env (var,e,sigs,aty) =
 let type_check_recs env lst =
   if lst = [] then []
   else
-    let e = Parsing.Ast.unique_exprid (), Parsing.Ast.LambdaRec lst in
+    let e =
+      Parsing.Ast.unique_exprid (),
+      Parsing.Ast.LambdaRec (List.map (fun (v,e) -> (v,None,e)) lst) in
     let e = System.Ast.from_parser_ast e in
-    let (var,_,_) = List.hd lst in
+    let (var,_) = List.hd lst in
     let typ = infer var env e in
     check_resolved var env typ ;
     let tvs, ty = TyScheme.get typ in
     let n = List.length lst in
-    List.mapi (fun i (var,_,_) ->
+    List.mapi (fun i (var,_) ->
       (var, TyScheme.mk tvs (pi n i ty) |> TyScheme.bot_instance)
     ) lst
 
@@ -76,11 +78,11 @@ let sigs_of_def varm senv env str =
   match StrMap.find_opt str varm with
   | None ->
     let var = Variable.create_let (Some str) in
-    var, [], TyScheme.mk_mono any
+    var, None
   | Some v ->
     begin match VarMap.find_opt v senv with
     | None -> raise (AlreadyDefined v)
-    | Some sigs -> v, sigs, Env.find v env
+    | Some sigs -> v, Some (sigs, Env.find v env)
     end
 
 let treat (tenv,varm,senv,env) (annot, elem) =
@@ -89,28 +91,20 @@ let treat (tenv,varm,senv,env) (annot, elem) =
   try  
     match elem with
     | Ast.Definitions lst ->
-      let vtenv = ref empty_vtenv in
       let varm = ref varm in
-      let lst = lst |> List.map (fun (name, oty, e) ->
-        let oty, vtenv' = match oty with
-        | None -> None, !vtenv
-        | Some ty ->
-          let (ty, vtenv) = type_expr_to_typ tenv (!vtenv) ty in
-          Some ty, vtenv
-        in
-        vtenv := vtenv' ;
-        let var, sigs, aty = sigs_of_def !varm senv env name in
+      let lst = lst |> List.map (fun (name, e) ->
+        let var, sigs = sigs_of_def !varm senv env name in
         Variable.attach_location var (Position.position annot) ;
         varm := StrMap.add name var !varm ;
-        (var, oty, e, sigs, aty)
+        (var, e, sigs)
       )
       in
-      let vtenv, varm = !vtenv, !varm in
-      let sigs, recs = List.partition_map (fun (var, oty, e, sigs, aty) ->
-        let e = Ast.parser_expr_to_expr tenv vtenv varm e in
-        if sigs = []
-        then Either.Right (var, oty, e)
-        else Either.Left (var, e, sigs, aty)
+      let varm = !varm in
+      let sigs, recs = List.partition_map (fun (var, e, sigs) ->
+        let e = Ast.parser_expr_to_expr tenv empty_vtenv varm e in
+        match sigs with
+        | None -> Either.Right (var, e)
+        | Some (sigs,aty) -> Either.Left (var, e, sigs, aty)
         ) lst in
       let tys1 = type_check_recs env recs in
       let env = List.fold_left (fun env (v,ty) -> Env.add v ty env) env tys1 in

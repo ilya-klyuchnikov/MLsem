@@ -166,7 +166,7 @@ let encode_pattern_matching id e pats =
     let vars = vars_of_pat pat in
     let add_def acc v =
       let d = def_of_var_pat pat v ex in
-      (Ast.unique_exprid (), Ast.Let (v, Ast.PNoAnnot, d, acc))
+      (Ast.unique_exprid (), Ast.Let (v, None, d, acc))
     in
     List.fold_left add_def e' (VarSet.elements vars)
   in
@@ -180,7 +180,7 @@ let encode_pattern_matching id e pats =
   | (_, e')::pats -> List.fold_left add_branch e' pats
   in
   let def = (Ast.unique_exprid (), Ast.TypeConstr (e, t)) in
-  (id, Ast.Let (x, Ast.PNoAnnot, def, body))
+  (id, Ast.Let (x, None, def, body))
 
 let from_parser_ast t =
   let add_let x e =
@@ -201,16 +201,16 @@ let from_parser_ast t =
     | Ast.Var v -> Var v
     | Ast.Atom a -> Atom a
     | Ast.Tag (t, e) -> Tag (t, aux e)
-    | Ast.Lambda (x, (a, t_res), e) ->
-      let e = aux' e t_res |> add_let x in
+    | Ast.Lambda (x, a, e) ->
+      let e = aux e |> add_let x in
       Lambda (lambda_annot x a, x, e)
     | Ast.LambdaRec lst ->
       let aux (x,a,e) = (lambda_annot x a, x, aux e) in
       LambdaRec (List.map aux lst)
     | Ast.Ite (e,t,e1,e2) -> Ite (aux e, t, aux e1, aux e2)
     | Ast.App (e1,e2) -> App (aux e1, aux e2)
-    | Ast.Let (x, PNoAnnot, e1, e2) -> Let ([], x, aux e1, aux e2)
-    | Ast.Let (x, PAnnot ts, e1, e2) -> Let (ts, x, aux e1, aux e2)
+    | Ast.Let (x, None, e1, e2) -> Let ([], x, aux e1, aux e2)
+    | Ast.Let (x, Some ts, e1, e2) -> Let (ts, x, aux e1, aux e2)
     | Ast.Tuple es -> Tuple (List.map aux es)
     | Ast.Cons (e1, e2) -> Cons (aux e1, aux e2)
     | Ast.Projection (p, e) -> Projection (p, aux e)
@@ -218,11 +218,6 @@ let from_parser_ast t =
     | Ast.TypeConstr (e, ty) -> TypeConstr (aux e, ty)
     | Ast.TypeCoerce (e, ty) -> TypeCoerce (aux e, ty)
     | Ast.PatMatch (e, pats) -> encode_pattern_matching id e pats |> aux_e
-  and aux' t tyo =
-    let t = aux t in
-    match tyo with
-    | None -> t
-    | Some ty -> (Ast.unique_exprid (), TypeCoerce (t, ty))
   and aux t =
     let e = aux_e t in
     let (id, _) = t in

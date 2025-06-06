@@ -11,36 +11,20 @@
     (Ast.new_annot (Position.lex_join sp ep), e)
 
   let tmp_var = "__encoding"
-  let multi_param_abstraction startpos endpos lst t_res t =
-    let first = ref true in
+  let abstraction startpos endpos lst t =
     let step acc (da, pat) =
-      let t_res = if !first then t_res else None in
-      first := false ;
       match pat with
-      | PatVar v -> annot startpos endpos (Lambda (v, (da,t_res), acc))
+      | PatVar v -> annot startpos endpos (Lambda (v, da, acc))
       | pat ->
         let test = annot startpos endpos (Var tmp_var) in
         let body = annot startpos endpos (PatMatch (test, [(pat, acc)])) in
-        annot startpos endpos (Lambda (tmp_var, (da,t_res), body))
+        annot startpos endpos (Lambda (tmp_var, da, body))
     in
     List.rev lst |> List.fold_left step t
 
-  let self_type lst t_res =
-    let rec aux lst =
-      match lst with
-      | [] -> t_res
-      | (None, _)::_ -> None
-      | (Some ty, _)::lst ->
-        begin match aux lst with
-        | None -> None
-        | Some ty' -> Some (TArrow (ty, ty'))
-        end
-    in
-    aux lst
-
   let let_pattern startpos endpos pat d t =
     match pat with
-    | PatVar v -> annot startpos endpos (Let (v, PNoAnnot, d, t))
+    | PatVar v -> annot startpos endpos (Let (v, None, d, t))
     | pat -> annot startpos endpos (PatMatch (d, [(pat, t)]))
 
   let double_app startpos endpos f a b =
@@ -90,7 +74,7 @@
 %}
 
 %token EOF
-%token FUN VAL LET REC IN FST SND HD TL HASHTAG
+%token FUN VAL LET IN FST SND HD TL HASHTAG
 %token IF IS THEN ELSE
 %token LPAREN RPAREN EQUAL COMMA CONS COLON COLON_OPT COERCE INTERROGATION_MARK EXCLAMATION_MARK
 %token ARROW AND OR NEG DIFF
@@ -125,13 +109,10 @@ program: e=element* EOF { e }
 unique_term: t=term EOF { t }
 
 %inline tl_let:
-| id=generalized_identifier ais=parameter* oty=optional_typ EQUAL t=term
+| id=generalized_identifier ais=parameter* EQUAL t=term
 {
-  (* TODO: multi-def syntax *)
-  (* TODO: remove oty *)
-  let t = multi_param_abstraction $startpos $endpos ais oty t in
-  let st = self_type ais oty in
-  (id, st, t)
+  let t = abstraction $startpos $endpos ais t in
+  (id, t)
 }
 
 element:
@@ -165,31 +146,16 @@ variance:
 | IS t=typ { t }
 
 %inline optional_pannot:
-  { PNoAnnot }
-| COLON tys=separated_nonempty_list(SEMICOLON, typ) { PAnnot tys }
-
-%inline letfundef:
-| id=generalized_identifier ais=parameter+ oty=optional_typ EQUAL td=term
-{
-  (id, multi_param_abstraction $startpos $endpos ais oty td, self_type ais oty) 
-}
+  { None }
+| COLON tys=separated_nonempty_list(SEMICOLON, typ) { Some tys }
 
 term:
   t=simple_term { t }
-| FUN ais=parameter+ ARROW t = term { multi_param_abstraction $startpos $endpos ais None t }
-| LET id=generalized_identifier a=optional_pannot EQUAL td=term IN t=term
-  { annot $startpos $endpos (Let (id, a, td, t)) }
-| LET d=letfundef IN t=term
+| FUN ais=parameter+ ARROW t = term { abstraction $startpos $endpos ais t }
+| LET id=generalized_identifier ais=parameter* a=optional_pannot EQUAL td=term IN t=term
   {
-    let (id,td,_) = d in
-    annot $startpos $endpos (Let (id, PNoAnnot, td, t))
-  }
-| LET REC ds=separated_nonempty_list(AND, letfundef) IN t=term
-  {
-    let ds = List.map (fun (id,td,self) -> (id, self, td)) ds in
-    let lambda = annot $startpos $endpos (LambdaRec ds) in
-    let names = List.map (fun (id,_,_) -> PatVar id) ds in
-    let_pattern $startpos $endpos (PatTuple names) lambda t
+    let td = abstraction $startpos $endpos ais td in
+    annot $startpos $endpos (Let (id, a, td, t))
   }
 | LET p=ppattern EQUAL td=term IN t=term { let_pattern $startpos $endpos p td t }
 | IF t=term ott=optional_test_type THEN t1=term ELSE t2=term { annot $startpos $endpos (Ite (t,ott,t1,t2)) }

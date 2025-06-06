@@ -30,9 +30,9 @@ type const =
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 [@@deriving show, ord]
 
-type 'typ lambda_annot = 'typ option * 'typ option
+type 'typ lambda_annot = 'typ option
 [@@deriving show, ord]
-type 'typ part_annot = PNoAnnot | PAnnot of 'typ list
+type 'typ part_annot = 'typ list option
 [@@deriving show, ord]
 
 type ('a, 'typ, 'tag, 'v) pattern =
@@ -111,13 +111,12 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             else raise (SymbolError ("undefined symbol "^str))
         | Atom str -> Atom (get_atom tenv str)
         | Tag (str, e) -> Tag (get_tag tenv str, aux vtenv env e)
-        | Lambda (str,(da,ra),e) ->
+        | Lambda (str,da,e) ->
             let da, vtenv = aux_a da vtenv in
-            let ra, vtenv = aux_a ra vtenv in
             let var = Variable.create_lambda (Some str) in
             Variable.attach_location var pos ;
             let env = StrMap.add str var env in
-            Lambda (var, (da,ra), aux vtenv env e)
+            Lambda (var, da, aux vtenv env e)
         | LambdaRec lst ->
             let aux (str,tyo,e) =
                 let var = Variable.create_lambda (Some str) in
@@ -135,10 +134,10 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         | App (e1, e2) -> App (aux vtenv env e1, aux vtenv env e2)
         | Let (str, a, e1, e2) ->
             let a, vtenv = match a with
-            | PNoAnnot -> PNoAnnot, vtenv
-            | PAnnot ts ->
+            | None -> None, vtenv
+            | Some ts ->
                 let (ts, vtenv) = type_exprs_to_typs tenv vtenv ts in
-                PAnnot ts, vtenv
+                Some ts, vtenv
             in
             let var = Variable.create_let (Some str) in
             Variable.attach_location var pos ;
@@ -236,7 +235,7 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
     aux vtenv name_var_map e
 
 type parser_element =
-| Definitions of (string * type_expr option * parser_expr) list
+| Definitions of (string * parser_expr) list
 | SigDef of string * type_expr list
 | Types of (string * string list * type_expr) list
 | AbsType of string * variance list
