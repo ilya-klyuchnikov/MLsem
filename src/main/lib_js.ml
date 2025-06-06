@@ -42,15 +42,19 @@ let typecheck code callback =
                 ("typeable", `Bool false) ; ("message", `String msg) ; ("pos", json_of_pos_list pos)]
               in
               untyp::res
-            | TSuccess (v,t,time) ->
-              let name = Parsing.Variable.Variable.get_name v |> Option.get in
-              let def_pos = Parsing.Variable.Variable.get_locations v |> List.hd in
-              let typ = Format.asprintf "%a" Types.TyScheme.pp_short t in
-              let typ =
-                `Assoc [("name", `String name) ; ("def_pos", json_of_pos def_pos) ;
-                ("typeable", `Bool true) ; ("type", `String typ) ; ("time", `Float time)]
-              in
-              typ::res
+            | TSuccess (lst,time) ->
+              let res = ref res in
+              lst |> List.iter (fun (v,t)->
+                let name = Parsing.Variable.Variable.get_name v |> Option.get in
+                let def_pos = Parsing.Variable.Variable.get_locations v |> List.hd in
+                let typ = Format.asprintf "%a" Types.TyScheme.pp_short t in
+                let typ =
+                  `Assoc [("name", `String name) ; ("def_pos", json_of_pos def_pos) ;
+                  ("typeable", `Bool true) ; ("type", `String typ) ; ("time", `Float time)]
+                in
+                res := typ::!res
+              ) ;
+              !res
             in
             if Js.Opt.test callback then (
               let intermediate_answer = ok_answer res |> to_string |> Js.string in

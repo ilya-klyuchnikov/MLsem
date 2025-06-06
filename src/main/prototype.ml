@@ -12,11 +12,13 @@ let () =
             List.fold_left (fun acc e ->
                 let acc, res = treat acc e in
                 match res with
-                | TSuccess (v, t, time) ->
-                    Format.printf "@{<blue;bold>%s@}: %!"
-                        (Parsing.Variable.Variable.get_name v |> Option.get) ;
-                    Format.printf "%a @{<italic;yellow>(checked in %.00fms)@}\n%!"
-                        Types.TyScheme.pp_short t time ;
+                | TSuccess (lst, time) ->
+                    lst |> List.iter (fun (v,t) ->
+                        Format.printf "@{<blue;bold>%s@}: %!"
+                            (Parsing.Variable.Variable.get_name v |> Option.get) ;
+                        Format.printf "%a @{<italic;yellow>(checked in %.00fms)@}\n%!"
+                            Types.TyScheme.pp_short t time ;
+                    ) ;
                     acc
                 | TFailure (Some v, _, msg, time) ->
                     Format.printf "@{<blue;bold>%s@}: %!"
