@@ -110,13 +110,21 @@ let test_map x =
 abstract type arr('a)
 let set_arr = <arr('a) -> int -> 'a -> ()>
 let get_arr = <arr('a) -> int -> 'a>
-let mk_arr = <int -> arr('a)>
+let mk_arr = <() -> arr('a)>
 let push_arr = <arr('a) -> 'a -> ()>
 let filter_arr (f:('a -> any) & ('b -> ~true)) (arr:arr('a|'b)) =
-  let res = mk_arr 0 in
+  let res = mk_arr () in
   let e = get_arr arr 0 in (* TODO: loops, if statements with no else, sequence *)
   let () = if f e then push_arr res e else () in
   res
+
+(* val test_arr : 'a -> arr('a | 'b) *)
+let test_arr x = (* TODO: could we simplify the infered type? *)
+  let arr = mk_arr () in
+  let () = push_arr arr true in
+  let () = push_arr arr x in
+  let () = push_arr arr false in
+  filter_arr (fun x -> if x is int then true else false) arr
 
 #value_restriction = false
 
