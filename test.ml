@@ -83,9 +83,9 @@ let ref = <'a -> ref('a)>
 let set = <ref('a) -> 'a -> ()>
 let get = <ref('a) -> 'a>
 
-let test_ref = ref 42
 val test_ref : ref(int)
 let test_ref = ref 42
+let test_ref2 = ref 42
 let mutate_ref x =
   let y = ref x in
   let () = set y 42 in
@@ -119,7 +119,7 @@ let filter_arr (f:('a -> any) & ('b -> ~true)) (arr:arr('a|'b)) =
   res
 
 (* val test_arr : 'a -> arr('a | 'b) *)
-let test_arr x = (* TODO: could we simplify the infered type? *)
+let test_arr x =
   let arr = mk_arr () in
   let () = push_arr arr true in
   let () = push_arr arr x in
