@@ -41,6 +41,7 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Var of 'v
 | Atom of 'ato
 | Tag of 'tag * ('a, 'typ, 'ato, 'tag, 'v) t
+| Suggest of 'v * 'typ list * ('a, 'typ, 'ato, 'tag, 'v) t
 | Lambda of 'v * 'typ lambda_annot * ('a, 'typ, 'ato, 'tag, 'v) t
 | LambdaRec of ('v * 'typ option * ('a, 'typ, 'ato, 'tag, 'v) t) list
 | Ite of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t

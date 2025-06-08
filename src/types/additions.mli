@@ -52,6 +52,7 @@ val get_tag : type_env -> string -> tag
 
 (* Operations on types *)
 
+val partition : typ list -> typ list
 val is_test_type : typ -> bool
 
 val branch_type : (typ*typ) list -> typ

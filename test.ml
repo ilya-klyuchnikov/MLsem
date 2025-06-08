@@ -181,9 +181,14 @@ let lor = fun a -> fun b ->
 let land = fun a -> fun b ->
   if a is true then if b is false then false else true else false
 
-(* TODO: fix partition perf *)
-(* let tautology = fun x -> fun y ->
-  if land (lor x (lnot x)) (lor (lnot y) y) then true else false *)
+let tautology = fun x -> fun y ->
+  if land (lor x (lnot x)) (lor (lnot y) y) then true else false
+
+let tautology_ann = fun (x:any) -> fun (y:any) ->
+  if land (lor x (lnot x)) (lor (lnot y) y) then true else false
+
+let test_many_params a b c d e f =
+  if (a,b,c,d,e,f) is (int,bool,int,bool,int,bool) then (a,b,c,d,e,f) else false
 
 (* ============== RECURSIVE ============= *)
 

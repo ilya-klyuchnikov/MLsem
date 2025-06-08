@@ -51,6 +51,7 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Var of 'v
 | Atom of 'ato
 | Tag of 'tag * ('a, 'typ, 'ato, 'tag, 'v) t
+| Suggest of 'v * 'typ list * ('a, 'typ, 'ato, 'tag, 'v) t
 | Lambda of 'v * 'typ lambda_annot * ('a, 'typ, 'ato, 'tag, 'v) t
 | LambdaRec of ('v * 'typ option * ('a, 'typ, 'ato, 'tag, 'v) t) list
 | Ite of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
@@ -97,18 +98,24 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
             Some ty, vtenv
     in
+    let aux_var env str =
+        if StrMap.mem str env
+        then StrMap.find str env
+        else raise (SymbolError ("undefined symbol "^str))
+    in
     let rec aux vtenv env ((exprid,pos),e) =
         let e = match e with
         | Abstract t ->
             let (t, _) = type_expr_to_typ tenv vtenv t in
             Abstract t
         | Const c -> Const c
-        | Var str ->
-            if StrMap.mem str env
-            then Var (StrMap.find str env)
-            else raise (SymbolError ("undefined symbol "^str))
+        | Var str -> Var (aux_var env str)
         | Atom str -> Atom (get_atom tenv str)
         | Tag (str, e) -> Tag (get_tag tenv str, aux vtenv env e)
+        | Suggest (str,tys,e) ->
+            let tys, vtenv = type_exprs_to_typs tenv vtenv tys in
+            let var = aux_var env str in
+            Suggest (var, tys, aux vtenv env e)
         | Lambda (str,da,e) ->
             let da, vtenv = aux_a da vtenv in
             let var = Variable.create_lambda (Some str) in

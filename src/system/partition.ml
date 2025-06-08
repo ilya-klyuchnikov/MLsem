@@ -52,7 +52,11 @@ let rec constr env renv (_,e) =
   | TypeConstr (e, _) -> constr env renv e
   | TypeCoerce (_, ty) -> [], ty
 
+(* let size e =
+  Ast.fold (fun _ lst -> List.fold_left (+) 1 lst) e *)
+
 let refine env renv e t =
+  (* if size e <= 1 then *)
   let cs, s = constr env renv e in
   let cs = (s, t)::cs in
   let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
@@ -68,19 +72,7 @@ let refine env renv e t =
     then Some renv'
     else None
   )
-
-let partition ts =
-  let cap_if_nonempty t t' =
-    let s = cap t t' in
-    if is_empty s then t else s
-  in
-  let rec aux t =
-    if is_empty t then []
-    else
-      let s = List.fold_left cap_if_nonempty t ts in
-      s::(aux (diff t s))
-  in
-  aux any
+  (* else [] *)
 
 let typeof env (_,e) =
   match e with
@@ -142,7 +134,7 @@ let rec infer env renv (id,e) =
     let renv' = REnv.add v (TVar.mk None |> TVar.typ) renv in
     let e2, renvs2 = infer env' renv' e2 in
     let part = renvs2 |> List.map (REnv.find v) in
-    let part = partition (part@tys) in
+    let part = Types.Additions.partition (part@tys) in
     let renvs2 = List.map (REnv.rm v) renvs2 in
     let renvs = part |> List.map (fun s -> refine env renv e1 (neg s)) in
     Let (part, v, e1, e2), [renvs1 ; renvs2]@renvs |> List.flatten

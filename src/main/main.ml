@@ -31,7 +31,7 @@ let sigs_of_ty mono ty =
     Some (sigs, TyScheme.mk_poly_except mono ty)
   else None
 let infer var env e =
-  let e = Partition.infer env e in
+  (* let e = Partition.infer env e in *)
   let annot =
     match Reconstruction.infer env e with
     | None ->
