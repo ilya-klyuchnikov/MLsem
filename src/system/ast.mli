@@ -1,6 +1,7 @@
 open Parsing
 open Variable
 open Types.Base
+open Types.Tvar
 
 type e =
 | Abstract of typ
@@ -24,6 +25,7 @@ and t = Ast.exprid * e
 val map : (t -> t) -> t -> t
 val fold : (t -> 'a list -> 'a) -> t -> 'a
 val fv : t -> VarSet.t
+val apply_subst : Subst.t -> t -> t
 val from_parser_ast : Ast.expr -> t
 val coerce : typ -> t -> t
 

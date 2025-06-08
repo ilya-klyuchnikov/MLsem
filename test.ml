@@ -25,7 +25,7 @@ let filter_sig (f : ('a->any) & ('b -> ~true)) l =
   | [] -> []
   | e::l ->
     if f e is true
-    then (suggest e is ~'a in e::(filter_sig f l))
+    then (suggest e is ~'b in e::(filter_sig f l))
     else filter_sig f l
   end
 

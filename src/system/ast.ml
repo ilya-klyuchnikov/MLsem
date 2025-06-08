@@ -87,6 +87,20 @@ let substitute' v v' (id,e) =
   (id,e)
 let substitute v v' e = map (substitute' v v') e
 
+let apply_subst s e =
+  let aux (id,e) =
+    let e = match e with
+    (* Ite and TypeConstr should not contain type variables *)
+    | Abstract t -> Abstract (Subst.apply s t)
+    | Lambda (ty,v,e) -> Lambda (Subst.apply s ty,v,e)
+    | LambdaRec lst -> LambdaRec (List.map (fun (ty,v,e) -> (Subst.apply s ty, v, e)) lst)
+    | Let (ts, v, e1, e2) -> Let (List.map (Subst.apply s) ts, v, e1, e2)
+    | TypeCoerce (e, ty) -> TypeCoerce (e, Subst.apply s ty)
+    | e -> e
+    in id,e
+  in
+  map aux e
+
 (* Conversion *)
 
 let rec type_of_pat pat =
@@ -243,14 +257,18 @@ let from_parser_ast t =
   aux t
 
 let rec coerce ty (id,t) =
-  match t with
+  try match t with
   | Let (tys, v, e1, e2) ->
     id, Let (tys, v, e1, coerce ty e2)
-  | Lambda (_,v,e) ->
+  | Lambda (da,v,e) ->
     let d = domain ty in
     let cd = apply ty d in
-    (* TODO *)
-    if equiv ty (mk_arrow d cd)
-    then id, Lambda (d, v, coerce cd e)
-    else Ast.unique_exprid (), TypeCoerce ((id,t), ty)
-  | t -> Ast.unique_exprid (), TypeCoerce ((id,t), ty)
+    if equiv ty (mk_arrow d cd) |> not then raise Exit ;
+    begin match tallying (vars ty) [(d,da) ; (da,d)] with
+    | [] -> raise Exit
+    | s::_ ->
+      let e = apply_subst s e in
+      id, Lambda (d, v, coerce cd e)
+    end
+  | _ -> raise Exit
+  with Exit -> Ast.unique_exprid (), TypeCoerce ((id,t), ty)
