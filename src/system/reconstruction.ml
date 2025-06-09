@@ -97,8 +97,7 @@ let rec infer cache env annot (id, e) =
   match e, annot with
   | _, A a -> Ok (a, Checker.typeof env a (id, e))
   | _, Untyp -> Fail
-  (* TODO: Abstract may contain unresolved type vars... *)
-  | Abstract _, Infer -> retry_with (nc Annot.AAbstract)
+  | Abstract ty, Infer -> retry_with (nc (Annot.AAbstract ty))
   | Const _, Infer -> retry_with (nc Annot.AConst)
   | Var v, Infer when Env.mem v env ->
     let (tvs,_) = Env.find v env |> TyScheme.get in

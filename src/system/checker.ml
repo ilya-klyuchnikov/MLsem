@@ -77,7 +77,7 @@ let generalize ~e env s =
 let rec typeof' env annot (id,e) =
   let open Annot in
   match e, annot with
-  | Abstract ty, AAbstract -> ty
+  | Abstract _, AAbstract ty -> ty
   | Const c, AConst -> typeof_const c
   | Var v, AAx s ->
     if Env.mem v env then begin
