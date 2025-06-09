@@ -172,6 +172,7 @@ let rec def_of_var_pat pat v e =
   | PatAssign _ -> assert false
   | PatType _ -> assert false
 
+(* TODO : this encoding will not partition correctly... (cf. "match_pair" example) *)
 let encode_pattern_matching id e pats =
   let x = Variable.create_let None in
   let ex : Ast.expr = (Ast.unique_exprid (), Var x) in
@@ -195,7 +196,7 @@ let encode_pattern_matching id e pats =
   | (_, e')::pats -> List.fold_left add_branch e' pats
   in
   let def = (Ast.unique_exprid (), Ast.TypeConstr (e, t)) in
-  (* let body = (Ast.unique_exprid (), Ast.Suggest (x, ts, body)) in *)
+  let body = (Ast.unique_exprid (), Ast.Suggest (x, ts, body)) in
   (id, Ast.Let (x, def, body))
 
 let from_parser_ast t =
@@ -236,9 +237,6 @@ let from_parser_ast t =
     | Ast.LambdaRec lst ->
       let aux (x,a,e) = (lambda_annot x a, x, aux e) in
       LambdaRec (List.map aux lst)
-    | Ast.Ite ((id',Ast.Var x),t,e1,e2) ->
-      add_parts x [t; neg t] ;
-      Ite (aux (id',Ast.Var x), t, aux e1, aux e2)
     | Ast.Ite (e,t,e1,e2) -> Ite (aux e, t, aux e1, aux e2)
     | Ast.App (e1,e2) -> App (aux e1, aux e2)
     | Ast.Let (x, e1, e2) -> let_binding x (aux e1) (aux e2)
