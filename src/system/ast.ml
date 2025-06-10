@@ -251,11 +251,16 @@ let from_parser_ast t =
     | Ast.Cond (e,t,e1,Some e2) -> ControlFlow (CfCond, aux e, t, aux e1, aux e2)
     | Ast.While (e,t,e1) ->
       ControlFlow (CfWhile, aux e, t, aux e1, (Ast.unique_exprid (), Const Unit))
-    | Ast.Seq (e1, e2) -> Let ([any], Variable.create_let None, aux e1, aux e2)
+    | Ast.Seq es ->
+      let seq e1 e2 = Ast.unique_exprid (), Let ([any], Variable.create_let None, e1, aux e2) in
+      begin match es with
+      | [] -> assert false
+      | [e] -> aux_e e
+      | e::es -> List.fold_left seq (aux e) es |> snd
+      end
   and aux t =
     let e = aux_e t in
-    let (id, _) = t in
-    (id,e)
+    (fst t,e)
   in
   aux t
 

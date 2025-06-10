@@ -137,7 +137,7 @@ variance:
 | IS t=typ { t }
 
 term:
-  t=simple_term { t }
+  t=simple_terms { t }
 | FUN ais=parameter+ ARROW t = term { abstraction $startpos $endpos ais t }
 | LET id=generalized_identifier ais=parameter* EQUAL td=term IN t=term
   {
@@ -152,7 +152,10 @@ term:
 | IF t=term ott=optional_test_type DO t1=term ELSE t2=term END { annot $startpos $endpos (Cond (t,ott,t1,Some t2)) }
 | WHILE t=term ott=optional_test_type DO t1=term END { annot $startpos $endpos (While (t,ott,t1)) }
 | MATCH t=term WITH pats=patterns END { annot $startpos $endpos (PatMatch (t,pats)) }
-| hd=simple_term COMMA tl=separated_nonempty_list(COMMA, simple_term) { annot $startpos $endpos (Tuple (hd::tl)) }
+| hd=simple_terms COMMA tl=separated_nonempty_list(COMMA, simple_terms) { annot $startpos $endpos (Tuple (hd::tl)) }
+
+simple_terms:
+| ts=separated_nonempty_list(SEMICOLON, simple_term) { annot $startpos $endpos (Seq ts) }
 
 simple_term:
   a=simple_term_nocons { a }
@@ -192,7 +195,7 @@ atomic_term:
 | LPAREN t=term COERCE ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,ty)) }
 | LBRACE obr=optional_base_record fs=separated_list(SEMICOLON, field_term) RBRACE
 { record_update $startpos $endpos obr fs }
-| LBRACKET lst=separated_list(SEMICOLON, term) RBRACKET
+| LBRACKET lst=separated_list(SEMICOLON, simple_term) RBRACKET
 { list_of_elts $startpos $endpos lst }
 
 %inline optional_base_record:

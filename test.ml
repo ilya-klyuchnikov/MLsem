@@ -114,7 +114,7 @@ let mk_arr = <() -> arr('a)>
 let push_arr = <arr('a) -> 'a -> ()>
 let filter_arr (f:('a -> any) & ('b -> ~true)) (arr:arr('a|'b)) =
   let res = mk_arr () in
-  let e = get_arr arr 0 in (* TODO: loops, if statements with no else, sequence *)
+  let e = get_arr arr 0 in
   let () = if f e then push_arr res e else () in
   res
 
