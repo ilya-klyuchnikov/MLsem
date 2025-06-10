@@ -192,7 +192,7 @@ let encode_pattern_matching id e pats =
   let pats = pats |> List.map (fun (pat, e') ->
     (type_of_pat pat, body_of_pat pat e')) |> List.rev in
   let body = match pats with
-  | [] -> assert false 
+  | [] -> assert false
   | (_, e')::pats -> List.fold_left add_branch e' pats
   in
   let def = (Ast.unique_exprid (), Ast.TypeConstr (e, t)) in

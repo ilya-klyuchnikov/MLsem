@@ -269,6 +269,8 @@ let create l x d r =
   let hr = height r in
   (l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
 
+(* #type_narrowing = false *)
+
 val bal : t('a) -> Key -> 'a -> t('a) -> t('a)
 let bal l x d r =
 (* let bal (l:t('a)) (x: Key) (d:'a) (r:t('a)) : t('a) = *)

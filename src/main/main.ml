@@ -33,7 +33,7 @@ let sigs_of_ty mono ty =
 let infer var env e =
   (* let e = Partition.infer env e in *)
   let annot =
-    let e = Partition.refine_partitions env e in
+    let e = if !Config.type_narrowing then Partition.refine_partitions env e else e in
     match Reconstruction.infer env e with
     | None ->
       (* Format.printf "@.@.%a@.@." System.Ast.pp e ; *)
@@ -142,6 +142,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       begin match str, c with
       | "log", Int i -> Config.log_level := Z.to_int i
       | "value_restriction", Bool b -> Config.value_restriction := b
+      | "type_narrowing", Bool b -> Config.type_narrowing := b
       | _ -> failwith ("Invalid command "^str)
       end ;
       (tenv,varm,senv,env), TDone
