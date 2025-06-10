@@ -107,6 +107,13 @@ let rec typeof' env annot (id,e) =
     let t1 = typeof_b env b1 e1 s tau in
     let t2 = typeof_b env b2 e2 s (neg tau) in
     cup t1 t2
+  | ControlFlow (_, e, tau, e1, e2), ACf (annot, b1, b2) ->
+    let s = typeof env annot e in
+    let t1 = typeof_b env b1 e1 s tau in
+    let t2 = typeof_b env b2 e2 s (neg tau) in
+    if subtype t1 unit_typ && subtype t2 unit_typ
+    then unit_typ
+    else untypeable id "Invalid control flow: branches should have unit type."
   | App (e1, e2), AApp (annot1, annot2) ->
     let t1 = typeof env annot1 e1 in
     let t2 = typeof env annot2 e2 in

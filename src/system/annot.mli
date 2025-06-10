@@ -16,6 +16,7 @@ module Annot : sig
   | AUpdate of t * t option
   | ATuple of t list
   | AIte of t * branch * branch
+  | ACf of t * branch * branch
   | ALambda of typ * t
   | ALambdaRec of (typ * t) list
   | AInter of inter
@@ -43,6 +44,7 @@ module IAnnot : sig
   | AUpdate of t * t option
   | ATuple of t list
   | AIte of t * branch * branch
+  | ACf of t * branch * branch
   | ALambda of typ * t
   | ALambdaRec of (typ * t) list
   | AInter of inter

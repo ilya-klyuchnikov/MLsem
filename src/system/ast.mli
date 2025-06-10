@@ -3,6 +3,8 @@ open Variable
 open Types.Base
 open Types.Tvar
 
+type cf = CfWhile | CfCond
+
 type e =
 | Abstract of typ
 | Const of Ast.const
@@ -20,6 +22,7 @@ type e =
 | Let of (typ list) * Variable.t * t * t
 | TypeConstr of t * typ
 | TypeCoerce of t * typ
+| ControlFlow of cf * t * typ * t * t
 and t = Ast.exprid * e
 
 val map : (t -> t) -> t -> t
@@ -31,5 +34,7 @@ val coerce : typ -> t -> t
 
 val pp : Format.formatter -> t -> unit
 val pp_e : Format.formatter -> e -> unit
+val pp_cf : Format.formatter -> cf -> unit
 val show : t -> string
 val show_e : e -> string
+val show_cf : cf -> string

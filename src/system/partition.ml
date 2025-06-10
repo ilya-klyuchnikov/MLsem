@@ -28,7 +28,8 @@ let rec refine env (_,e) t =
   | Abstract s when subtype s t -> [REnv.empty]
   | Const c when subtype (Checker.typeof_const c) t -> [REnv.empty]
   | Atom a when subtype (mk_atom a) t -> [REnv.empty]
-  | Abstract _ | Const _ | Atom _ | TypeCoerce _ -> []
+  | ControlFlow _ when subtype unit_typ t -> [REnv.empty]
+  | Abstract _ | Const _ | Atom _ | TypeCoerce _ | ControlFlow _ -> []
   | Tag (tag, e) -> refine env e (destruct_tag tag t)
   | Tuple es ->
     tuple_dnf (List.length es) t
@@ -117,6 +118,9 @@ let refine_partitions env e =
     | Ite (e, tau, e1, e2) ->
       refine env e tau ; refine env e (neg tau) ;
       Ite (aux env e, tau, aux env e1, aux env e2)
+    | ControlFlow (cf, e, tau, e1, e2) ->
+      refine env e tau ; refine env e (neg tau) ;
+      ControlFlow (cf, aux env e, tau, aux env e1, aux env e2)
     | App (e1, e2) -> App (aux env e1, aux env e2)
     | Tuple es -> Tuple (List.map (aux env) es)
     | Cons (e1, e2) -> Cons (aux env e1, aux env e2)

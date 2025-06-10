@@ -4,6 +4,9 @@ open Types.Base
 open Types.Tvar
 open Env
 
+type cf = CfWhile | CfCond
+[@@deriving show]
+
 type e =
 | Abstract of typ
 | Const of Ast.const
@@ -21,6 +24,7 @@ type e =
 | Let of (typ list) * Variable.t * t * t
 | TypeConstr of t * typ
 | TypeCoerce of t * typ
+| ControlFlow of cf * t * typ * t * t
 [@@deriving show]
 and t = Ast.exprid * e
 [@@deriving show]
@@ -45,6 +49,7 @@ let map f =
       | Let (ta, v, e1, e2) -> Let (ta, v, aux e1, aux e2)
       | TypeConstr (e, ty) -> TypeConstr (aux e, ty)
       | TypeCoerce (e, ty) -> TypeCoerce (aux e, ty)
+      | ControlFlow (cf, e, t, e1, e2) -> ControlFlow (cf, aux e, t, aux e1, aux e2)
     in
     f (id,e)
   in
@@ -56,7 +61,7 @@ let fold f =
     | Abstract _ | Const _ | Var _ | Atom _ -> []
     | Tag (_, e) | Lambda (_,_, e) | Projection (_, e)
     | RecordUpdate (e, _, None) | TypeConstr (e,_) | TypeCoerce (e,_) -> [e]
-    | Ite (e,_,e1,e2) -> [e ; e1 ; e2]
+    | Ite (e,_,e1,e2) | ControlFlow (_, e, _, e1, e2) -> [e ; e1 ; e2]
     | LambdaRec lst -> lst |> List.map (fun (_,_,e) -> e)
     | App (e1,e2) | Cons (e1,e2)
     | RecordUpdate (e1,_,Some e2) | Let (_,_,e1,e2) -> [e1 ; e2]
@@ -70,7 +75,7 @@ let fold f =
 let fv' (_,e) accs =
   let acc = List.fold_left VarSet.union VarSet.empty accs in
   match e with
-  | Abstract _ | Const _ | Atom _ | Tag _ | Ite _
+  | Abstract _ | Const _ | Atom _ | Tag _ | Ite _ | ControlFlow _
   | App _ | Tuple _ | Cons _ | Projection _
   | RecordUpdate _ | TypeConstr _ | TypeCoerce _ -> acc
   | Var v -> VarSet.add v acc

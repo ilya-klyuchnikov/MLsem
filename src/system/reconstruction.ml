@@ -63,7 +63,7 @@ let reduce_parts tvs s parts =
   let mono, s = TyScheme.mk tvs s |> TyScheme.get_fresh in
   let mono = TVarSet.filter TVar.from_user mono in
   (* The first time, we merge parts that will already be discriminated by future tallying instances *)
-  let rec aux parts =
+  let rec aux parts = (* TODO: optimisation not compatible with ControlFlow *)
     match parts with
     | (a,Infer)::(b,Infer)::parts ->
       let mono = TVarSet.union mono (vars a) in
@@ -110,6 +110,8 @@ let nc a = IAnnot.A (Annot.nc a)
 let rec infer cache env annot (id, e) =
   let open IAnnot in
   let retry_with a = infer cache env a (id, e) in
+  let to_i =
+    (function Annot.BSkip -> IAnnot.BSkip | Annot.BType a -> IAnnot.BType (A a)) in
   let empty_cov = (id, REnv.empty) in
   match e, annot with
   | _, A a -> Ok (a, Checker.typeof env a (id, e))
@@ -157,8 +159,6 @@ let rec infer cache env annot (id, e) =
     end
   | Ite _, Infer -> retry_with (AIte (Infer, BInfer, BInfer))
   | Ite (e0,tau,e1,e2), AIte (a0,a1,a2) ->
-    let to_i =
-      (function Annot.BSkip -> IAnnot.BSkip | Annot.BType a -> IAnnot.BType (A a)) in
     begin match infer' cache env a0 e0 with
     | Fail -> Fail
     | Subst (ss,a,a',r) -> Subst (ss,AIte (a,a1,a2),AIte (a',a1,a2),r)
@@ -173,6 +173,25 @@ let rec infer cache env annot (id, e) =
         | Subst (ss, a2, a2',r) ->
           Subst (ss, AIte(A a0,to_i a1,a2), AIte(A a0,to_i a1,a2'),r)
         | Ok (a2,_) -> retry_with (nc (Annot.AIte(a0,a1,a2)))
+        end  
+      end
+    end
+  | ControlFlow _, Infer -> retry_with (ACf (Infer, BInfer, BInfer))
+  | ControlFlow (_,e0,tau,e1,e2), ACf (a0,a1,a2) ->
+    begin match infer' cache env a0 e0 with
+    | Fail -> Fail
+    | Subst (ss,a,a',r) -> Subst (ss,ACf (a,a1,a2),ACf (a',a1,a2),r)
+    | Ok (a0, s) ->
+      begin match infer_cf_b' cache env a1 e1 s tau with
+      | Fail -> Fail
+      | Subst (ss, a1, a1',r) ->
+        Subst (ss, ACf(A a0,a1,a2), ACf(A a0,a1',a2),r)
+      | Ok (a1,_) ->
+        begin match infer_cf_b' cache env a2 e2 s (neg tau) with
+        | Fail -> Fail
+        | Subst (ss, a2, a2',r) ->
+          Subst (ss, ACf(A a0,to_i a1,a2), ACf(A a0,to_i a1,a2'),r)
+        | Ok (a2,_) -> retry_with (nc (Annot.ACf(a0,a1,a2)))
         end  
       end
     end
@@ -340,6 +359,21 @@ and infer_b' cache env bannot e s tau =
   | IAnnot.BType annot ->
     begin match infer' cache env annot e with
     | Ok (a, ty) -> Ok (Annot.BType a, ty)
+    | Subst (ss,a1,a2,r) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2,r)
+    | Fail -> Fail
+    end
+and infer_cf_b' cache env bannot e s tau =
+  let retry_with bannot = infer_cf_b' cache env bannot e s tau in
+  match bannot with
+  | IAnnot.BInfer ->
+    if subtype s (neg tau)
+    then retry_with (IAnnot.BSkip)
+    else retry_with (IAnnot.BType Infer)
+  | IAnnot.BSkip -> Ok (Annot.BSkip, empty)
+  | IAnnot.BType annot ->
+    begin match infer' cache env annot e with
+    | Ok (a, ty) when subtype ty unit_typ -> Ok (Annot.BType a, ty)
+    | Ok _ -> Fail
     | Subst (ss,a1,a2,r) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2,r)
     | Fail -> Fail
     end

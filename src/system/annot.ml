@@ -19,6 +19,7 @@ module Annot = struct
   | AUpdate of t * t option
   | ATuple of t list
   | AIte of t * branch * branch
+  | ACf of t * branch * branch
   | ALambda of typ * t
   | ALambdaRec of (typ * t) list
   | AInter of inter
@@ -41,6 +42,7 @@ module Annot = struct
       | AUpdate (t, ot) -> AUpdate (aux t, Option.map aux ot)
       | ATuple ts -> ATuple (List.map aux ts)
       | AIte (t,b1,b2) -> AIte (aux t, aux_b b1, aux_b b2)
+      | ACf (t,b1,b2) -> ACf (aux t, aux_b b1, aux_b b2)
       | ALambda (ty, t) -> ALambda (Subst.apply s ty, aux t)
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (Subst.apply s ty, aux t)) lst)
       | AInter ts -> AInter (List.map aux ts)
@@ -74,6 +76,7 @@ module IAnnot = struct
   | AUpdate of t * t option
   | ATuple of t list
   | AIte of t * branch * branch
+  | ACf of t * branch * branch
   | ALambda of typ * t
   | ALambdaRec of (typ * t) list
   | AInter of inter
@@ -94,6 +97,7 @@ module IAnnot = struct
       | AUpdate (t, ot) -> AUpdate (aux t, Option.map aux ot)
       | ATuple ts -> ATuple (List.map aux ts)
       | AIte (t,b1,b2) -> AIte (aux t, aux_b b1, aux_b b2)
+      | ACf (t,b1,b2) -> ACf (aux t, aux_b b1, aux_b b2)
       | ALambda (ty, t) -> ALambda (Subst.apply s ty, aux t)
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (Subst.apply s ty, aux t)) lst)
       | AInter bs -> AInter (List.map aux_ib bs)
