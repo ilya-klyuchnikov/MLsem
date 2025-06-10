@@ -64,6 +64,8 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | TypeConstr of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ
 | TypeCoerce of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ
 | PatMatch of ('a, 'typ, 'ato, 'tag, 'v) t * (('a, 'typ, 'tag, 'v) pattern * ('a, 'typ, 'ato, 'tag, 'v) t) list
+| Cond of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t option
+| While of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t
 [@@deriving ord]
 
 and ('a, 'typ, 'ato, 'tag, 'v) t = 'a * ('a, 'typ, 'ato, 'tag, 'v) ast
@@ -97,6 +99,12 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         | Some ty ->
             let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
             Some ty, vtenv
+    in
+    let aux_cond tenv vtenv t =
+        let (t, vtenv) = type_expr_to_typ tenv vtenv t in
+        if is_test_type t
+        then (t, vtenv)
+        else raise (SymbolError ("typecases should use test types"))
     in
     let aux_var env str =
         if StrMap.mem str env
@@ -132,10 +140,8 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             in 
             LambdaRec (List.map aux lst)
         | Ite (e, t, e1, e2) ->
-            let (t, vtenv) = type_expr_to_typ tenv vtenv t in
-            if is_test_type t
-            then Ite (aux vtenv env e, t, aux vtenv env e1, aux vtenv env e2)
-            else raise (SymbolError ("typecases should use test types"))
+            let (t, vtenv) = aux_cond tenv vtenv t in
+            Ite (aux vtenv env e, t, aux vtenv env e1, aux vtenv env e2)
         | App (e1, e2) -> App (aux vtenv env e1, aux vtenv env e2)
         | Let (str, e1, e2) ->
             let var = Variable.create_let (Some str) in
@@ -159,6 +165,12 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             TypeCoerce (aux vtenv env e, ty)
         | PatMatch (e, pats) ->
             PatMatch (aux vtenv env e, List.map (aux_pat pos vtenv env) pats)
+        | Cond (e, t, e1, e2) ->
+            let (t, vtenv) = aux_cond tenv vtenv t in
+            Cond (aux vtenv env e, t, aux vtenv env e1, Option.map (aux vtenv env) e2)
+        | While (e, t, e') ->
+            let (t, vtenv) = aux_cond tenv vtenv t in
+            While (aux vtenv env e, t, aux vtenv env e')
         in
         (exprid,e)
     and aux_pat pos vtenv env (pat, e) =

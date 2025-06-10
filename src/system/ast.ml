@@ -241,6 +241,8 @@ let from_parser_ast t =
     | Ast.TypeConstr (e, ty) -> TypeConstr (aux e, ty)
     | Ast.TypeCoerce (e, ty) -> TypeCoerce (aux e, ty)
     | Ast.PatMatch (e, pats) -> encode_pattern_matching id e pats |> aux_e
+    | Ast.Cond _ -> failwith "TODO"
+    | Ast.While _ -> failwith "TODO"
   and aux t =
     let e = aux_e t in
     let (id, _) = t in

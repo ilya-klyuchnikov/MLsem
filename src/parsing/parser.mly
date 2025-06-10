@@ -73,7 +73,7 @@
 
 %token EOF
 %token FUN VAL LET IN FST SND HD TL HASHTAG SUGGEST
-%token IF IS THEN ELSE
+%token IF IS THEN ELSE WHILE DO
 %token LPAREN RPAREN EQUAL COMMA CONS COLON COLON_OPT COERCE INTERROGATION_MARK EXCLAMATION_MARK
 %token ARROW AND OR NEG DIFF
 %token TIMES PLUS MINUS DIV
@@ -148,6 +148,9 @@ term:
 | SUGGEST id=generalized_identifier IS tys=separated_nonempty_list(OR_KW, typ) IN t=term
 { annot $startpos $endpos (Suggest (id, tys, t)) }
 | IF t=term ott=optional_test_type THEN t1=term ELSE t2=term { annot $startpos $endpos (Ite (t,ott,t1,t2)) }
+| IF t=term ott=optional_test_type DO t1=term END { annot $startpos $endpos (Cond (t,ott,t1,None)) }
+| IF t=term ott=optional_test_type DO t1=term ELSE t2=term END { annot $startpos $endpos (Cond (t,ott,t1,Some t2)) }
+| WHILE t=term ott=optional_test_type DO t1=term END { annot $startpos $endpos (While (t,ott,t1)) }
 | MATCH t=term WITH pats=patterns END { annot $startpos $endpos (PatMatch (t,pats)) }
 | hd=simple_term COMMA tl=separated_nonempty_list(COMMA, simple_term) { annot $startpos $endpos (Tuple (hd::tl)) }
 

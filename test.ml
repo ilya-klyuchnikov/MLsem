@@ -196,6 +196,7 @@ let test_many_params_ann2 (a:'a) (b:'b) (c:'c) (d:'d) (e:'e) (f:'f) =
   if (a,b,c,d,e,f) is (int,bool,int,bool,int,bool) then (a,b,c,d,e,f) else false
 
 let test_many_params a b c d e f =
+  (* TODO: have a more optimized partitioning system to avoid exploring 2^6 branches *)
   if (a,b,c,d,e,f) is (int,bool,int,bool,int,bool) then (a,b,c,d,e,f) else false
 
 let match_pair (x:any) (y:any) =

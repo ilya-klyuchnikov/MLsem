@@ -73,6 +73,8 @@ rule token = parse
 | "is"    { IS }
 | "then"  { THEN }
 | "else"  { ELSE }
+| "while" { WHILE }
+| "do"    { DO }
 | "match" { MATCH }
 | "with"  { WITH }
 | "end"   { END }
