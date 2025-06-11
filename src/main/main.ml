@@ -12,7 +12,7 @@ type def = Variable.t * Ast.expr * typ option
 
 exception IncompatibleType of Variable.t * TyScheme.t
 exception UnresolvedType of Variable.t * TyScheme.t
-exception Untypeable of Variable.t
+exception Untypeable of Variable.t option
 
 let sigs_of_ty mono ty =
   let rec aux ty =
@@ -50,7 +50,7 @@ let check_resolved var env typ =
 let type_check_with_sigs env (var,e,sigs,aty) =
   let e = System.Ast.from_parser_ast e in
   let es = List.map (fun s -> System.Ast.coerce s e) sigs in
-  let typs = List.map (infer var env) es in
+  let typs = List.map (infer (Some var) env) es in
   let tscap t1 t2 =
     let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
     TyScheme.mk (TVarSet.union tvs1 tvs2) (cap t1 t2)
@@ -61,20 +61,17 @@ let type_check_with_sigs env (var,e,sigs,aty) =
   var,typ
 
 let type_check_recs env lst =
-  if lst = [] then []
-  else
-    let e =
-      Parsing.Ast.unique_exprid (),
-      Parsing.Ast.LambdaRec (List.map (fun (v,e) -> (v,None,e)) lst) in
-    let e = System.Ast.from_parser_ast e in
-    let (var,_) = List.hd lst in
-    let typ = infer var env e in
-    check_resolved var env typ ;
-    let tvs, ty = TyScheme.get typ in
-    let n = List.length lst in
-    List.mapi (fun i (var,_) ->
-      (var, TyScheme.mk tvs (pi n i ty) |> TyScheme.bot_instance)
-    ) lst
+  let e =
+    Parsing.Ast.unique_exprid (),
+    Parsing.Ast.LambdaRec (List.map (fun (v,e) -> (v,None,e)) lst) in
+  let e = System.Ast.from_parser_ast e in
+  let tvs, ty = infer None env e |> TyScheme.get in
+  let n = List.length lst in
+  List.mapi (fun i (var,_) ->
+    let ty = TyScheme.mk tvs (pi n i ty) |> TyScheme.bot_instance in
+    check_resolved var env ty ;
+    (var, ty)
+  ) lst
 
 type 'a treat_result =
 | TSuccess of (Variable.t * TyScheme.t) list * float
@@ -97,9 +94,11 @@ let sigs_of_def varm senv env str =
     | Some sigs -> v, Some (sigs, Env.find v env)
     end
 
+let dummy = Variable.create_lambda (Some "_")
 let treat (tenv,varm,senv,env) (annot, elem) =
   let pos = [Position.position annot] in
   let time = Unix.gettimeofday () in
+  let v = ref dummy in
   try  
     match elem with
     | Ast.Definitions lst ->
@@ -113,6 +112,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       in
       let varm = !varm in
       let sigs, recs = List.partition_map (fun (var, e, sigs) ->
+        v := var ;
         let e = Ast.parser_expr_to_expr tenv empty_vtenv varm e in
         match sigs with
         | None -> Either.Right (var, e)
@@ -152,11 +152,12 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       let tenv = define_abstract tenv name vs in
       (tenv,varm,senv,env), TDone
   with
-  | Ast.SymbolError msg -> (tenv,varm,senv,env), TFailure (None, pos, msg, 0.0)
+  | Ast.SymbolError msg -> (tenv,varm,senv,env), TFailure (Some !v, pos, msg, 0.0)
   | TypeDefinitionError msg -> (tenv,varm,senv,env), TFailure (None, pos, msg, 0.0)
   | AlreadyDefined v ->
     (tenv,varm,senv,env), TFailure (Some v, pos, "Symbol already defined.", 0.0)
-  | Untypeable (v) ->
+  | Untypeable (v') ->
+    let v = match v' with None -> !v | Some v -> v in
     (* TODO: retrieve pos of exprid *)
     (tenv,varm,senv,env), TFailure (Some v, Variable.get_locations v,
       "annotation reconstruction failed", retrieve_time time)
