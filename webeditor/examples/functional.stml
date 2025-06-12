@@ -32,7 +32,7 @@ val not : bool -> bool
 
 let match_pair (x:any) (y:any) =
   match (x,y) with
-  | :(int, bool) -> (x + 1, lnot y)
+  | :(int, bool) -> (x + 1, not y)
   | _ -> false
   end
 
