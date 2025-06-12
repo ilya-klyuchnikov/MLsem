@@ -1,0 +1,63 @@
+
+# value_restriction = false
+
+(* === Fixpoint combinator === *)
+
+let fixpoint = fun f ->
+  let delta = fun x ->
+     f ( fun  v -> ( x x v ))
+   in delta delta
+
+val succ : int->int
+
+let fact_stub fact n =
+  if n is 0 then 1 else (fact (n-1))*n
+
+let fact = fixpoint fact_stub
+
+let length_stub length lst =
+  if lst is [] then 0 else succ (length (tl lst))
+
+let length = fixpoint length_stub
+
+let map_stub map f lst =
+  if lst is [] then []
+  else (f (hd lst))::(map f (tl lst))
+
+let map = fixpoint map_stub
+
+(* === Occurrence Typing === *)
+
+let match_pair (x:any) (y:any) =
+  match (x,y) with
+  | :(int, bool) -> (x + 1, lnot y)
+  | _ -> false
+  end
+
+(* === All Together === *)
+
+val filter : ('a->any) & ('b -> ~true) -> [('a|'b)*] -> [('a\'b)*]
+let filter f l =
+  match l with
+  | [] -> []
+  | e::l ->
+    if f e is true
+    then e::(filter_sig f l)
+    else filter_sig f l
+  end
+
+let test_filter = filter (fun x -> (x is int)) [42 ; Null ; true ; 33]
+
+val filtermap :
+    (('t -> ((true, 'u) | false), ['t*]) -> ['u*])
+  & (('t -> ((true, 'u) | bool), ['t*]) -> [('t | 'u)*])
+let filtermap (f, l) =
+    match l with
+    | [] -> []
+    | x::xs ->
+      match f x with
+      | :false -> filtermap (f, xs)
+      | :true -> x::(filtermap (f, xs))
+      | (:true, y) -> y::(filtermap (f, xs))
+    end
+  end

@@ -196,6 +196,10 @@ atomic_term:
 | LPAREN RPAREN { annot $startpos $endpos (Const Unit) }
 | LPAREN t=terms RPAREN { t }
 | BEGIN t=terms END { t }
+| LPAREN t=term IS ty=typ RPAREN {
+  let annot = annot $startpos $endpos in
+  annot (Ite (t,ty,annot (Const (Bool true)),annot (Const (Bool false))))
+  }
 | LPAREN t=term COLON ty=typ RPAREN { annot $startpos $endpos (TypeConstr (t,ty)) }
 | LPAREN t=term COERCE ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,ty)) }
 | LBRACE obr=optional_base_record fs=separated_list(SEMICOLON, field_term) RBRACE
