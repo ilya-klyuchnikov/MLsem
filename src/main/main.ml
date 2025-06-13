@@ -94,7 +94,7 @@ let sigs_of_def varm senv env str =
     | Some sigs -> v, Some (sigs, Env.find v env)
     end
 
-let dummy = Variable.create_lambda (Some "_")
+let dummy = Variable.create_gen (Some "_")
 let treat (tenv,varm,senv,env) (annot, elem) =
   let pos = [Position.position annot] in
   let time = Unix.gettimeofday () in
