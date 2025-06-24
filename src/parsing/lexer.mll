@@ -22,6 +22,7 @@ let newline = ('\010' | '\013' | "\013\010")
 let blank   = [' ' '\009' '\012']
 
 let id = ['a'-'z''_']['a'-'z''A'-'Z''0'-'9''_''\'']*
+let indexed_id = ['a'-'z''_']['a'-'z''A'-'Z''0'-'9''_''\'']*'['
 let constr_id = ['A'-'Z']['a'-'z''A'-'Z''0'-'9''_''\'']*
 let param_constr_id = ['A'-'Z']['a'-'z''A'-'Z''0'-'9''_''\'']*'('
 
@@ -40,9 +41,12 @@ let op_char =  '!' | '$' | '%' | '&' | '*' | '+' | '-' |
                '.' | '/' | ':' | ';' | '<' | '=' | '>' |
                '?' | '@' | '^' | '|' | '~'
 
-let prefix_op = ('!' | '?') op_char*
-let infix_op = ('=' | '<' | '>' | '@' | '^' | '|' | '&' | ':' | ';' | '.'
-                 '~' | '+' | '-' | '*' | '/' | '$' | '%') op_char*
+let prefix_op = ('!' | '?' | '~') op_char*
+let infix_op = ('=' | '<' | '>' | '@' | '$'
+              | '+' | '-' | '*' | '/' | '^' | '%'
+              | '&' op_char | '|' op_char ) op_char*
+let closing_op = ']' ('=' | '<' | '>' | '@' | '$') op_char*
+let indexed_op = '(' '[' (closing_op | ']') ')'
 
 rule token = parse
 | newline { enter_newline lexbuf |> token }
@@ -107,10 +111,13 @@ rule token = parse
 | "false" { LBOOL false }
 | infix_op as s  { INFIX s }
 | prefix_op as s { PREFIX s }
+| closing_op as s { CLOSING s }
+| indexed_op as s { INDEXED (String.sub s 1 ((String.length s) - 2)) }
 | '"' { read_string (Buffer.create 17) lexbuf }
 | '\'' ([^ '\'' '\\' '\010' '\013'] as c) '\'' { LCHAR c }
 | '\'' '\\' (backslash_escapes as c) '\'' { LCHAR (char_for_backslash c) }
 | id as s { ID s }
+| indexed_id as s { IID (String.sub s 0 ((String.length s) - 1)) }
 | constr_id as s { CID s }
 | param_constr_id as s { PCID (String.sub s 0 ((String.length s) - 1)) }
 | type_var as s { TVAR s }

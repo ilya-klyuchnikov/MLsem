@@ -69,6 +69,10 @@
         TBase (TTupleN (int_of_string nb))
       else
         TCustom str
+
+  let indexed_arg startpos endpos x t =
+    let x = annot startpos endpos (Var x) in
+    annot startpos endpos (Tuple [ x ; t ])
 %}
 
 %token EOF
@@ -81,14 +85,14 @@
 %token AND_KW OR_KW
 %token TYPE WHERE ABSTRACT
 %token LBRACKET RBRACKET SEMICOLON
-%token<string> ID CID PCID
+%token<string> ID IID CID PCID
 %token<string> TVAR TVAR_WEAK
 %token<float> LFLOAT
 %token<Z.t> LINT
 %token<bool> LBOOL
 %token<char> LCHAR
 %token<string> LSTRING
-%token<string> INFIX PREFIX
+%token<string> INFIX PREFIX CLOSING INDEXED
 
 %type<Ast.parser_expr> term
 %start<Ast.parser_expr> unique_term
@@ -171,6 +175,13 @@ simple_term3:
 | p=proj a=simple_term4 { annot $startpos $endpos (Projection (p, a)) }
 | a=simple_term4 s=infix_term b=simple_term4 { double_app $startpos $endpos s a b }
 | LT t=typ GT { annot $startpos $endpos (Abstract t) }
+| x=IID t=term i=CLOSING t2=simple_term4
+{
+  let arg = indexed_arg $startpos $endpos x t in
+  let f = annot $startpos $endpos (Var ("["^i)) in
+  let app = annot $startpos $endpos (App (f, arg)) in
+  annot $startpos $endpos (App (app, t2))
+}
 
 simple_term4:
   a=atomic_term { a }
@@ -189,6 +200,12 @@ prefix_term:
 
 atomic_term:
   x=generalized_identifier { annot $startpos $endpos (Var x) }
+| x=IID t=term RBRACKET
+{
+  let arg = indexed_arg $startpos $endpos x t in
+  let f = annot $startpos $endpos (Var "[]") in
+  annot $startpos $endpos (App (f, arg))
+}
 | c=CID { annot $startpos $endpos (Atom c) }
 | t=PCID a=term RPAREN { annot $startpos $endpos (Tag (t,a)) }
 | t=PCID RPAREN { annot $startpos $endpos (Tag (t,annot $startpos $endpos (Const Unit))) }
@@ -241,7 +258,11 @@ parameter:
 { (opta, arg) }
 
 generalized_identifier:
-  | x=ID | LPAREN x=prefix RPAREN | LPAREN x=infix RPAREN { x }
+  | x=ID
+  | LPAREN x=prefix RPAREN
+  | LPAREN x=infix RPAREN
+  | x=INDEXED
+  { x }
 
 infix:
   | x=INFIX {x}
@@ -257,6 +278,7 @@ prefix:
   | x=PREFIX {x}
   | INTERROGATION_MARK {"?"}
   | EXCLAMATION_MARK {"!"}
+  | NEG {"~"}
 
 (* ===== TYPES ===== *)
 
