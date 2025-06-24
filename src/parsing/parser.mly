@@ -69,16 +69,12 @@
         TBase (TTupleN (int_of_string nb))
       else
         TCustom str
-
-  let indexed_arg startpos endpos x t =
-    let x = annot startpos endpos (Var x) in
-    annot startpos endpos (Tuple [ x ; t ])
 %}
 
 %token EOF
 %token FUN VAL LET IN FST SND HD TL HASHTAG SUGGEST
 %token IF IS THEN ELSE WHILE DO BEGIN
-%token LPAREN RPAREN EQUAL COMMA CONS COLON COLON_OPT COERCE INTERROGATION_MARK EXCLAMATION_MARK
+%token LPAREN RPAREN IRPAREN EQUAL COMMA CONS COLON COLON_OPT COERCE INTERROGATION_MARK EXCLAMATION_MARK
 %token ARROW AND OR NEG DIFF
 %token TIMES PLUS MINUS DIV
 %token LBRACE RBRACE DOUBLEPOINT MATCH WITH END POINT LT GT
@@ -175,11 +171,10 @@ simple_term3:
 | p=proj a=simple_term4 { annot $startpos $endpos (Projection (p, a)) }
 | a=simple_term4 s=infix_term b=simple_term4 { double_app $startpos $endpos s a b }
 | LT t=typ GT { annot $startpos $endpos (Abstract t) }
-| x=IID t=term i=INDEXED t2=simple_term4
+| t1=indexed i=INDEXED t2=simple_term4
 {
-  let arg = indexed_arg $startpos $endpos x t in
   let f = annot $startpos $endpos (Var ("["^i)) in
-  let app = annot $startpos $endpos (App (f, arg)) in
+  let app = annot $startpos $endpos (App (f, t1)) in
   annot $startpos $endpos (App (app, t2))
 }
 
@@ -188,6 +183,10 @@ simple_term4:
 | a=atomic_term POINT id=ID { annot $startpos $endpos (Projection (Field id, a)) }
 | a=atomic_term DIFF id=ID { annot $startpos $endpos (RecordUpdate (a,id,None)) }
 | p=prefix_term a=simple_term4 { annot $startpos $endpos (App (p, a)) }
+
+%inline indexed:
+| x=IID t=term { annot $startpos $endpos (Tuple [ annot $startpos $endpos (Var x) ; t ]) }
+| LPAREN t1=terms IRPAREN t2=term { annot $startpos $endpos (Tuple [ t1 ; t2 ]) }
 
 proj:
 | FST { Pi(2,0) } | SND { Pi(2,1) } | HD { Hd } | TL { Tl }
@@ -200,11 +199,10 @@ prefix_term:
 
 atomic_term:
   x=generalized_identifier { annot $startpos $endpos (Var x) }
-| x=IID t=term RBRACKET
+| t=indexed RBRACKET
 {
-  let arg = indexed_arg $startpos $endpos x t in
   let f = annot $startpos $endpos (Var "[]") in
-  annot $startpos $endpos (App (f, arg))
+  annot $startpos $endpos (App (f, t))
 }
 | c=CID { annot $startpos $endpos (Atom c) }
 | t=PCID a=term RPAREN { annot $startpos $endpos (Tag (t,a)) }

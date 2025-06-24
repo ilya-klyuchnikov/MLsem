@@ -135,6 +135,12 @@ let test_arr x =
   push arr false ;
   filter_arr (fun x -> if x is int then true else false) arr
 
+let test_double_array =
+  let arr = array () in
+  arr[0]<- (array ()) ;
+  (arr[0])[0]<- 42 ;
+  (arr[0])[0]
+
 (* #value_restriction = false *)
 
 (* ========= TAGGED VALUES ======== *)

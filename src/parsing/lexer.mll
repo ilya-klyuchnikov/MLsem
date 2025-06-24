@@ -118,6 +118,7 @@ rule token = parse
 | '\'' '\\' (backslash_escapes as c) '\'' { LCHAR (char_for_backslash c) }
 | id as s { ID s }
 | indexed_id as s { IID (String.sub s 0 ((String.length s) - 1)) }
+| ")[" { IRPAREN }
 | constr_id as s { CID s }
 | param_constr_id as s { PCID (String.sub s 0 ((String.length s) - 1)) }
 | type_var as s { TVAR s }
