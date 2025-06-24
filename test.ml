@@ -102,39 +102,37 @@ let is_not_ref x = if x is ~ref then true else false
 (* let invalid_typecase x = if x is ref(int) then true else false *)
 
 abstract type dict('k, 'v)
-val mk_dict : () -> dict('a, 'b)
-val add_dict : dict('a, 'b) -> 'a -> 'b -> ()
-val get_dict : dict('a, 'b) -> 'a -> 'b
+abstract type array('a)
+
+val dict : () -> dict('a, 'b)
+val array : () -> array('a)
+val ([]<-) : ((dict('a, 'b), 'a) -> 'b -> ()) & ((array('a), int) -> 'a -> ())
+val ([]) : ((dict('a, 'b), 'a) -> 'b) & ((array('a), int) -> 'a)
+val push : array('a) -> 'a -> ()
+val len : array('a) -> int
 
 let test_dict x =
-  let d = mk_dict () in
-  add_dict d x 42 ;
-  add_dict d "key" 0 ;
-  d, get_dict d false
+  let d = dict () in
+  d[x]<- 42 ;
+  d["key"]<- 0 ;
+  d, d[false]
 
-abstract type arr('a)
-val set_arr : arr('a) -> int -> 'a -> ()
-val get_arr : arr('a) -> int -> 'a
-val mk_arr : () -> arr('a)
-val push_arr : arr('a) -> 'a -> ()
-val len_arr : arr('a) -> int
-
-let filter_arr (f:('a -> any) & ('b -> ~true)) (arr:arr('a|'b)) =
-  let res = mk_arr () in
+let filter_arr (f:('a -> any) & ('b -> ~true)) (arr:array('a|'b)) =
+  let res = array () in
   let i = ref 0 in
-  while !i < (len_arr arr) do
-    let e = get_arr arr !i in
-    i <- (!i + 1) ;
-    if f e do push_arr res e end
+  while !i < (len arr) do
+    let e = arr[!i] in
+    if f e do push res e end ;
+    i <- (!i + 1)
   end ;
   res
 
-(* val test_arr : 'a -> arr('a | 'b) *)
+(* val test_arr : 'a -> array('a | 'b) *)
 let test_arr x =
-  let arr = mk_arr () in
-  push_arr arr true ;
-  push_arr arr x ;
-  push_arr arr false ;
+  let arr = array () in
+  push arr true ;
+  push arr x ;
+  push arr false ;
   filter_arr (fun x -> if x is int then true else false) arr
 
 (* #value_restriction = false *)
