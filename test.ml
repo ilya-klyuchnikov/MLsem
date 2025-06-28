@@ -495,42 +495,6 @@ fun extra ->
      add (strlen input) (fst extra)
  else 0
 
-(*
-(* === Filter map === *)
-
-let rec filtermap ((f, l) : (any, [])) =
-  match l with
-  | [] -> []
-  | (x::xs) ->
-      match f x with
-      | :false -> filtermap (f, xs)
-      | :true -> x::(filtermap (f, xs))
-      | (:true, y) -> y::(filtermap (f, xs))
-    end
-  end
-
-let rec filtermap ((f, l) : ('a -> false | (true, 'b), ['a*])) =
-  match l with
-  | [] -> []
-  | (x::xs) ->
-      match f x with
-      | :false -> filtermap (f, xs)
-      | :true -> x::(filtermap (f, xs))
-      | (:true, y) -> y::(filtermap (f, xs))
-    end
-  end
-
-let rec filtermap ((f, l) : ('a -> bool | (true, 'b), ['a*])) =
-  match l with
-  | [] -> []
-  | (x::xs) ->
-      match f x with
-      | :false -> filtermap (f, xs)
-      | :true -> x::(filtermap (f, xs))
-      | (:true, y) -> y::(filtermap (f, xs))
-    end
-  end
-
 (*******************************
  *                             *
  *  Examples for polymorphism  *
@@ -553,153 +517,33 @@ let identity_js = fun x -> or_js x x
 let and_pair = fun x -> fun y ->
   if x is falsy then x else (y, succ x)
 
-let test = fun x ->
+(* TODO: inference does not work well... see if it is because of the combination
+  of type narrowing and tvar caching *)
+val test_pair : ((int \ 0, any) | (int, int) -> int)
+let test_pair = fun x ->
   if fst x is falsy then (fst x) + (snd x) else succ (fst x)
 
-let rec concat (x:['a*]) (y:['b*]) =
+val concat : ['a*] -> ['b*] -> ['a* 'b*]
+let concat (x:['a*]) (y:['b*]) =
    if x is [] then y else (hd x)::(concat (tl x) y)
 
-let concat : ['a*] -> ['b*] -> ['a* 'b*] = concat
-
-let rec flatten_ocaml (x:[['a*]*])  =
+let flatten_ocaml (x:[['a*]*])  =
   if x is [] then [] else concat (hd x) (flatten_ocaml (tl x))
 
-let reverse_stub reverse l =
+(* TODO: inference does not work well... see if it is because of the combination
+  of type narrowing and tvar caching *)
+let reverse (l:['a*]) =
   if l is [] then [] else concat (reverse (tl l)) [hd l]
 
-let reverse = fixpoint reverse_stub
-
 (*
-let rev_tl_stub rev_tl l acc  =
-     if l is [] then acc else rev_tl (snd l) (fst l, acc)
-
-let rev_tl l = (fixpoint rev_tl_stub) l []
-
-let foldr_stub foldr f l acc =
-   if l is [] then acc else f (fst l) (foldr f (snd l) acc)
-
-let foldr = fixpoint foldr_stub
-
-let foldr_ann : ('a -> 'b -> 'b ) -> [ 'a* ] -> 'b -> 'b = foldr
-
-(* MANY VARIANTS OF FILTER *)
-
-let filter_stub filter (f: ('a->true) & ('b -> ~true)) (l:[('a|'b)*]) =
-   if l is [] then [] else
-   if l is [any+] then
-       if f(fst(l)) is true then (fst(l),filter f (snd(l))) else filter f (snd(l))
-   else 42(3)
-
-let filter = fixpoint filter_stub
-
-let filter2_stub
-  (filter : ((('a & 'b) -> any) & (('a\'b) -> ~true)) -> [ 'a* ] -> [ ('a&'b)* ] )
-  (f : (('a & 'b) -> any) & (('a\'b) -> ~true))
-  (l : [ ('a)*  ] )  =
-  (* filter f l = *)
-  if l is [] then []
-  else
-    if f(fst(l)) is true then (fst(l),filter f (snd(l))) else filter f (snd(l))
-
-let filter2 :  ((('a & 'b) -> any) & (('a\'b) -> ~true)) -> [ 'a* ] -> [ ('a&'b)* ] =
-      fixpoint filter2_stub
-
-let x = <int -> bool>
-
-let filter2_partial_app = filter2 x
-
-(*
-    Here a better version with head and tail:
-    it yields exactly the same type as the version above
-*)
-
-let filter3_stub
-  (filter : ((('a & 'b) -> true) & (('a\'b) -> ~true)) -> [ 'a* ] -> [ ('a&'b)* ] )
-  (f : (('a & 'b) -> true) & (('a\'b) -> ~true))
-  (l : [ ('a)*  ] )  =
-   if l is [] then [] else
-       let h = fst(l) in
-       let t = snd(l) in
-       if f h is true then (h ,filter f t) else filter f t
-
-let filter3 :  ((('a & 'b) -> true) & (('a\'b) -> ~true)) -> [ 'a* ] -> [ ('a&'b)* ] =
-      fixpoint filter3_stub
-
-let filter4_stub
-  (filter : ((('a) -> true) & (('b) -> ~true)) -> [ ('a|'b)* ] -> [ ('a)* ] )
-  (f : (('a) -> true) & (('b) -> ~true))
-  (l : [ ('a|'b)* ] )  =
-   if l is [] then [] else
-       let h = fst(l) in
-       let t = snd(l) in
-       if f h is true then (h ,filter f t) else filter f t
-
-let filter4 : ((('a) -> true) & (('b) -> ~true)) -> [ ('a|'b)* ] -> [ ('a)* ] =
-      fixpoint filter4_stub
-
-let xi = <(int -> true) & (bool -> false)>
-
-let filter3_test = filter3 xi [1;3;true;42]
-
-let filter4_test = filter4 xi (1, (3, (true,(42,[]))))
-
-(* cross typing on the two versions *)
-
-let filter4_as_3 : ((('a & 'b) -> true) & (('a\'b) -> ~true)) -> [ 'a* ] -> [ ('a&'b)* ] =
-      fixpoint filter4_stub
-
-let filter3_as_4 : ((('a) -> true) & (('b) -> ~true)) -> [ ('a|'b)* ] -> [ ('a)* ]  =
-      fixpoint filter3_stub
-
-let filter_classic_stub
-  (filter : (('a) -> bool) -> [ ('a)* ] -> [ ('a)* ] ) ( f : 'a -> bool) (l : [ ('a)* ] ) =
-  (* filter f l = *)
-  if l is [] then []
-  else
-    if f(fst(l)) is true then (fst(l),filter f (snd(l))) else filter f (snd(l))
-
-let filter_classic = fixpoint filter_classic_stub
-
-(* A version where the predicate function must cover any *)
-
-let filter_total_stub
-  (filter : (('a -> true) & ((~('a)) -> ~true)) -> [ any* ] -> [ ('a)* ] )
-  ( f : (('a -> true) & ((~('a)) -> ~true))) (l : [ any* ] )  =
-   if l is [] then [] else
-   if f(fst(l)) is true then (fst(l),filter f (snd(l))) else filter f (snd(l))
-
-let filter_total : (('a -> true) & ((~'a) -> ~true)) -> [any*] -> [ ('a)* ] = fixpoint filter_total_stub
-
-(* DEEP FLATTEN FUNCTION *)
-
-let flatten_noannot_stub flatten x =
-  if x is [] then [] else
-  if x is [any*] then concat (flatten (fst x)) (flatten (snd x))
-  else (x,[])
-
-(* let flatten_noannot = fixpoint flatten_noannot_stub *)
-
-type Tree 'a = ('a \ [any*]) | [(Tree 'a)*]
-
-let flatten_stub flatten (x : Tree 'a) =
-  if x is [] then [] else
-  if x is [any*] then concat (flatten (fst x)) (flatten (snd x))
-  else (x,[])
-
-let flatten = fixpoint flatten_stub
-
-let flatten_ann : (Tree 'a -> ['a*]) = flatten 
-
-let test_flatten = flatten ((1,(true,[])),(((42,(false,[])),0),"ok"))
-
 (* MISCELLANEOUS *)
 
-type TRUE 'a 'b  =  'a -> 'b -> 'a
-type FALSE 'a 'b  =  'a -> 'b -> 'b
+type tt 'a 'b  =  'a -> 'b -> 'a
+type ff 'a 'b  =  'a -> 'b -> 'b
 
-let ifthenelse (b : TRUE 'a 'b; FALSE 'a 'b )  x y = b x y
+let ifthenelse (b : tt 'a 'b; ff 'a 'b )  x y = b x y
 
-let check :    (TRUE 'c 'd -> 'c -> 'd -> 'c) & (FALSE 'c 'd -> 'c -> 'd -> 'd) = ifthenelse
+let check :    (tt 'c 'd -> 'c -> 'd -> 'c) & (ff 'c 'd -> 'c -> 'd -> 'd) = ifthenelse
 
 (* Parametric types examples *)
 
@@ -937,58 +781,3 @@ let rec first_leaf (x : T | () where T = [T+] | int) =
   | b::_ -> first_leaf b
   | i -> i
   end
-
-(* BAL *)
-
-let (>=) = <Int -> Int -> Bool>
-let (>) = <Int -> Int -> Bool>
-let invalid_arg = <String -> Empty>
-
-atoms key
-
-type T 'a =
-  Nil | (T 'a, Key, 'a, T 'a, Int)
-
-let height x =
-  match x with
-  | :Nil -> 0
-  | (_,_,_,_,h) -> h
-  end
-
-let create l x d r =
-  let hl = height l in
-  let hr = height r in
-  (l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
-
-let bal (l:T 'a) (x: Key) (d:'a) (r:T 'a) =
-  let hl = match l with :Nil -> 0 | (_,_,_,_,h) -> h end in
-  let hr = match r with :Nil -> 0 | (_,_,_,_,h) -> h end in
-  if hl > (hr + 2) then
-    match l with
-    | :Nil -> invalid_arg "Map.bal"
-    | (ll, lv, ld, lr, _) ->
-      if (height ll) >= (height lr) then
-        create ll lv ld (create lr x d r)
-      else
-        match lr with
-        | :Nil -> invalid_arg "Map.bal"
-        | (lrl, lrv, lrd, lrr, _)->
-          create (create ll lv ld lrl) lrv lrd (create lrr x d r)
-        end
-    end
-  else if hr > (hl + 2) then
-    match r with
-    | :Nil -> invalid_arg "Map.bal"
-    | (rl, rv, rd, rr, _) ->
-      if (height rr) >= (height rl) then
-        create (create l x d rl) rv rd rr
-      else
-        match rl with
-        | :Nil -> invalid_arg "Map.bal"
-        | (rll, rlv, rld, rlr, _) ->
-          create (create l x d rll) rlv rld (create rlr rv rd rr)
-        end
-    end
-  else (l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
-
-let bal : T 'a -> Key -> 'a -> T 'a -> T 'a = bal

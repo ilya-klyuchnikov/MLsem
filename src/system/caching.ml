@@ -79,5 +79,5 @@ module TVCache = struct
     | Some tv -> tv
     | None ->
       let tv = TVar.mk None in
-      Hashtbl.add res_tvars i tv ; tv
+      Hashtbl.replace res_tvars i tv ; tv
 end

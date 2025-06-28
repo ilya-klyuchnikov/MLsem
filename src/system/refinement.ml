@@ -91,6 +91,8 @@ let sufficient_refinements env e t =
   aux e t
 
 let refine env e t =
+  let base_renv = REnv.empty (*sufficient_refinements env e any |> REnv.conj*) in
+  (* Format.printf "Base: %a@." REnv.pp base_renv ; *)
   let renvs = sufficient_refinements env e (neg t) in
   let rec aux renv renvs =
     let renvs = renvs |> List.map (fun renv' ->
@@ -104,7 +106,7 @@ let refine env e t =
     let renv' = REnv.cap renv (List.filter_map REnv.neg_approx renvs |> REnv.conj) in
     if REnv.leq renv renv' then renv else aux renv' renvs
   in
-  aux REnv.empty renvs
+  aux base_renv renvs
 
 let rec typeof env (_,e) =
   match e with
