@@ -17,21 +17,33 @@ let tsort leq lst =
   in
   List.fold_left add_elt [] (List.rev lst)
 
-let minimize_new_tvars tvars sol v =
-  let t = Subst.find sol v in
-  let vs = TVarSet.diff (top_vars t) tvars |> TVarSet.filter TVar.internal in
-  let s = vars_with_polarity t |> List.filter_map (fun (v', k) ->
+let substitute_by_similar_var v t =
+  let vs = TVarSet.rm v (top_vars t) in
+  let nt = vars_with_polarity t |> List.find_map (fun (v', k) ->
     if TVarSet.mem vs v' then
     match k with
-    | `Pos -> Some (v', TVar.typ v)
-    | `Neg -> Some (v', TVar.typ v |> neg)
+    | `Pos -> Some (TVar.typ v')
+    | `Neg -> Some (TVar.typ v' |> neg)
     | `Both -> (* Cases like Bool & 'a \ 'b  |  Int & 'a & 'b *) None
     else None
-    ) |> Subst.construct
+    )
   in
-  Subst.compose s sol
+  match nt with
+  | None -> Subst.identity
+  | Some nt -> Subst.construct [(v,nt)]
+let minimize_new_tvars tvars sol (v,t) =
+  let mono = TVarSet.union_many [TVar.user_vars () ;  TVarSet.construct [v] ; tvars] in
+  let ss = tallying mono [(TVar.typ v, t) ; (t, TVar.typ v)] in
+  let aux sol s =
+    let aux sol (v,t) =
+      let r = substitute_by_similar_var v t in
+      Subst.compose r sol
+    in
+    List.fold_left aux sol (Subst.destruct s)
+  in
+  List.fold_left aux sol ss
 let minimize_new_tvars tvars sol =
-  List.fold_left (minimize_new_tvars tvars) sol (Subst.dom sol |> TVarSet.destruct)
+  List.fold_left (minimize_new_tvars tvars) sol (Subst.destruct sol)
 
 let tallying_no_result env cs =
   let tvars = Env.tvars env in
@@ -43,7 +55,10 @@ let tallying_with_result env res cs =
   let tvars = Env.tvars env in
   let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
   (* Format.printf "Tallying:@." ;
-  cs |> List.iter (fun (a,b) -> Format.printf "%a <= %a@." pp_typ a pp_typ b) ; *)
+  cs |> List.iter (fun (a,b) -> Format.printf "%a <= %a@." pp_typ a pp_typ b) ;
+  Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
+    (TVarSet.destruct tvars) ;
+  Format.printf "with env=%a@." Env.pp env ; *)
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
   |> List.map (minimize_new_tvars tvars)
   |> List.map (fun s -> s, Subst.apply s res)
