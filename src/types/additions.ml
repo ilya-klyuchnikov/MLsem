@@ -308,6 +308,33 @@ let record_branch_type (fields, o) = mk_record o fields
 
 let simplify_typ = Sstt.Transform.simplify
 
+let trans_tagcomp f c =
+  match Sstt.Extensions.Abstracts.destruct c with
+  | None -> c
+  | Some (tag, dnf) ->
+    let abs = unsafe_to_abstract tag in
+    let dnf = f (abs, dnf) in
+    let mk_line (ps,ns) =
+        let ps = ps |> List.map (fun lst -> mk_abstract abs lst) |> conj in
+        let ns = ns |> List.map (fun lst -> mk_abstract abs lst) |> List.map neg |> conj in
+        cap ps ns
+    in
+    dnf |> List.map mk_line |> disj
+    |> Sstt.Ty.get_descr |> Sstt.Descr.get_tags |> Sstt.Tags.get tag
+let trans_tags f t = Sstt.Tags.map (trans_tagcomp f) t
+let trans_descr f d =
+  let open Sstt.Descr in
+  d |> components |> List.map (function
+    | Intervals i -> Intervals i
+    | Atoms a -> Atoms a
+    | Tags t -> Tags (trans_tags f t)
+    | Arrows a -> Arrows a
+    | Tuples t -> Tuples t
+    | Records r -> Records r
+  ) |> of_components
+let trans_vdescr f = Sstt.VDescr.map (trans_descr f)
+let transform_abstract f = Sstt.Transform.transform (trans_vdescr f)
+
 (* Record manipulation *)
 
 let record_any_with l = mk_record true [l, (false, any)]

@@ -42,12 +42,15 @@ val define_tag : string -> tag
 val mk_tag : tag -> typ -> typ
 val destruct_tag : tag -> typ -> typ
 val tag_any : typ
+val unsafe_to_tag : Sstt.TagComp.Tag.t -> tag
 
 type variance = Cov | Cav | Inv
 type abstract
 val define_abstract : string -> variance list -> abstract
+val params_of_abstract : abstract -> variance list
 val mk_abstract : abstract -> typ list -> typ
 val mk_abstract_any : abstract -> typ
+val unsafe_to_abstract : Sstt.TagComp.Tag.t -> abstract
 
 val mk_tuple : typ list -> typ
 val tuple_any : typ

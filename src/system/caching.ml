@@ -4,50 +4,28 @@ open Parsing.Variable
 open Env
 open Annot
 
-(* TODO: refactor *)
-let norm_tagcomp c =
-  let open Sstt.Extensions.Abstracts in
-  match destruct c with
-  | None -> c
-  | Some (tag, dnf) ->
-    let vs = params_of tag in
-    let has_no_empty lst =
-      List.for_all2 (fun v ty -> v <> Inv || non_empty ty) vs lst
-    in
-    let has_no_empty (ps,_) =
-      List.for_all has_no_empty ps
-    in
-    let dnf = List.filter has_no_empty dnf in
-    let mk_line (ps,ns) =
-      let ps = ps |> List.map (fun lst -> mk tag lst) |> conj in
-      let ns = ns |> List.map (fun lst -> mk tag lst) |> List.map neg |> conj in
-      cap ps ns
-    in
-    dnf |> List.map mk_line |> disj |> Sstt.Ty.get_descr |> Sstt.Descr.get_tags
-    |> Sstt.Tags.get tag
-let norm_tags t = Sstt.Tags.map norm_tagcomp t
-let norm_descr d =
-  let open Sstt.Descr in
-  d |> components |> List.map (function
-    | Intervals i -> Intervals i
-    | Atoms a -> Atoms a
-    | Tags t -> Tags (norm_tags t)
-    | Arrows a -> Arrows a
-    | Tuples t -> Tuples t
-    | Records r -> Records r
-  ) |> of_components
-let norm_vdescr = Sstt.VDescr.map norm_descr
-let norm = Sstt.Transform.transform norm_vdescr
-
 module Domain = struct
   type t = IAnnot.coverage list
   [@@deriving show]
+
+  let transform_abstract =
+    let aux (abs, dnf) =
+      let vs = params_of_abstract abs in
+      let has_no_empty lst =
+        List.for_all2 (fun v ty -> v <> Inv || non_empty ty) vs lst
+      in
+      let has_no_empty (ps,_) =
+        List.for_all has_no_empty ps
+      in
+      List.filter has_no_empty dnf
+    in
+    Types.Additions.transform_abstract aux
 
   let empty = []
   let add c t = c::t
 
   let env_to_typ ?(normalize=false) renv =
-    let f = if normalize then norm else Utils.identity in
+    let f = if normalize then transform_abstract else Utils.identity in
     let bindings = renv
       |> REnv.bindings |> List.map
         (fun (v, ty) -> (Variable.get_unique_name v, (false, f ty)))
@@ -68,7 +46,7 @@ module Domain = struct
       |> List.map (fun (_,renv) -> renv)
     in
     let a = renvs |> List.map env_to_typ |> disj in
-    let b = env_to_typ ~normalize:true renv in
+    let b = env_to_typ ~normalize:(!Config.no_empty_param_inference) renv in
     subtype b a
 end
 

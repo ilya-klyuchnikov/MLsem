@@ -143,6 +143,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       | "log", Int i -> Config.log_level := Z.to_int i
       | "value_restriction", Bool b -> Config.value_restriction := b
       | "type_narrowing", Bool b -> Config.type_narrowing := b
+      | "no_empty_param_inference", Bool b -> Config.no_empty_param_inference := b
       | _ -> failwith ("Invalid command "^str)
       end ;
       (tenv,varm,senv,env), TDone

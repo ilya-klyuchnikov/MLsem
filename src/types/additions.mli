@@ -62,9 +62,13 @@ val tuple_branch_type : typ list -> typ
 val cons_branch_type : (typ*typ) -> typ
 val record_branch_type : ((string * (bool * typ)) list * bool) -> typ
 
-(* Simplification of types *)
+(* Simplification and transformations of types *)
 
 val simplify_typ : typ -> typ
+val transform_abstract :
+    (abstract * (typ list list * typ list list) list ->
+                (typ list list * typ list list) list)
+        -> typ -> typ
 
 (* Record manipulation *)
 

@@ -68,6 +68,7 @@ let atom_any = Sstt.Atoms.any |> Sstt.Descr.mk_atoms |> Sstt.Ty.mk_descr
 type tag = Sstt.TagComp.Tag.t
 let pp_tag = Sstt.TagComp.Tag.pp
 let compare_tag = Sstt.TagComp.Tag.compare
+let unsafe_to_tag t = t
 let define_tag name = name |> Sstt.TagComp.Tag.mk
 let mk_tag tag ty = Sstt.Descr.mk_tag (tag, ty) |> Sstt.Ty.mk_descr
 let destruct_tag tag ty =
@@ -77,6 +78,7 @@ let tag_any = Sstt.Tags.any |> Sstt.Descr.mk_tags |> Sstt.Ty.mk_descr
 
 type variance = Cov | Cav | Inv
 type abstract = Sstt.TagComp.Tag.t
+let unsafe_to_abstract t = t
 let define_abstract name vs =
   let aux = function
   | Cov -> Sstt.Extensions.Abstracts.Cov
@@ -86,6 +88,13 @@ let define_abstract name vs =
   let (tag,printer) = Sstt.Extensions.Abstracts.define' name (List.map aux vs) in
   pparams_abs := printer::!pparams_abs ;
   tag
+let params_of_abstract abs =
+  let aux = function
+  | Sstt.Extensions.Abstracts.Cov -> Cov
+  | Sstt.Extensions.Abstracts.Contrav -> Cav
+  | Sstt.Extensions.Abstracts.Inv -> Inv
+  in
+  Sstt.Extensions.Abstracts.params_of abs |> List.map aux
 let mk_abstract = Sstt.Extensions.Abstracts.mk
 let mk_abstract_any = Sstt.Extensions.Abstracts.mk_any
 
