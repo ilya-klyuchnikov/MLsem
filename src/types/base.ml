@@ -104,7 +104,9 @@ let bool_typ = Sstt.Extensions.Bools.any
 let int_typ = Sstt.Intervals.any |> Sstt.Descr.mk_intervals |> Sstt.Ty.mk_descr
 let float_typ = Sstt.Extensions.Floats.any
 let char_typ = Sstt.Extensions.Chars.any
-let unit_typ = Sstt.Descr.mk_tuple [] |> Sstt.Ty.mk_descr
+let unit_typ =
+  let ty = Sstt.Descr.mk_tuple [] |> Sstt.Ty.mk_descr in
+  register "()" ty ; ty
 let string_typ = Sstt.Extensions.Strings.any
 
 let interval i1 i2 =

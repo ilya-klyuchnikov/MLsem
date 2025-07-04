@@ -185,8 +185,8 @@
         <var>e</var> ::= <var>lit</var>
             | <var>gid</var>
             | <var>cid</var> [<kbd>(</kbd><var>e</var><kbd>)</kbd>]
-            | <kbd>(</kbd><var>e</var> <kbd>:</kbd> <var>t</var> <kbd>;</kbd> ... <kbd>;</kbd> <var>t</var> <kbd>)</kbd>
-            | <kbd>(</kbd><var>e</var> <kbd>:&gt;</kbd> <var>t</var> <kbd>;</kbd> ... <kbd>;</kbd> <var>t</var> <kbd>)</kbd>
+            | <kbd>(</kbd><var>e</var> <kbd>:</kbd> <var>t</var> <kbd>)</kbd>
+            | <kbd>(</kbd><var>e</var> <kbd>:&gt;</kbd> <var>t</var> <kbd>)</kbd>
             | <kbd>{</kbd> [<var>e</var> <kbd>with</kbd>] <var>id</var><kbd>=</kbd><var>e</var><kbd>;</kbd>...<kbd>;</kbd><var>id</var><kbd>=</kbd><var>e</var> <kbd>}</kbd>
             | <kbd>[</kbd> <var>e</var><kbd>;</kbd> ... <kbd>;</kbd><var>e</var> <kbd>]</kbd>
             | <var>e</var> <kbd>,</kbd>...<kbd>,</kbd> <var>e</var>
@@ -196,6 +196,9 @@
             | <kbd>if</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>then</kbd> <var>e</var> <kbd>else</kbd> <var>e</var>
             | <kbd>fst</kbd> <var>e</var> | <kbd>snd</kbd> <var>e</var> | <kbd>hd</kbd> <var>e</var> | <kbd>tl</kbd> <var>e</var>
             | <kbd>match</kbd> <var>e</var> <kbd>with</kbd> [<kbd>|</kbd>] <var>pat</var> <kbd>-></kbd> <var>e</var> <kbd>|</kbd> ... <kbd>|</kbd> <var>pat</var> <kbd>-></kbd> <var>e</var> <kbd>end</kbd>
+            | <var>e</var> <kbd>;</kbd> <var>e</var>
+            | <kbd>if</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>do</kbd> <var>e</var> [<kbd>else</kbd> <var>e</var>] <kbd>end</kbd>
+            | <kbd>while</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>do</kbd> <var>e</var> <kbd>end</kbd>
 
         <var id="literals">lit</var> ::= <s>[0-9]+</s>
             | <kbd>'</kbd><s><var>char</var></s><kbd>'</kbd>
@@ -212,12 +215,11 @@
             <li>identifiers</li>
             <li>constructors (note that constructors are created on-the-fly,
                 they do not need to be declared)</li>
-            <li>type annotated expressions, e.g. <kbd> (x : bool ; int)</kbd> which
-            can be used locally to suggest a type constraint and/or
-            a decomposition to the type reconstruction algorithm</li>
+            <li>type annotated expressions, e.g. <kbd> (x : bool)</kbd> which
+            can be used locally to suggest a type constraint</li>
             <li>type coerced expressions, e.g. <kbd> (42 :> int)</kbd> which
             can be used locally to coerce the type of an expression into
-            a (conjunction of) supertype(s)</li>
+            a supertype</li>
             <li>constructors for products, lists and records</li>
             <li>anonymous functions</li>
             <li>local let binding (defined using either a variable or a <a href="#pattern">pattern</a>)</li>
@@ -226,6 +228,9 @@
             <li>first and second projections for pairs</li>
             <li>a pattern matching construct.
             <a href="#patterns">Patterns</a> follow a first match policy.</li>
+            <li>a sequence</li>
+            <li>an imperative conditional (branches return <kbd>()</kbd>)</li>
+            <li>an imperative while loop (body return <kbd>()</kbd>)</li>
         </ul>
         <h2 id="patterns">Patterns</h2>
         <code>

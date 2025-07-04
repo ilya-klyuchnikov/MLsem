@@ -155,9 +155,9 @@ terms:
 
 simple_term: (* Cannot end with a semi-colon *)
   a=simple_term2 { a }
-| IF t=term ott=optional_test_type DO t1=term END { annot $startpos $endpos (Cond (t,ott,t1,None)) }
-| IF t=term ott=optional_test_type DO t1=term ELSE t2=term END { annot $startpos $endpos (Cond (t,ott,t1,Some t2)) }
-| WHILE t=term ott=optional_test_type DO t1=term END { annot $startpos $endpos (While (t,ott,t1)) }
+| IF t=term ott=optional_test_type DO t1=terms END { annot $startpos $endpos (Cond (t,ott,t1,None)) }
+| IF t=term ott=optional_test_type DO t1=terms ELSE t2=terms END { annot $startpos $endpos (Cond (t,ott,t1,Some t2)) }
+| WHILE t=term ott=optional_test_type DO t1=terms END { annot $startpos $endpos (While (t,ott,t1)) }
 | MATCH t=term WITH pats=patterns END { annot $startpos $endpos (PatMatch (t,pats)) }
 | hd=simple_term2 COMMA tl=separated_nonempty_list(COMMA, simple_term2) { annot $startpos $endpos (Tuple (hd::tl)) }
 
