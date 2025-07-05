@@ -149,8 +149,8 @@ let nested x y =
   d[x]<- (array ()) ;
   (d[x])[0]<- y ; (d[x])[0]
 
-val swap : ('a -> 'a -> dict('a,'b) -> ())
-         & (int -> int -> array('b) -> ())
+(* val swap : ('a -> 'a -> dict('a,'b) -> ())
+         & (int -> int -> array('b) -> ()) *)
 let swap i j x =
     let tmp = x[i] in
     x[i]<- x[j] ; x[j]<- tmp

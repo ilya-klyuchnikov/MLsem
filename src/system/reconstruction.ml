@@ -70,9 +70,10 @@ let abstract_factors cache v ty =
 let abstract_factors cache sols (v,t) =
   let ss = abstract_factors cache v t in
   sols |> List.map (fun sol -> List.map (fun s -> Subst.compose s sol) ss) |> List.flatten
-let abstract_factors cache sol =
+let abstract_factors cache tvars sol =
   if !Config.no_abstract_inter then
-    List.fold_left (abstract_factors cache) [sol] (Subst.destruct sol)
+    List.fold_left (abstract_factors cache) [sol]
+      (Subst.restrict sol tvars |> Subst.destruct)
   else
     [sol]
 let minimize_new_tvars tvars sol (v,t) =
@@ -96,7 +97,7 @@ let tallying_no_result cache env cs =
   (* Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
     (TVarSet.destruct tvars) ; *)
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
-  |> List.map (abstract_factors cache) |> List.flatten
+  |> List.map (abstract_factors cache tvars) |> List.flatten
   |> List.map (minimize_new_tvars tvars)
   |> List.map (fun s -> s, empty)
 
@@ -109,7 +110,7 @@ let tallying_with_result cache env res cs =
     (TVarSet.destruct tvars) ; *)
   (* Format.printf "with env=%a@." Env.pp env ; *)
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
-  |> List.map (abstract_factors cache) |> List.flatten
+  |> List.map (abstract_factors cache tvars) |> List.flatten
   |> List.map (minimize_new_tvars tvars)
   |> List.map (fun s -> s, Subst.apply s res)
   (* Simplify result if it does not impact the domains *)
