@@ -46,7 +46,7 @@ module Domain = struct
       |> List.map (fun (_,renv) -> renv)
     in
     let a = renvs |> List.map env_to_typ |> disj in
-    let b = env_to_typ ~normalize:(!Config.no_empty_param_inference) renv in
+    let b = env_to_typ ~normalize:(!Config.no_empty_param) renv in
     subtype b a
 end
 
@@ -74,21 +74,30 @@ module Cache = struct
 end
 
 module TVCache = struct
-  type t = (Parsing.Ast.exprid * TVar.t, TVar.t) Hashtbl.t
+  type t = { expr: (Parsing.Ast.exprid * TVar.t, TVar.t) Hashtbl.t ;
+             abs: (abstract * int * TVar.t, TVar.t) Hashtbl.t }
 
-  let empty () = Hashtbl.create 100
+  let empty () =
+    { expr = Hashtbl.create 100 ; abs = Hashtbl.create 100 }
 
-  let get h eid tv =
-    match Hashtbl.find_opt h (eid, tv) with
+  let get t eid tv =
+    match Hashtbl.find_opt t.expr (eid, tv) with
     | Some tv -> tv
     | None ->
       let tv' = TVar.mk None in
-      Hashtbl.replace h (eid, tv) tv' ; tv'
+      Hashtbl.replace t.expr (eid, tv) tv' ; tv'
 
   let get' t eid tvs =
     TVarSet.destruct tvs
     |> List.map (fun tv -> tv, get t eid tv |> TVar.typ)
     |> Subst.construct
+
+  let get_abs_param t abs i tv =
+    match Hashtbl.find_opt t.abs (abs, i, tv) with
+    | Some tv -> tv
+    | None ->
+      let tv' = TVar.mk None in
+      Hashtbl.replace t.abs (abs, i, tv) tv' ; tv'
   
   let res_tvar = TVar.mk None
   let res_tvars = Hashtbl.create 5

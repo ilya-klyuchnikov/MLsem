@@ -1,6 +1,7 @@
 open Annot
 open Env
 open Types.Tvar
+open Types.Base
 
 module Domain : sig
     type t
@@ -22,6 +23,7 @@ module TVCache : sig
     val empty : unit -> t
     val get : t -> Parsing.Ast.exprid -> TVar.t -> TVar.t
     val get' : t -> Parsing.Ast.exprid -> TVarSet.t -> Subst.t
+    val get_abs_param : t -> abstract -> int -> TVar.t -> TVar.t
     val res_tvar : TVar.t
     val res_tvar' : int -> TVar.t
 end

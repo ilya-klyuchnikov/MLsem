@@ -6,6 +6,13 @@ open Env
 open Ast
 open Caching
 
+type ('a,'b) result =
+| Ok of 'a * typ
+| Fail
+| Subst of (Subst.t * typ) list * 'b * 'b * (Parsing.Ast.exprid * REnv.t)
+
+type cache = { dom : Domain.t ; cache : ((Annot.t, IAnnot.t) result) Cache.t ; tvcache : TVCache.t }
+
 (* Auxiliary *)
 
 let tsort leq lst =
@@ -17,6 +24,40 @@ let tsort leq lst =
   in
   List.fold_left add_elt [] (List.rev lst)
 
+let abstract_factors cache v ty =
+  let (factor, _) = factorize (TVarSet.construct [v], TVarSet.empty) ty in
+  let res = ref [] in
+  let aux (abs, dnf) =
+    let vs = params_of_abstract abs in
+    let mk_arg i (ty,variance) =
+      let tv = TVCache.get_abs_param cache.tvcache abs i v |> TVar.typ in
+      match variance with
+      | Inv -> ty | Cov -> cap ty tv | Cav -> cup ty tv
+    in
+    let mk_abstract' tys =
+      let args = List.combine tys vs |> List.mapi mk_arg in
+      mk_abstract abs args
+    in
+    dnf |> List.filter (fun (ps, ns) ->
+      if ps = [] then true
+      else
+        let ps = ps |> List.map mk_abstract' |> conj in
+        let ns = ns |> List.map (mk_abstract abs) |> List.map neg |> conj in
+        res := (cap ps ns)::(!res) ; false
+    )
+  in
+  let remaining = Types.Additions.transform_abstract aux factor in
+  match !res with
+  | [] -> [ Subst.identity ]
+  | res -> (remaining::res) |> List.map (fun ty -> Subst.construct [v, ty])
+let abstract_factors cache sols (v,t) =
+  let ss = abstract_factors cache v t in
+  sols |> List.map (fun sol -> List.map (fun s -> Subst.compose s sol) ss) |> List.flatten
+let abstract_factors cache sol =
+  if !Config.no_abstract_inter then
+    List.fold_left (abstract_factors cache) [sol] (Subst.destruct sol)
+  else
+    [sol]
 let substitute_by_similar_var v t =
   let vs = TVarSet.rm v (top_vars t) in
   let nt = vars_with_polarity t |> List.find_map (fun (v', k) ->
@@ -45,17 +86,18 @@ let minimize_new_tvars tvars sol (v,t) =
 let minimize_new_tvars tvars sol =
   List.fold_left (minimize_new_tvars tvars) sol (Subst.destruct sol)
 
-let tallying_no_result env cs =
+let tallying_no_result cache env cs =
   let tvars = Env.tvars env in
   (* Format.printf "Tallying:@." ;
   cs |> List.iter (fun (a,b) -> Format.printf "%a <= %a@." pp_typ a pp_typ b) ; *)
   (* Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
     (TVarSet.destruct tvars) ; *)
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
+  |> List.map (abstract_factors cache) |> List.flatten
   |> List.map (minimize_new_tvars tvars)
   |> List.map (fun s -> s, empty)
 
-let tallying_with_result env res cs =
+let tallying_with_result cache env res cs =
   let tvars = Env.tvars env in
   let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
   (* Format.printf "Tallying:@." ;
@@ -64,6 +106,7 @@ let tallying_with_result env res cs =
     (TVarSet.destruct tvars) ; *)
   (* Format.printf "with env=%a@." Env.pp env ; *)
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
+  |> List.map (abstract_factors cache) |> List.flatten
   |> List.map (minimize_new_tvars tvars)
   |> List.map (fun s -> s, Subst.apply s res)
   (* Simplify result if it does not impact the domains *)
@@ -78,17 +121,10 @@ let tallying_with_result env res cs =
 
 (* Reconstruction algorithm *)
 
-type ('a,'b) result =
-| Ok of 'a * typ
-| Fail
-| Subst of (Subst.t * typ) list * 'b * 'b * (Parsing.Ast.exprid * REnv.t)
-
 type ('a,'b) result_seq =
 | AllOk of 'a list * typ list
 | OneFail
 | OneSubst of (Subst.t * typ) list * 'b list * 'b list * (Parsing.Ast.exprid * REnv.t)
-
-type cache = { dom : Domain.t ; cache : ((Annot.t, IAnnot.t) result) Cache.t ; tvcache : TVCache.t }
 
 let rec seq (f : 'b -> 'c -> ('a,'b) result) (c : 'a->'b) (lst:('b*'c) list)
   : ('a,'b) result_seq =
@@ -158,7 +194,7 @@ let rec infer cache env renvs annot (id, e) =
       Subst (ss,ALambdaRec (List.combine tys a),ALambdaRec (List.combine tys a'),(eid,r))
     | AllOk (annots,tys') ->
       let cs = List.combine tys' tys in
-      let ss = tallying_with_result env (mk_tuple tys') cs in
+      let ss = tallying_with_result cache env (mk_tuple tys') cs in
       let ok_ann = nc (Annot.ALambdaRec (List.combine tys annots)) in
       Subst (ss, ok_ann, Untyp, empty_cov)
     end
@@ -209,7 +245,7 @@ let rec infer cache env renvs annot (id, e) =
     | AllOk ([a1;a2],[t1;t2]) ->
       let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
       let arrow = mk_arrow t2 (TVar.typ tv) in
-      let ss = tallying_with_result env (TVar.typ tv) [(t1, arrow)] in
+      let ss = tallying_with_result cache env (TVar.typ tv) [(t1, arrow)] in
       Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -227,7 +263,7 @@ let rec infer cache env renvs annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,ACons(a1,a2),ACons(a1',a2'),r)
     | AllOk ([a1;a2],[_;t2]) ->
-      let ss = tallying_no_result env [(t2,list_typ)] in
+      let ss = tallying_no_result cache env [(t2,list_typ)] in
       Subst (ss, nc (Annot.ACons(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -237,7 +273,7 @@ let rec infer cache env renvs annot (id, e) =
     | Ok (annot', s) ->
       let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
       let ty = Checker.domain_of_proj p (TVar.typ tv) in
-      let ss = tallying_with_result env (TVar.typ tv) [(s, ty)] in
+      let ss = tallying_with_result cache env (TVar.typ tv) [(s, ty)] in
       Subst (ss, nc (Annot.AProj annot'), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AProj a,AProj a',r)
     | Fail -> Fail
@@ -247,7 +283,7 @@ let rec infer cache env renvs annot (id, e) =
   | RecordUpdate (e', _, None), AUpdate (annot', None) ->
     begin match infer' cache env renvs annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying_no_result env [(s,record_any)] in
+      let ss = tallying_no_result cache env [(s,record_any)] in
       Subst (ss, nc (Annot.AUpdate(annot',None)), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AUpdate (a,None),AUpdate (a',None),r)
     | Fail -> Fail
@@ -258,7 +294,7 @@ let rec infer cache env renvs annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,AUpdate(a1,Some a2),AUpdate(a1',Some a2'),r)
     | AllOk ([a1;a2],[s;_]) ->
-      let ss = tallying_no_result env [(s,record_any)] in
+      let ss = tallying_no_result cache env [(s,record_any)] in
       Subst (ss, nc (Annot.AUpdate(a1,Some a2)), Untyp, empty_cov)
     | _ -> assert false
     end
@@ -283,7 +319,7 @@ let rec infer cache env renvs annot (id, e) =
   | TypeConstr (e', t), AConstr annot' ->
     begin match infer' cache env renvs annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying_no_result env [(s,t)] in
+      let ss = tallying_no_result cache env [(s,t)] in
       Subst (ss, nc (Annot.AConstr(annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AConstr a,AConstr a',r)
     | Fail -> Fail
@@ -291,7 +327,7 @@ let rec infer cache env renvs annot (id, e) =
   | TypeCoerce (e', _), ACoerce (t,annot') ->
     begin match infer' cache env renvs annot' e' with
     | Ok (annot', s) ->
-      let ss = tallying_no_result env [(s,t)] in
+      let ss = tallying_no_result cache env [(s,t)] in
       Subst (ss, nc (Annot.ACoerce(t,annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,ACoerce (t,a),ACoerce (t,a'),r)
     | Fail -> Fail
@@ -359,7 +395,7 @@ and infer_b' cache env renvs bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
   | IAnnot.BInfer ->
-    let ss = tallying_no_result env [(s,neg tau)] in
+    let ss = tallying_no_result cache env [(s,neg tau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType Infer, empty_cov)
   | IAnnot.BSkip -> Ok (Annot.BSkip, empty)
   | IAnnot.BType annot ->
