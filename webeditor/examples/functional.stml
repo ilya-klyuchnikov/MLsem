@@ -58,8 +58,8 @@ let filtermap (f, l) =
     | [] -> []
     | x::xs ->
       match f x with
-      | :false -> filtermap (f, xs)
-      | :true -> x::(filtermap (f, xs))
-      | (:true, y) -> y::(filtermap (f, xs))
+      | false -> filtermap (f, xs)
+      | true -> x::(filtermap (f, xs))
+      | (true, y) -> y::(filtermap (f, xs))
     end
   end

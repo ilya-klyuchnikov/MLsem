@@ -38,9 +38,9 @@ let filtermap (f, l) =
     | [] -> []
     | x::xs ->
       match f x with
-      | :false -> filtermap (f, xs)
-      | :true -> x::(filtermap (f, xs))
-      | (:true, y) -> y::(filtermap (f, xs))
+      | false -> filtermap (f, xs)
+      | true -> x::(filtermap (f, xs))
+      | (true, y) -> y::(filtermap (f, xs))
     end
   end
 
@@ -564,7 +564,7 @@ let typeof_patterns x =
 
 let land_patterns a b =
   match a,b with
-  | :true, :true -> true
+  | true, true -> true
   | :any -> false
   end
 
