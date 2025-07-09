@@ -1,5 +1,12 @@
 
-(* ========= SIGNATURES ======== *)
+val val42 : int
+let val42 = true
+let val42 = 42
+
+val test_sig : 'a -> 'b -> ('a|bool,'b|int)
+let test_sig x y = (x,y)
+
+(* ========= RECURSIVE FUNCTIONS ========= *)
 
 let fact_rec (x:int) =
   if x is 0 then 1 else x * (fact_rec (x-1))
@@ -13,21 +20,31 @@ let map_rec f (lst:['a*]) =
 let foo x = bar x
 and bar y = foo y
 
-val val42 : int
-let val42 = true
-let val42 = 42
-
-val test_sig : 'a -> 'b -> ('a|bool,'b|int)
-let test_sig x y = (x,y)
-
-val filter_sig : ('a->any) & ('b -> ~true) -> [('a|'b)*] -> [('a\'b)*]
-let filter_sig f l =
+val filter_rec : ('a->any) & ('b -> ~true) -> [('a|'b)*] -> [('a\'b)*]
+let filter_rec f l =
   match l with
   | [] -> []
   | e::l ->
     if f e is true
-    then e::(filter_sig f l)
-    else filter_sig f l
+    then e::(filter_rec f l)
+    else filter_rec f l
+  end
+
+let filter_rec2 (f: ('a->any) & ('b -> ~true)) (l:[('a|'b)*]) =
+  match l with
+  | [] -> []
+  | e::l ->
+    if f e is true
+    then e::(filter_rec2 f l)
+    else filter_rec2 f l
+  end
+
+let filter_noannot f l =
+  match l with
+  | [] -> []
+  | e::l ->
+    let l = filter_noannot f l in
+    if f e is true then e::l else l
   end
 
 val filtermap :
@@ -44,8 +61,6 @@ let filtermap (f, l) =
     end
   end
 
-(* ========= TESTS OBJECTS ======== *)
-
 type objF('a) = { f :? 'a ; proto :? objF('a) ..}
 
 let call_f (o:objF('a)) =
@@ -54,7 +69,7 @@ let call_f (o:objF('a)) =
   then call_f o.proto
   else ()
 
-(* ========= ABSTRACT TYPES ======== *)
+(* ========= OPAQUE TYPES & IMPERATIVE PROGRAMMING ======== *)
 
 val (<) : int -> int -> bool
 val (<=) : int -> int -> bool
@@ -173,9 +188,8 @@ let map_clist f (lst:clist('a)) =
   | Nil -> Nil
   end
 
-(* ================================= *)
+(* =========== TYPE NARROWING ============== *)
 
-let test a = (fst a, fst a)
 val succ : int -> int
 
 let impossible_branch = fun x ->
@@ -230,7 +244,7 @@ let match_pair (x:any) (y:any) =
   | _ -> false
   end
 
-(* ============== RECURSIVE ============= *)
+(* ============== FIXPOINT COMBINATOR ============= *)
 
 (* The type deduced for fixpoint can be read as follows
    forall('c <: 'a -> 'b)('d <:'c). ('c -> 'd) -> 'd 
@@ -250,30 +264,11 @@ let length_stub length lst =
 
 let length = fixpoint length_stub
 
-(* TODO: inference time for map_stub and length_stub seems to depend on
-partitions order... investigate *)
 let map_stub map f lst =
   if lst is [] then []
   else (f (hd lst))::(map f (tl lst))
 
 let map x = fixpoint map_stub x
-
-(* let filter_noannot f l =
-  match l with
-  | [] -> []
-  | e::l ->
-    let l = filter_noannot f l in
-    if f e is true then e::l else l
-  end *)
-
-let filter (f: ('a->any) & ('b -> ~true)) (l:[('a|'b)*]) =
-  match l with
-  | [] -> []
-  | e::l ->
-    if f e is true
-    then e::(filter f l)
-    else filter f l
-  end
 
 (* ===== BAL ===== *)
 
@@ -516,6 +511,8 @@ let implicit14 = fun input ->
 
 type falsy = false | "" | 0
 type truthy = ~falsy
+
+let test a = (fst a, fst a)
 
 let and_js = fun x -> fun y ->
   if x is falsy then x else y
