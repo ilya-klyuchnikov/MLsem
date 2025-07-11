@@ -1,73 +1,36 @@
 
-val val42 : int
-let val42 = true
-let val42 = 42
+(* ========= SIGNATURES & ANNOTATIONS ========= *)
 
-val test_sig : 'a -> 'b -> ('a|bool,'b|int)
+val valint : int
+let valint = true
+let valint = 42
+
+val test_sig : 'a|bool -> 'a|int -> ('a|bool,'a|int)
+let test_sig x y = (y,x)
 let test_sig x y = (x,y)
 
-(* ========= RECURSIVE FUNCTIONS ========= *)
+val test_sig_overloaded : (int -> int) & (bool -> bool)
+let test_sig_overloaded x = x
 
-let fact_rec (x:int) =
-  if x is 0 then 1 else x * (fact_rec (x-1))
+let test_annot (x:'a|bool) (y:'a|int) = (x,y)
 
-let map_rec f (lst:['a*]) =
+(* ========= TAGGED VALUES ======== *)
+
+let proj_a (A(v)) = v
+let proj_ab x =
+  match x with
+  | A(v) -> v
+  | B(v) -> v
+  end
+
+let proj_ab_test x y = (proj_ab A(x), proj_ab B(y))
+
+type clist('a) = Nil | Cons('a, clist('a))
+let map_clist f (lst:clist('a)) =
   match lst with
-  | [] -> []
-  | a::lst -> (f a)::(map_rec f lst)
+  | Cons(v,tail) -> Cons(f v, map_clist f tail)
+  | Nil -> Nil
   end
-
-let foo x = bar x
-and bar y = foo y
-
-val filter_rec : ('a->any) & ('b -> ~true) -> [('a|'b)*] -> [('a\'b)*]
-let filter_rec f l =
-  match l with
-  | [] -> []
-  | e::l ->
-    if f e is true
-    then e::(filter_rec f l)
-    else filter_rec f l
-  end
-
-let filter_rec2 (f: ('a->any) & ('b -> ~true)) (l:[('a|'b)*]) =
-  match l with
-  | [] -> []
-  | e::l ->
-    if f e is true
-    then e::(filter_rec2 f l)
-    else filter_rec2 f l
-  end
-
-let filter_noannot f l =
-  match l with
-  | [] -> []
-  | e::l ->
-    let l = filter_noannot f l in
-    if f e is true then e::l else l
-  end
-
-val filtermap :
-    (('t -> ((true, 'u) | false), ['t*]) -> ['u*])
-  & (('t -> ((true, 'u) | bool), ['t*]) -> [('t | 'u)*])
-let filtermap (f, l) =
-    match l with
-    | [] -> []
-    | x::xs ->
-      match f x with
-      | false -> filtermap (f, xs)
-      | true -> x::(filtermap (f, xs))
-      | (true, y) -> y::(filtermap (f, xs))
-    end
-  end
-
-type objF('a) = { f :? 'a ; proto :? objF('a) ..}
-
-let call_f (o:objF('a)) =
-  if o is { f : any ..} then o.f
-  else if o is { proto : any ..}
-  then call_f o.proto
-  else ()
 
 (* ========= OPAQUE TYPES & IMPERATIVE PROGRAMMING ======== *)
 
@@ -98,8 +61,6 @@ let cov3 = <cov(A|B) & cov(B|C) & ~cov(empty)>
 
 let inv = <inv(A) & inv(B) & inv(A|B)>
 
-(* #value_restriction = true *)
-
 abstract type ref('a)
 val ref : 'a -> ref('a)
 val (<-) : ref('a) -> 'a -> ()
@@ -114,7 +75,6 @@ let mutate_ref x =
 
 let is_ref x = if x is ref then true else false
 let is_not_ref x = if x is ~ref then true else false
-(* let invalid_typecase x = if x is ref(int) then true else false *)
 
 abstract type dict('k, 'v)
 abstract type array('a)
@@ -170,23 +130,6 @@ let swap i j x =
     let tmp = x[i] in
     x[i]<- x[j] ; x[j]<- tmp
 
-(* #value_restriction = false *)
-
-(* ========= TAGGED VALUES ======== *)
-
-let proj_a (A(v)) = v
-let proj_ab x =
-  match x with
-  | A(v) -> v
-  | B(v) -> v
-  end
-
-type clist('a) = Nil | Cons('a, clist('a))
-let map_clist f (lst:clist('a)) =
-  match lst with
-  | Cons(v,tail) -> Cons(f v, map_clist f tail)
-  | Nil -> Nil
-  end
 
 (* =========== TYPE NARROWING ============== *)
 
@@ -244,33 +187,20 @@ let match_pair (x:any) (y:any) =
   | _ -> false
   end
 
-(* ============== FIXPOINT COMBINATOR ============= *)
+let type_narrowing_fail (f:any -> any) x =
+  if f x is int then (f x) + 1 else 0
 
-(* The type deduced for fixpoint can be read as follows
-   forall('c <: 'a -> 'b)('d <:'c). ('c -> 'd) -> 'd 
-*)
-let fixpoint = fun f ->
-  let delta = fun x ->
-     f ( fun  v -> ( x x v ))
-   in delta delta
+let type_narrowing_ok (f:any -> any) x =
+  let y = f x in
+  if y is int then y + 1 else 0
 
-let fact_stub fact n =
-  if n is 0 then 1 else (fact (n-1))*n
+let type_narrowing2_ok (f:(any -> any) & ('a -> false)) (x:any) =
+  if f x then x else 42
 
-let fact = fixpoint fact_stub
+let type_narrowing2_ok' ((f,x): ((any -> any) & ('a -> false), any)) =
+  if f x then x else 42
 
-let length_stub length lst =
-  if lst is [] then 0 else succ (length (tl lst))
-
-let length = fixpoint length_stub
-
-let map_stub map f lst =
-  if lst is [] then []
-  else (f (hd lst))::(map f (tl lst))
-
-let map x = fixpoint map_stub x
-
-(* ===== BAL ===== *)
+(* ===== bal(ance) from OCaml Map module ===== *)
 
 val invalid_arg : string -> empty
 
@@ -322,22 +252,6 @@ let bal l x d r =
         end
     end
   else (l, x, d, r, (if hl >= hr then hl + 1 else hr + 1))
-
-(* ===== Type narrowing ===== *)
-
-let type_narrowing_fail (f:any -> any) x =
-  if f x is int then (f x) + 1 else 0
-
-let type_narrowing_ok (f:any -> any) x =
-  let y = f x in
-  if y is int then y + 1 else 0
-
-let type_narrowing2_ok (f:(any -> any) & ('a -> false)) (x:any) =
-  if f x then x else 42
-
-let type_narrowing2_ok' ((f,x): ((any -> any) & ('a -> false), any)) =
-  if f x then x else 42
-
 
 (*************************************************
 *    Examples from Tobin-Hochstadt & Felleisen   *
@@ -565,11 +479,108 @@ let land_patterns a b =
   | :any -> false
   end
 
-(*******************************
- *                             *
- * Complex recursive functions *
- *                             *
- *******************************)
+(*************************************
+ *                                   *
+ *  Examples of recursive functions  *
+ *                                   *
+ *************************************)
+
+(* ============== FIXPOINT COMBINATOR ============= *)
+
+(* The type deduced for fixpoint can be read as follows
+   forall('c <: 'a -> 'b)('d <:'c). ('c -> 'd) -> 'd 
+*)
+let fixpoint = fun f ->
+  let delta = fun x ->
+     f ( fun  v -> ( x x v ))
+   in delta delta
+
+let fact_stub fact n =
+  if n is 0 then 1 else (fact (n-1))*n
+
+let fact = fixpoint fact_stub
+
+let length_stub length lst =
+  if lst is [] then 0 else succ (length (tl lst))
+
+let length = fixpoint length_stub
+
+let map_stub map f lst =
+  if lst is [] then []
+  else (f (hd lst))::(map f (tl lst))
+
+let map x = fixpoint map_stub x
+
+(* ========= RECURSIVE FUNCTIONS ========= *)
+
+let fact_rec (x:int) =
+  if x is 0 then 1 else x * (fact_rec (x-1))
+
+let map_rec f (lst:['a*]) =
+  match lst with
+  | [] -> []
+  | a::lst -> (f a)::(map_rec f lst)
+  end
+
+let map_noannot f lst =
+  match lst with
+  | [] -> []
+  | a::lst -> (f a)::(map_noannot f lst)
+  end
+
+let foo x = bar x
+and bar y = foo y
+
+val filter_rec : ('a->any) & ('b -> ~true) -> [('a|'b)*] -> [('a\'b)*]
+let filter_rec f l =
+  match l with
+  | [] -> []
+  | e::l ->
+    if f e is true
+    then e::(filter_rec f l)
+    else filter_rec f l
+  end
+
+let filter_rec2 (f: ('a->any) & ('b -> ~true)) (l:[('a|'b)*]) =
+  match l with
+  | [] -> []
+  | e::l ->
+    if f e is true
+    then e::(filter_rec2 f l)
+    else filter_rec2 f l
+  end
+
+let filter_noannot f l =
+  match l with
+  | [] -> []
+  | e::l ->
+    let l = filter_noannot f l in
+    if f e is true then e::l else l
+  end
+
+val filtermap :
+    (('t -> ((true, 'u) | false), ['t*]) -> ['u*])
+  & (('t -> ((true, 'u) | bool), ['t*]) -> [('t | 'u)*])
+let filtermap (f, l) =
+    match l with
+    | [] -> []
+    | x::xs ->
+      match f x with
+      | false -> filtermap (f, xs)
+      | true -> x::(filtermap (f, xs))
+      | (true, y) -> y::(filtermap (f, xs))
+    end
+  end
+
+type objF('a) = { f :? 'a ; proto :? objF('a) ..}
+
+let call_f (o:objF('a)) =
+  if o is { f : any ..} then o.f
+  else if o is { proto : any ..}
+  then call_f o.proto
+  else ()
+
+(* ========= COMPLEX RECURSIVE FUNCTIONS ========= *)
 
 val concat : ['a*] -> ['b*] -> ['a* 'b*]
 let concat (x:['a*]) (y:['b*]) =
@@ -581,19 +592,12 @@ let flatten_ocaml (x:[['a*]*])  =
 let reverse (l:[['a*]*]) =
   if l is [] then [] else concat (reverse (tl l)) [hd l]
 
-(* let eval eval e =
+type expr = ("const", (0..)) | ("add", (expr, expr)) | ("uminus", expr)
+
+let eval (e:expr) =
   match e with
   | (:"add", (e1, e2)) -> (eval e1) + (eval e2)
   | (:"uminus", e) -> 0 - (eval e)
-  | (:"const", x) -> x
-  end *)
-
-type expr = ("const", (0..)) | ("add", (expr, expr)) | ("uminus", expr)
-
-let eval_ann (e:expr) =
-  match e with
-  | (:"add", (e1, e2)) -> (eval_ann e1) + (eval_ann e2)
-  | (:"uminus", e) -> 0 - (eval_ann e)
   | (:"const", x) -> x
   end
 
@@ -604,3 +608,10 @@ let mapi_aux (i:int) f (l:['a*]) =
   end
 
 let mapi f l = mapi_aux 0 f l
+
+let rec_and_imp arr k i n =
+  if k < n do arr[k]<- (i+k) ; rec_and_imp arr (k+1) i n end
+
+let interval i j =
+  let arr = array () in
+  rec_and_imp arr 0 i ((j-i)+1) ; arr
