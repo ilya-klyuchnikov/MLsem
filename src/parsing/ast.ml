@@ -81,20 +81,32 @@ let empty_name_var_map = StrMap.empty
 let dummy_exprid = 0
 let unique_exprid =
     let last_id = ref 0 in
-    fun _ -> (
+    fun () -> (
         last_id := !last_id + 1 ;
         !last_id
     )
+let eid_locs = Hashtbl.create 1000
+let unique_exprid_with_pos pos =
+    let eid = unique_exprid () in
+    Hashtbl.add eid_locs eid pos ; eid
+let refresh_exprid parent =
+    match Hashtbl.find_opt eid_locs parent with
+    | None -> unique_exprid ()
+    | Some pos -> unique_exprid_with_pos pos
 let new_annot p =
-    Position.with_pos p (unique_exprid ())
+    Position.with_pos p (unique_exprid_with_pos p)
 let copy_annot a =
     new_annot (Position.position a)
+
+let loc_of_exprid eid =
+    match Hashtbl.find_opt eid_locs eid with
+    | None -> Position.dummy
+    | Some p -> p
 
 let dummy_pat_var_str = "_"
 let dummy_pat_var =
     Variable.create_gen (Some dummy_pat_var_str)
 
-(* TODO: associate a location to each exprid using a hashtbl *)
 let parser_expr_to_expr tenv vtenv name_var_map e =
     let aux_a tyo vtenv =
         match tyo with

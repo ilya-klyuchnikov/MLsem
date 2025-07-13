@@ -60,9 +60,9 @@ let type_check_with_sigs env (var,e,sigs,aty) =
   check_resolved var env typ ;
   var,typ
 
-let type_check_recs env lst =
+let type_check_recs pos env lst =
   let e =
-    Parsing.Ast.unique_exprid (),
+    Parsing.Ast.unique_exprid_with_pos pos,
     Parsing.Ast.LambdaRec (List.map (fun (v,e) -> (v,None,e)) lst) in
   let e = System.Ast.from_parser_ast e in
   let tvs, ty = infer None env e |> TyScheme.get in
@@ -118,7 +118,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
         | None -> Either.Right (var, e)
         | Some (sigs,aty) -> Either.Left (var, e, sigs, aty)
         ) lst in
-      let tys1 = type_check_recs env recs in
+      let tys1 = type_check_recs pos env recs in
       let env = List.fold_left (fun env (v,ty) -> Env.add v ty env) env tys1 in
       let tys2 = List.map (type_check_with_sigs env) sigs in
       let senv = List.fold_left (fun senv (v,_) -> VarMap.remove v senv) senv tys2 in
@@ -163,7 +163,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
     let pos =
       if eid = Ast.dummy_exprid
       then Variable.get_location v
-      else Variable.get_location v (* TODO *)
+      else Ast.loc_of_exprid eid
     in
     (tenv,varm,senv,env), TFailure (Some v, pos, msg, retrieve_time time)
   | IncompatibleType (var,_) ->

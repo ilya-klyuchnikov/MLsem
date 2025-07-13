@@ -216,7 +216,7 @@ let encode_pattern_matching e pats =
   | [] -> assert false
   | (_, e')::pats -> List.fold_left add_branch e' pats
   in
-  let def = (Ast.unique_exprid (), Ast.TypeConstr (e, t)) in
+  let def = (Ast.refresh_exprid (fst e), Ast.TypeConstr (e, t)) in
   let body = (Ast.unique_exprid (), Ast.Suggest (x, ts, body)) in
   Ast.Let (x, def, body)
 
@@ -235,7 +235,7 @@ let from_parser_ast t =
     let x' = Variable.create_let (Variable.get_name x) in
     Variable.get_location x |> Variable.attach_location x' ;
     add_suggs x' (get_sugg x) ;
-    Ast.unique_exprid (),
+    Ast.refresh_exprid (fst e),
     let_binding x' (Ast.unique_exprid (), Var x) (substitute x x' e)
   in
   let lambda_annot x a =
@@ -294,4 +294,4 @@ let rec coerce ty (id,t) =
       id, Lambda (d, v, coerce cd e)
     end
   | _ -> raise Exit
-  with Exit -> Ast.unique_exprid (), TypeCoerce ((id,t), ty)
+  with Exit -> Ast.refresh_exprid id, TypeCoerce ((id,t), ty)

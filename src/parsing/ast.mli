@@ -69,8 +69,11 @@ val empty_name_var_map : name_var_map
 
 val dummy_exprid : exprid
 val unique_exprid : unit -> exprid
+val unique_exprid_with_pos : Position.t -> exprid
+val refresh_exprid : exprid -> exprid
 val new_annot : Position.t -> annotation
 val copy_annot : annotation -> annotation
+val loc_of_exprid : exprid -> Position.t
 
 val dummy_pat_var : Variable.t
 
