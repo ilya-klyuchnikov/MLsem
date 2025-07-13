@@ -194,7 +194,7 @@ let rec def_of_var_pat pat v e =
   | PatType _ -> assert false
   | PatLit _ -> assert false
 
-let encode_pattern_matching id e pats =
+let encode_pattern_matching e pats =
   let x = Variable.create_let None in
   let ex : Ast.expr = (Ast.unique_exprid (), Var x) in
   let ts = pats |> List.map fst |> List.map type_of_pat in
@@ -218,7 +218,7 @@ let encode_pattern_matching id e pats =
   in
   let def = (Ast.unique_exprid (), Ast.TypeConstr (e, t)) in
   let body = (Ast.unique_exprid (), Ast.Suggest (x, ts, body)) in
-  (id, Ast.Let (x, def, body))
+  Ast.Let (x, def, body)
 
 let from_parser_ast t =
   let sugg = Hashtbl.create 100 in
@@ -243,14 +243,14 @@ let from_parser_ast t =
     | None -> TVar.mk ~user:false (Variable.get_name x) |> TVar.typ
     | Some d -> d
   in
-  let rec aux_e (id,e) =
+  let rec aux_e e =
     match e with
     | Ast.Abstract t -> Abstract t
     | Ast.Const c -> Const c
     | Ast.Var v -> Var v
     | Ast.Atom a -> Atom a
     | Ast.Tag (t, e) -> Tag (t, aux e)
-    | Ast.Suggest (v, tys, e) ->
+    | Ast.Suggest (v, tys, (_,e)) ->
       add_suggs v tys ; aux_e e
     | Ast.Lambda (x, a, e) ->
       let e = aux e |> add_let x in
@@ -267,16 +267,15 @@ let from_parser_ast t =
     | Ast.RecordUpdate (e, lbl, eo) -> RecordUpdate (aux e, lbl, Option.map aux eo)
     | Ast.TypeConstr (e, ty) -> TypeConstr (aux e, ty)
     | Ast.TypeCoerce (e, ty) -> TypeCoerce (aux e, ty)
-    | Ast.PatMatch (e, pats) -> encode_pattern_matching id e pats |> aux_e
+    | Ast.PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
     | Ast.Cond (e,t,e1,None) ->
       ControlFlow (CfCond, aux e, t, aux e1, (Ast.unique_exprid (), Const Unit))
     | Ast.Cond (e,t,e1,Some e2) -> ControlFlow (CfCond, aux e, t, aux e1, aux e2)
     | Ast.While (e,t,e1) ->
       ControlFlow (CfWhile, aux e, t, aux e1, (Ast.unique_exprid (), Const Unit))
     | Ast.Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
-  and aux t =
-    let e = aux_e t in
-    (fst t,e)
+  and aux (id, e) =
+    (id, aux_e e)
   in
   aux t
 
