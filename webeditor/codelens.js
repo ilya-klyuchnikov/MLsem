@@ -36,7 +36,7 @@ function fullErrorMessage(res) {
     if(res["descr"] === undefined || res["message"] == null)
         return res["message"];
     else {
-        return res["message"] + ": " + res["descr"];
+        return res["message"] + ":\n" + res["descr"];
     }
 }
 
