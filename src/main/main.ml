@@ -12,7 +12,7 @@ type def = Variable.t * Ast.expr * typ option
 
 exception IncompatibleType of Variable.t * TyScheme.t
 exception UnresolvedType of Variable.t * TyScheme.t
-exception Untypeable of Variable.t option * Ast.exprid * string
+exception Untypeable of Variable.t option * Checker.error
 
 let sigs_of_ty mono ty =
   let rec aux ty =
@@ -35,9 +35,9 @@ let infer var env e =
     let r = if !Config.type_narrowing then Refinement.refinement_envs env e else REnvSet.empty in
     (* REnvSet.elements r |> List.iter (fun renv -> Format.printf "Renv: %a@." REnv.pp renv) ; *)
     try Reconstruction.infer env r e with
-    | Checker.Untypeable (eid, msg) ->
+    | Checker.Untypeable err ->
       (* Format.printf "@.@.%a@.@." System.Ast.pp e ; *)
-      raise (Untypeable (var, eid, msg))
+      raise (Untypeable (var, err))
   in
   Checker.typeof_def env annot e |> TyScheme.simplify
 let retrieve_time time =
@@ -76,7 +76,7 @@ let type_check_recs pos env lst =
 type 'a treat_result =
 | TSuccess of (Variable.t * TyScheme.t) list * float
 | TDone
-| TFailure of Variable.t option * Position.t * string * float
+| TFailure of Variable.t option * Position.t * string * string option * float
 
 exception AlreadyDefined of Variable.t
 
@@ -130,7 +130,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       let (ty, _) = type_expr_to_typ tenv empty_vtenv ty in
       begin match sigs_of_ty (Env.tvars env) ty with
       | None -> (tenv,varm,senv,env),
-        TFailure (Some v, pos, "Invalid signature annotation.", 0.0)
+        TFailure (Some v, pos, "Invalid signature annotation.", None, 0.0)
       | Some (sigs, ty) ->
         let varm = StrMap.add name v varm in
         let senv = VarMap.add v sigs senv in
@@ -154,25 +154,25 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       let tenv = define_abstract tenv name vs in
       (tenv,varm,senv,env), TDone
   with
-  | Ast.SymbolError msg -> (tenv,varm,senv,env), TFailure (Some !v, pos, msg, 0.0)
-  | TypeDefinitionError msg -> (tenv,varm,senv,env), TFailure (None, pos, msg, 0.0)
+  | Ast.SymbolError msg -> (tenv,varm,senv,env), TFailure (Some !v, pos, msg, None, 0.0)
+  | TypeDefinitionError msg -> (tenv,varm,senv,env), TFailure (None, pos, msg, None, 0.0)
   | AlreadyDefined v ->
-    (tenv,varm,senv,env), TFailure (Some v, pos, "Symbol already defined.", 0.0)
-  | Untypeable (v', eid, msg) ->
+    (tenv,varm,senv,env), TFailure (Some v, pos, "Symbol already defined.", None, 0.0)
+  | Untypeable (v', err) ->
     let v = match v' with None -> !v | Some v -> v in
     let pos =
-      if eid = Ast.dummy_exprid
+      if err.eid = Ast.dummy_exprid
       then Variable.get_location v
-      else Ast.loc_of_exprid eid
+      else Ast.loc_of_exprid err.eid
     in
-    (tenv,varm,senv,env), TFailure (Some v, pos, msg, retrieve_time time)
+    (tenv,varm,senv,env), TFailure (Some v, pos, err.title, err.descr, retrieve_time time)
   | IncompatibleType (var,_) ->
     (tenv,varm,senv,env), TFailure (Some var, Variable.get_location var,
-      "the type inferred is not a subtype of the type specified",
+      "the type inferred is not a subtype of the type specified", None,
       retrieve_time time)
   | UnresolvedType (var,_) ->
     (tenv,varm,senv,env), TFailure (Some var, Variable.get_location var,
-      "the type inferred is not fully resolved",
+      "the type inferred is not fully resolved", None,
       retrieve_time time)
 
 let treat_sig envs (annot,elem) =

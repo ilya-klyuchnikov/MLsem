@@ -40,9 +40,10 @@ let typeof_proj p =
 
 (* Expressions *)
 
-exception Untypeable of Parsing.Ast.exprid * string
+type error = { eid: Parsing.Ast.exprid ; title: string ; descr: string option }
+exception Untypeable of error
 
-let untypeable id msg = raise (Untypeable (id, msg))
+let untypeable id msg = raise (Untypeable { eid=id ; title=msg ; descr=None })
 
 let rec is_value (_,e) =
   match e with

@@ -21,18 +21,20 @@ let json_of_pos pos =
 let add_res res res' =
   match res' with
   | TDone -> res
-  | TFailure (Some v, pos, msg, time) ->
+  | TFailure (Some v, pos, msg, descr, time) ->
     let name = Parsing.Variable.Variable.get_name v |> Option.get in
     let def_pos = Parsing.Variable.Variable.get_location v in
+    let descr = match descr with None -> [] | Some d -> [("descr", `String d)] in
     let untyp =
-      `Assoc [("name", `String name) ; ("def_pos", json_of_pos def_pos) ; ("time", `Float time) ;
-      ("typeable", `Bool false) ; ("message", `String msg) ; ("pos", json_of_pos pos)]
+      `Assoc ([("name", `String name) ; ("def_pos", json_of_pos def_pos) ; ("time", `Float time) ;
+      ("typeable", `Bool false) ; ("message", `String msg) ; ("pos", json_of_pos pos)]@descr)
     in
     untyp::res
-  | TFailure (None, pos, msg, time) ->
+  | TFailure (None, pos, msg, descr, time) ->
+    let descr = match descr with None -> [] | Some d -> [("descr", `String d)] in
     let untyp =
-      `Assoc [("time", `Float time) ; ("def_pos", json_of_pos pos) ;
-      ("typeable", `Bool false) ; ("message", `String msg) ; ("pos", json_of_pos pos)]
+      `Assoc ([("time", `Float time) ; ("def_pos", json_of_pos pos) ;
+      ("typeable", `Bool false) ; ("message", `String msg) ; ("pos", json_of_pos pos)]@descr)
     in
     untyp::res
   | TSuccess (lst,time) ->

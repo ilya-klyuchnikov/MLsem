@@ -32,6 +32,14 @@ function isDummyPos(pos) {
         return true;
 }
 
+function fullErrorMessage(res) {
+    if(res["descr"] === undefined || res["message"] == null)
+        return res["message"];
+    else {
+        return res["message"] + ": " + res["descr"];
+    }
+}
+
 let codelensemitter = new monaco.Emitter();
 let typesinfo = [];
 function applyChangesToCurCodeLens(changes) {
@@ -78,12 +86,11 @@ function validateMarkers(model) {
     const markers = [];
     typesinfo.forEach((info) => {
         if (!info["typeable"] && info["pos"] !== null) {
-            let msg = info["message"];
             let start = model.getPositionAt(info["pos"]["startOffset"]);
             let end = model.getPositionAt(info["pos"]["endOffset"]);
             let range = rangeOfPositions(start, end);
             markers.push({
-				message: msg,
+				message: fullErrorMessage(info),
 				severity: monaco.MarkerSeverity.Warning,
 				startLineNumber: range.startLineNumber,
 				startColumn: range.startColumn,

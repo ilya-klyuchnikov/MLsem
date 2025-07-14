@@ -7,7 +7,8 @@ val domain_of_proj : Parsing.Ast.projection -> typ -> typ
 val proj : Parsing.Ast.projection -> typ -> typ
 val typeof_proj : Parsing.Ast.projection -> TyScheme.t
 
-exception Untypeable of Parsing.Ast.exprid * string
+type error = { eid: Parsing.Ast.exprid ; title: string ; descr: string option }
+exception Untypeable of error
 
 val typeof : Env.t -> Annot.t -> Ast.t -> typ
 val generalize : e:Ast.t -> Env.t -> typ -> TyScheme.t

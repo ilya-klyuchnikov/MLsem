@@ -10,15 +10,16 @@ let treat_res (acc, res) =
                 Types.TyScheme.pp_short t time ;
         ) ;
         acc, true
-    | TFailure (Some v, pos, msg, time) ->
+    | TFailure (Some v, pos, msg, descr, time) ->
         Format.printf "@{<blue;bold>%s@}: %!"
             (Parsing.Variable.Variable.get_name v |> Option.get) ;
         Format.printf "@{<red>%s@} @{<italic;purple>(failed in %.00fms)@}\n%!"
             msg time ;
         Format.printf "@{<italic;cyan>%s@}\n%!"
             (Position.string_of_pos pos) ;
+        descr |> Option.iter (Format.printf "@{<italic;cyan>%s@}\n%!") ;
         acc, false
-    | TFailure (None, _, msg, _) ->
+    | TFailure (None, _, msg, _, _) ->
         Format.printf "@{<red>%s@}\n%!" msg ;
         acc, false
     | TDone -> acc, true

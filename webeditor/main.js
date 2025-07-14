@@ -152,7 +152,7 @@ requirejs(['vs/editor/editor.main','cookie'], function () {
 					if (range !== null)
 						pos = model.getPositionAt(range[0]);
 				}
-				messageContribution.showMessage(res["message"], pos);
+				messageContribution.showMessage(fullErrorMessage(res), pos);
 			}
 			else {
 				updateTypeInfo(model, res["results"], changes);

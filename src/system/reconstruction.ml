@@ -11,7 +11,7 @@ type ('a,'b) result =
 | Fail
 | Subst of (Subst.t * typ) list * 'b * 'b * (Parsing.Ast.exprid * REnv.t)
 
-type log = Parsing.Ast.exprid * string
+type log = { eid: Parsing.Ast.exprid ; title: string ; descr: Format.formatter -> unit }
 type cache = { dom : Domain.t ; cache : ((Annot.t, IAnnot.t) result) Cache.t ;
                tvcache : TVCache.t ; logs : log list ref }
 
@@ -157,7 +157,7 @@ let nc a = IAnnot.A (Annot.nc a)
 let rec infer cache env renvs annot (id, e) =
   let open IAnnot in
   let log msg =
-    let log = (id, msg) in
+    let log = { eid=id ; title=msg ; descr=(fun _ -> ()) } in
     cache.logs := log::!(cache.logs)
   in
   let retry_with a = infer cache env renvs a (id, e) in
@@ -462,8 +462,13 @@ let infer env renvs e =
   | Fail ->
     begin match !(cache.logs) with
     | [] ->
-      raise (Checker.Untypeable (Parsing.Ast.dummy_exprid, "annotation reconstruction failed"))
-    | (eid, msg)::_ -> raise (Checker.Untypeable (eid, msg))
+      let err = { Checker.eid=Parsing.Ast.dummy_exprid ;
+        title="annotation reconstruction failed" ; descr=None } in
+      raise (Checker.Untypeable err)
+    | log::_ ->
+      let err = { Checker.eid=log.eid ; title=log.title ;
+        descr=(Some (Format.asprintf "%a" (fun fmt () -> log.descr fmt) ())) } in
+      raise (Checker.Untypeable err)
     end
   | Subst _ -> failwith "Top-level environment should not contain an unresolved type variable."
   | Ok (a,_) -> a
