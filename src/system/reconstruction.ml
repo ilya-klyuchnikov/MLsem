@@ -12,8 +12,7 @@ type ('a,'b) result =
 | Subst of (Subst.t * typ) list * 'b * 'b * (Parsing.Ast.exprid * REnv.t)
 
 type log = { eid: Parsing.Ast.exprid ; title: string ; descr: Format.formatter -> unit }
-type cache = { dom : Domain.t ; cache : ((Annot.t, IAnnot.t) result) Cache.t ;
-               tvcache : TVCache.t ; logs : log list ref }
+type cache = { dom : Domain.t ; tvcache : TVCache.t ; logs : log list ref }
 
 (* Auxiliary *)
 
@@ -404,7 +403,7 @@ let rec infer cache env renvs annot (id, e) =
   | e, a ->
     Format.printf "e:@.%a@.@.a:@.%a@.@." Ast.pp_e e IAnnot.pp a ;
     assert false
-and infer_nc' cache env renvs annot e =
+and infer' cache env renvs annot e =
   let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
   let subst_disjoint s =
     TVarSet.inter (Subst.dom s) mono |> TVarSet.is_empty
@@ -426,12 +425,6 @@ and infer_nc' cache env renvs annot e =
     let annot = IAnnot.AInter (branches@default) in
     infer' cache env renvs annot e
   | Subst (ss, a1, a2, r) -> Subst (ss, a1, a2, r)
-and infer' cache env renvs annot e =
-  match Cache.get e env annot cache.cache with
-  | Some r -> r
-  | None ->
-    let r = infer_nc' cache env renvs annot e in
-    Cache.add e env annot r cache.cache ; r
 and infer_b' cache env renvs bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
@@ -476,8 +469,7 @@ and infer_part_seq' cache env renvs e v s lst =
 
 let infer env renvs e =
   let renvs = Refinement.Partitioner.from_renvset renvs in
-  let cache = { dom = Domain.empty ; cache = Cache.empty () ;
-    tvcache = TVCache.empty () ; logs = ref [] } in
+  let cache = { dom = Domain.empty ; tvcache = TVCache.empty () ; logs = ref [] } in
   match infer' cache env renvs IAnnot.Infer e with
   | Fail ->
     begin match !(cache.logs) with
