@@ -53,6 +53,5 @@ val coerce : typ -> t -> t
 val pp : Format.formatter -> t -> unit
 val pp_e : Format.formatter -> e -> unit
 val pp_cf : Format.formatter -> cf -> unit
-val show : t -> string (* TODO: show needed? *)
-val show_e : e -> string
-val show_cf : cf -> string
+val pp_projection : Format.formatter -> projection -> unit
+val pp_const : Format.formatter -> const -> unit
