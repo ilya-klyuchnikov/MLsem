@@ -9,9 +9,9 @@ open Caching
 type ('a,'b) result =
 | Ok of 'a * typ
 | Fail
-| Subst of (Subst.t * typ) list * 'b * 'b * (exprid * REnv.t)
+| Subst of (Subst.t * typ) list * 'b * 'b * (Eid.t * REnv.t)
 
-type log = { eid: exprid ; title: string ; descr: Format.formatter -> unit }
+type log = { eid: Eid.t ; title: string ; descr: Format.formatter -> unit }
 type cache = { dom : Domain.t ; tvcache : TVCache.t ; logs : log list ref }
 
 (* Auxiliary *)
@@ -132,7 +132,7 @@ let tallying_with_result cache env res cs =
 type ('a,'b) result_seq =
 | AllOk of 'a list * typ list
 | OneFail
-| OneSubst of (Subst.t * typ) list * 'b list * 'b list * (exprid * REnv.t)
+| OneSubst of (Subst.t * typ) list * 'b list * 'b list * (Eid.t * REnv.t)
 
 let rec seq (f : 'b -> 'c -> ('a,'b) result) (c : 'a->'b) (lst:('b*'c) list)
   : ('a,'b) result_seq =
@@ -474,7 +474,7 @@ let infer env renvs e =
   | Fail ->
     begin match !(cache.logs) with
     | [] ->
-      let err = { Checker.eid=dummy_exprid ;
+      let err = { Checker.eid=Eid.dummy ;
         title="annotation reconstruction failed" ; descr=None } in
       raise (Checker.Untypeable err)
     | log::_ ->

@@ -29,7 +29,7 @@ module Annot : sig
 end
 
 module IAnnot : sig
-  type coverage = (Ast.exprid * typ) option * REnv.t
+  type coverage = (Eid.t * typ) option * REnv.t
   type branch = BType of t | BSkip | BInfer
   and inter_branch = { coverage: coverage option ; ann: t }
   and inter = inter_branch list

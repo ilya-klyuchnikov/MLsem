@@ -13,14 +13,6 @@ type const =
 
 val typeof_const : const -> typ
 
-type exprid = int (* TODO: make a module *)
-val dummy_exprid : exprid
-val unique_exprid : unit -> exprid
-val unique_exprid_with_pos : Position.t -> exprid
-val refresh_exprid : exprid -> exprid
-val loc_of_exprid : exprid -> Position.t
-val pp_exprid : Format.formatter -> exprid -> unit
-
 type cf = CfWhile | CfCond
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 type e = (* TODO: factorize constructors? *)
@@ -41,7 +33,7 @@ type e = (* TODO: factorize constructors? *)
 | TypeConstr of t * typ
 | TypeCoerce of t * typ
 | ControlFlow of cf * t * typ * t * t
-and t = exprid * e
+and t = Eid.t * e
 
 val map : (t -> t) -> t -> t
 val fold : (t -> 'a list -> 'a) -> t -> 'a

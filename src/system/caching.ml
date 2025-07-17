@@ -51,7 +51,7 @@ module Domain = struct
 end
 
 module TVCache = struct
-  type t = { expr: (Ast.exprid * TVar.t, TVar.t) Hashtbl.t ;
+  type t = { expr: (Eid.t * TVar.t, TVar.t) Hashtbl.t ;
              abs: (abstract * int * TVar.t, TVar.t) Hashtbl.t }
 
   let empty () =

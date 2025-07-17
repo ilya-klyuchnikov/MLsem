@@ -46,7 +46,7 @@ let rec def_of_var_pat pat v e =
   | PatVar v' when Variable.equals v v' -> e
   | PatVar _ -> assert false
   | PatTag (tag, p) ->
-    def_of_var_pat p v (unique_exprid (), Projection (PiTag tag, e))
+    def_of_var_pat p v (Eid.unique (), Projection (PiTag tag, e))
   | PatAnd (p1, p2) ->
     if vars_of_pat p1 |> VarSet.mem v
     then def_of_var_pat p1 v e
@@ -55,40 +55,40 @@ let rec def_of_var_pat pat v e =
     let i = List.find_index (fun p -> vars_of_pat p |> VarSet.mem v) ps |> Option.get in
     let n = List.length ps in
     let p = List.nth ps i in
-    def_of_var_pat p v (unique_exprid (), Projection (Pi (n,i), e))
+    def_of_var_pat p v (Eid.unique (), Projection (Pi (n,i), e))
   | PatCons (p1, p2) ->
     if vars_of_pat p1 |> VarSet.mem v
-    then def_of_var_pat p1 v (unique_exprid (), Projection (Hd, e))
-    else def_of_var_pat p2 v (unique_exprid (), Projection (Tl, e))
+    then def_of_var_pat p1 v (Eid.unique (), Projection (Hd, e))
+    else def_of_var_pat p2 v (Eid.unique (), Projection (Tl, e))
   | PatRecord (fields, _) ->
     let (str, p) =
       fields |> List.find (fun (_, p) -> vars_of_pat p |> VarSet.mem v)
     in
-    def_of_var_pat p v (unique_exprid (), Projection (Field str, e))
+    def_of_var_pat p v (Eid.unique (), Projection (Field str, e))
   | PatOr (p1, p2) ->
     let case = Ite (e, type_of_pat p1,
       def_of_var_pat p1 v e, def_of_var_pat p2 v e) in
-    (unique_exprid (), case)
-  | PatAssign (v', c) when Variable.equals v v' -> (unique_exprid (), Const c)
+    (Eid.unique (), case)
+  | PatAssign (v', c) when Variable.equals v v' -> (Eid.unique (), Const c)
   | PatAssign _ -> assert false
   | PatType _ -> assert false
   | PatLit _ -> assert false
 
 let encode_pattern_matching e pats =
   let x = Variable.create_gen None in
-  let ex : Ast.expr = (unique_exprid (), Var x) in
+  let ex : Ast.expr = (Eid.unique (), Var x) in
   let ts = pats |> List.map fst |> List.map type_of_pat in
   let t = disj ts in
   let body_of_pat pat e' =
     let vars = vars_of_pat pat in
     let add_def acc v =
       let d = def_of_var_pat pat v ex in
-      (unique_exprid (), Ast.Let (v, d, acc))
+      (Eid.unique (), Ast.Let (v, d, acc))
     in
     List.fold_left add_def e' (VarSet.elements vars)
   in
   let add_branch acc (t, e') =
-    (unique_exprid (), Ast.Ite (ex, t, e', acc))
+    (Eid.unique (), Ast.Ite (ex, t, e', acc))
   in
   let pats = pats |> List.map (fun (pat, e') ->
     (type_of_pat pat, body_of_pat pat e')) |> List.rev in
@@ -96,8 +96,8 @@ let encode_pattern_matching e pats =
   | [] -> assert false
   | (_, e')::pats -> List.fold_left add_branch e' pats
   in
-  let def = (refresh_exprid (fst e), Ast.TypeConstr (e, t)) in
-  let body = (unique_exprid (), Ast.Suggest (x, ts, body)) in
+  let def = (Eid.refresh (fst e), Ast.TypeConstr (e, t)) in
+  let body = (Eid.unique (), Ast.Suggest (x, ts, body)) in
   Ast.Let (x, def, body)
 
 let expr_to_ast t =
@@ -115,8 +115,8 @@ let expr_to_ast t =
     let x' = Variable.create_let (Variable.get_name x) in
     Variable.get_location x |> Variable.attach_location x' ;
     add_suggs x' (get_sugg x) ;
-    refresh_exprid (fst e),
-    let_binding x' (unique_exprid (), Var x) (substitute x x' e)
+    Eid.refresh (fst e),
+    let_binding x' (Eid.unique (), Var x) (substitute x x' e)
   in
   let lambda_annot x a =
     match a with
@@ -149,10 +149,10 @@ let expr_to_ast t =
     | Ast.TypeCoerce (e, ty) -> TypeCoerce (aux e, ty)
     | Ast.PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
     | Ast.Cond (e,t,e1,None) ->
-      ControlFlow (CfCond, aux e, t, aux e1, (unique_exprid (), Const Unit))
+      ControlFlow (CfCond, aux e, t, aux e1, (Eid.unique (), Const Unit))
     | Ast.Cond (e,t,e1,Some e2) -> ControlFlow (CfCond, aux e, t, aux e1, aux e2)
     | Ast.While (e,t,e1) ->
-      ControlFlow (CfWhile, aux e, t, aux e1, (unique_exprid (), Const Unit))
+      ControlFlow (CfWhile, aux e, t, aux e1, (Eid.unique (), Const Unit))
     | Ast.Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
   and aux (id, e) =
     (id, aux_e e)

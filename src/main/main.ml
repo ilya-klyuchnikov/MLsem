@@ -66,7 +66,7 @@ let type_check_with_sigs env (var,e,sigs,aty) =
 
 let type_check_recs pos env lst =
   let e =
-    unique_exprid_with_pos pos,
+    Eid.unique_with_pos pos,
     Parsing.Ast.LambdaRec (List.map (fun (v,e) -> (v,None,e)) lst) in
   let e = Transform.expr_to_ast e in
   let tvs, ty = infer None env e |> TyScheme.get in
@@ -165,9 +165,9 @@ let treat (tenv,varm,senv,env) (annot, elem) =
   | Untypeable (v', err) ->
     let v = match v' with None -> !v | Some v -> v in
     let pos =
-      if err.eid = dummy_exprid
+      if err.eid = Eid.dummy
       then Variable.get_location v
-      else loc_of_exprid err.eid
+      else Eid.loc err.eid
     in
     (tenv,varm,senv,env), TFailure (Some v, pos, err.title, err.descr, retrieve_time time)
   | IncompatibleType (var,_) ->

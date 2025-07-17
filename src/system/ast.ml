@@ -30,31 +30,6 @@ let typeof_const c =
 
 (* -------------------- *)
 
-type exprid = int
-[@@deriving show]
-
-let dummy_exprid = 0
-let unique_exprid =
-    let last_id = ref 0 in
-    fun () -> (
-        last_id := !last_id + 1 ;
-        !last_id
-    )
-let eid_locs = Hashtbl.create 1000
-let unique_exprid_with_pos pos =
-  let eid = unique_exprid () in
-  Hashtbl.add eid_locs eid pos ; eid
-let refresh_exprid parent =
-  match Hashtbl.find_opt eid_locs parent with
-  | None -> unique_exprid ()
-  | Some pos -> unique_exprid_with_pos pos
-let loc_of_exprid eid =
-  match Hashtbl.find_opt eid_locs eid with
-  | None -> Position.dummy
-  | Some p -> p  
-
-(* -------------------- *)
-
 type cf = CfWhile | CfCond
 [@@deriving show]
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
@@ -78,7 +53,7 @@ type e =
 | TypeCoerce of t * typ
 | ControlFlow of cf * t * typ * t * t
 [@@deriving show]
-and t = exprid * e
+and t = Eid.t * e
 [@@deriving show]
 
 let map f =
@@ -174,4 +149,4 @@ let rec coerce ty (id,t) =
       id, Lambda (d, v, coerce cd e)
     end
   | _ -> raise Exit
-  with Exit -> refresh_exprid id, TypeCoerce ((id,t), ty)
+  with Exit -> Eid.refresh id, TypeCoerce ((id,t), ty)

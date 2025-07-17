@@ -9,7 +9,7 @@ exception SyntaxError of Position.t * string
 
 type varname = string
 
-type annotation = exprid Position.located
+type annotation = Eid.t Position.located
 
 type 'typ lambda_annot = 'typ option
 
@@ -50,7 +50,7 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 
 and ('a, 'typ, 'ato, 'tag, 'v) t = 'a * ('a, 'typ, 'ato, 'tag, 'v) ast
 
-type expr = (exprid, typ, atom, tag, Variable.t) t
+type expr = (Eid.t, typ, atom, tag, Variable.t) t
 type parser_expr = (annotation, type_expr, string, string, varname) t
 
 type name_var_map = Variable.t StrMap.t

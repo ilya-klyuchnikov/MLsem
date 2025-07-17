@@ -8,7 +8,7 @@ exception LexicalError of Position.t * string
 exception SyntaxError of Position.t * string
 
 type varname = string
-type annotation = exprid Position.located
+type annotation = Eid.t Position.located
 
 type 'typ lambda_annot = 'typ option
 
@@ -49,14 +49,14 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 
 and ('a, 'typ, 'ato, 'tag, 'v) t = 'a * ('a, 'typ, 'ato, 'tag, 'v) ast
 
-type expr = (exprid, typ, atom, tag, Variable.t) t
+type expr = (Eid.t, typ, atom, tag, Variable.t) t
 type parser_expr = (annotation, type_expr, string, string, varname) t
 
 type name_var_map = Variable.t StrMap.t
 let empty_name_var_map = StrMap.empty
 
 let new_annot p =
-    Position.with_pos p (unique_exprid_with_pos p)
+    Position.with_pos p (Eid.unique_with_pos p)
 let copy_annot a =
     new_annot (Position.position a)
 
@@ -83,7 +83,7 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         then StrMap.find str env
         else raise (SymbolError ("undefined symbol "^str))
     in
-    let rec aux vtenv env ((exprid,pos),e) =
+    let rec aux vtenv env ((eid,pos),e) =
         let e = match e with
         | Abstract t ->
             let (t, _) = type_expr_to_typ tenv vtenv t in
@@ -145,7 +145,7 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             While (aux vtenv env e, t, aux vtenv env e')
         | Seq (e1, e2) -> Seq (aux vtenv env e1, aux vtenv env e2)
         in
-        (exprid,e)
+        (eid,e)
     and aux_pat pos vtenv env (pat, e) =
         let merge_disj =
             StrMap.union (fun str v1 v2 ->

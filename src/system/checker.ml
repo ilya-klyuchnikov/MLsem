@@ -32,7 +32,7 @@ let proj p ty =
 
 (* Expressions *)
 
-type error = { eid: exprid ; title: string ; descr: string option }
+type error = { eid: Eid.t ; title: string ; descr: string option }
 exception Untypeable of error
 
 let untypeable id msg = raise (Untypeable { eid=id ; title=msg ; descr=None })
