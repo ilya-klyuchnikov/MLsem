@@ -3,10 +3,10 @@ open Types
 open Annot
 open Env
 
-val domain_of_proj : Parsing.Ast.projection -> typ -> typ
-val proj : Parsing.Ast.projection -> typ -> typ
+val domain_of_proj : Ast.projection -> typ -> typ
+val proj : Ast.projection -> typ -> typ
 
-type error = { eid: Parsing.Ast.exprid ; title: string ; descr: string option }
+type error = { eid: Ast.exprid ; title: string ; descr: string option }
 exception Untypeable of error
 
 val typeof : Env.t -> Annot.t -> Ast.t -> typ

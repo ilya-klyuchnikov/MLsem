@@ -1,37 +1,16 @@
 open Types.Base
 open Types.Additions
-open Variable
+open System.Variable
+open System.Ast
 
 exception SymbolError of string
 exception LexicalError of Position.t * string
 exception SyntaxError of Position.t * string
 
 type varname = string
-type exprid = int
-[@@deriving show]
-
 type annotation = exprid Position.located
 
-module Zd = struct
-    type t = Z.t
-    let pp = Z.pp_print
-    let compare = Z.compare
-end
-type const =
-| Unit | Nil
-| EmptyRecord
-| Bool of bool
-| Int of Zd.t
-| Float of float
-| Char of char
-| String of string
-[@@deriving show, ord]
-
-type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
-[@@deriving show, ord]
-
 type 'typ lambda_annot = 'typ option
-[@@deriving show, ord]
 
 type ('a, 'typ, 'tag, 'v) pattern =
 | PatType of 'typ
@@ -44,7 +23,6 @@ type ('a, 'typ, 'tag, 'v) pattern =
 | PatCons of ('a, 'typ, 'tag, 'v) pattern * ('a, 'typ, 'tag, 'v) pattern
 | PatRecord of (string * (('a, 'typ, 'tag, 'v) pattern)) list * bool
 | PatAssign of 'v * const
-[@@deriving ord]
 
 and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Abstract of 'typ
@@ -68,7 +46,6 @@ and ('a, 'typ, 'ato, 'tag, 'v) ast =
 | Cond of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t option
 | While of ('a, 'typ, 'ato, 'tag, 'v) t * 'typ * ('a, 'typ, 'ato, 'tag, 'v) t
 | Seq of ('a, 'typ, 'ato, 'tag, 'v) t * ('a, 'typ, 'ato, 'tag, 'v) t
-[@@deriving ord]
 
 and ('a, 'typ, 'ato, 'tag, 'v) t = 'a * ('a, 'typ, 'ato, 'tag, 'v) ast
 
@@ -78,30 +55,10 @@ type parser_expr = (annotation, type_expr, string, string, varname) t
 type name_var_map = Variable.t StrMap.t
 let empty_name_var_map = StrMap.empty
 
-let dummy_exprid = 0
-let unique_exprid =
-    let last_id = ref 0 in
-    fun () -> (
-        last_id := !last_id + 1 ;
-        !last_id
-    )
-let eid_locs = Hashtbl.create 1000
-let unique_exprid_with_pos pos =
-    let eid = unique_exprid () in
-    Hashtbl.add eid_locs eid pos ; eid
-let refresh_exprid parent =
-    match Hashtbl.find_opt eid_locs parent with
-    | None -> unique_exprid ()
-    | Some pos -> unique_exprid_with_pos pos
 let new_annot p =
     Position.with_pos p (unique_exprid_with_pos p)
 let copy_annot a =
     new_annot (Position.position a)
-
-let loc_of_exprid eid =
-    match Hashtbl.find_opt eid_locs eid with
-    | None -> Position.dummy
-    | Some p -> p
 
 let dummy_pat_var_str = "_"
 let dummy_pat_var =

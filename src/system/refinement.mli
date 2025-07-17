@@ -1,6 +1,6 @@
 open Env
 open Types.Base
-open Parsing.Variable
+open Variable
 
 val refine : Env.t -> Ast.t -> typ -> REnv.t
 val refinement_envs : Env.t -> Ast.t -> REnvSet.t

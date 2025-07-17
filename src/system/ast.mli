@@ -1,15 +1,31 @@
-open Parsing
 open Variable
 open Types.Base
 open Types.Tvar
 
-val typeof_const : Parsing.Ast.const -> typ
+type const =
+| Unit | Nil
+| EmptyRecord
+| Bool of bool
+| Int of Z.t
+| Float of float
+| Char of char
+| String of string
+
+val typeof_const : const -> typ
+
+type exprid = int (* TODO: make a module *)
+val dummy_exprid : exprid
+val unique_exprid : unit -> exprid
+val unique_exprid_with_pos : Position.t -> exprid
+val refresh_exprid : exprid -> exprid
+val loc_of_exprid : exprid -> Position.t
+val pp_exprid : Format.formatter -> exprid -> unit
 
 type cf = CfWhile | CfCond
-
-type e =
+type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
+type e = (* TODO: factorize constructors? *)
 | Abstract of typ
-| Const of Ast.const
+| Const of const
 | Var of Variable.t
 | Atom of atom
 | Tag of tag * t
@@ -19,24 +35,24 @@ type e =
 | App of t * t
 | Tuple of t list
 | Cons of t * t
-| Projection of Ast.projection * t
+| Projection of projection * t
 | RecordUpdate of t * string * t option
 | Let of (typ list) * Variable.t * t * t
 | TypeConstr of t * typ
 | TypeCoerce of t * typ
 | ControlFlow of cf * t * typ * t * t
-and t = Ast.exprid * e
+and t = exprid * e
 
 val map : (t -> t) -> t -> t
 val fold : (t -> 'a list -> 'a) -> t -> 'a
 val fv : t -> VarSet.t
 val apply_subst : Subst.t -> t -> t
-val from_parser_ast : Ast.expr -> t
+val substitute : Variable.t -> Variable.t -> t -> t
 val coerce : typ -> t -> t
 
 val pp : Format.formatter -> t -> unit
 val pp_e : Format.formatter -> e -> unit
 val pp_cf : Format.formatter -> cf -> unit
-val show : t -> string
+val show : t -> string (* TODO: show needed? *)
 val show_e : e -> string
 val show_cf : cf -> string

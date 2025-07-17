@@ -56,7 +56,7 @@ module Annot = struct
 end
 
 module IAnnot = struct
-  type coverage = (Parsing.Ast.exprid * typ) option * REnv.t
+  type coverage = (Ast.exprid * typ) option * REnv.t
   [@@deriving show]
   type branch = BType of t | BSkip | BInfer
   [@@deriving show]

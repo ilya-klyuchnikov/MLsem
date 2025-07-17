@@ -1,4 +1,4 @@
-open Parsing.Variable
+open Variable
 open Types
 open Types.Base
 open Types.Tvar

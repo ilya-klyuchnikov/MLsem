@@ -1,6 +1,6 @@
 open Types.Base
 open Types.Tvar
-open Parsing.Variable
+open Variable
 open Env
 open Annot
 
@@ -51,7 +51,7 @@ module Domain = struct
 end
 
 module TVCache = struct
-  type t = { expr: (Parsing.Ast.exprid * TVar.t, TVar.t) Hashtbl.t ;
+  type t = { expr: (Ast.exprid * TVar.t, TVar.t) Hashtbl.t ;
              abs: (abstract * int * TVar.t, TVar.t) Hashtbl.t }
 
   let empty () =

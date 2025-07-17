@@ -1,26 +1,15 @@
 open Types.Base
 open Types.Additions
-open Variable
+open System.Variable
+open System.Ast
 
 exception SymbolError of string
 exception LexicalError of Position.t * string
 exception SyntaxError of Position.t * string
 
 type varname = string
-type exprid = int
 
 type annotation = exprid Position.located
-
-type const =
-| Unit | Nil
-| EmptyRecord
-| Bool of bool
-| Int of Z.t
-| Float of float
-| Char of char
-| String of string
-
-type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 
 type 'typ lambda_annot = 'typ option
 
@@ -67,13 +56,8 @@ type parser_expr = (annotation, type_expr, string, string, varname) t
 type name_var_map = Variable.t StrMap.t
 val empty_name_var_map : name_var_map
 
-val dummy_exprid : exprid
-val unique_exprid : unit -> exprid
-val unique_exprid_with_pos : Position.t -> exprid
-val refresh_exprid : exprid -> exprid
 val new_annot : Position.t -> annotation
 val copy_annot : annotation -> annotation
-val loc_of_exprid : exprid -> Position.t
 
 val dummy_pat_var : Variable.t
 
@@ -87,15 +71,3 @@ type parser_element =
 | Command of string * const
 
 type parser_program = (annotation * parser_element) list
-
-(* Pretty printers *)
-
-val pp_exprid : Format.formatter -> exprid -> unit
-val pp_const : Format.formatter -> const -> unit
-val pp_projection : Format.formatter -> projection -> unit
-val pp_lambda_annot : (Format.formatter -> 'a -> unit) ->
-                    Format.formatter -> 'a lambda_annot -> unit
-val show_const : const -> string
-val show_projection : projection -> string
-val show_lambda_annot : (Format.formatter -> 'a -> unit) ->
-                    'a lambda_annot -> string

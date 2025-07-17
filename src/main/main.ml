@@ -1,18 +1,18 @@
 open Parsing.IO
-open System
 open Types.Base
 open Types.Additions
 open Types.Tvar
 open Types
 open Parsing
-open Parsing.Variable
-open Env
+open System.Variable
+open System.Env
+open System.Ast
 
 type def = Variable.t * Ast.expr * typ option
 
 exception IncompatibleType of Variable.t * TyScheme.t
 exception UnresolvedType of Variable.t * TyScheme.t
-exception Untypeable of Variable.t option * Checker.error
+exception Untypeable of Variable.t option * System.Checker.error
 
 let sigs_of_ty mono ty =
   let rec aux ty =
@@ -32,14 +32,18 @@ let sigs_of_ty mono ty =
   else None
 let infer var env e =
   let annot =
-    let r = if !Config.type_narrowing then Refinement.refinement_envs env e else REnvSet.empty in
+    let r =
+      if !Config.type_narrowing
+      then System.Refinement.refinement_envs env e
+      else REnvSet.empty
+    in
     (* REnvSet.elements r |> List.iter (fun renv -> Format.printf "Renv: %a@." REnv.pp renv) ; *)
-    try Reconstruction.infer env r e with
-    | Checker.Untypeable err ->
+    try System.Reconstruction.infer env r e with
+    | System.Checker.Untypeable err ->
       (* Format.printf "@.@.%a@.@." System.Ast.pp e ; *)
       raise (Untypeable (var, err))
   in
-  Checker.typeof_def env annot e |> TyScheme.simplify
+  System.Checker.typeof_def env annot e |> TyScheme.simplify
 let retrieve_time time =
   let time' = Unix.gettimeofday () in
   (time' -. time) *. 1000.
@@ -48,8 +52,8 @@ let check_resolved var env typ =
   then raise (UnresolvedType (var,typ))
 
 let type_check_with_sigs env (var,e,sigs,aty) =
-  let e = System.Ast.from_parser_ast e in
-  let es = List.map (fun s -> System.Ast.coerce s e) sigs in
+  let e = Transform.expr_to_ast e in
+  let es = List.map (fun s -> coerce s e) sigs in
   let typs = List.map (infer (Some var) env) es in
   let tscap t1 t2 =
     let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
@@ -62,9 +66,9 @@ let type_check_with_sigs env (var,e,sigs,aty) =
 
 let type_check_recs pos env lst =
   let e =
-    Parsing.Ast.unique_exprid_with_pos pos,
+    unique_exprid_with_pos pos,
     Parsing.Ast.LambdaRec (List.map (fun (v,e) -> (v,None,e)) lst) in
-  let e = System.Ast.from_parser_ast e in
+  let e = Transform.expr_to_ast e in
   let tvs, ty = infer None env e |> TyScheme.get in
   let n = List.length lst in
   List.mapi (fun i (var,_) ->
@@ -161,9 +165,9 @@ let treat (tenv,varm,senv,env) (annot, elem) =
   | Untypeable (v', err) ->
     let v = match v' with None -> !v | Some v -> v in
     let pos =
-      if err.eid = Ast.dummy_exprid
+      if err.eid = dummy_exprid
       then Variable.get_location v
-      else Ast.loc_of_exprid err.eid
+      else loc_of_exprid err.eid
     in
     (tenv,varm,senv,env), TFailure (Some v, pos, err.title, err.descr, retrieve_time time)
   | IncompatibleType (var,_) ->

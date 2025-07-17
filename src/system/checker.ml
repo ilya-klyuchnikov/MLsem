@@ -4,26 +4,25 @@ open Types.Tvar
 open Annot
 open Ast
 open Env
-open Parsing.Variable
+open Variable
 
 (* Utils *)
 
 let domain_of_proj p ty =
   match p with
-  | Parsing.Ast.Field label ->
+  | Field label ->
     mk_record true [label, (false, ty)]
-  | Parsing.Ast.Pi(n,i) ->
+  | Pi(n,i) ->
     if i >= n then empty
     else mk_tuple (List.init n (fun k -> if k=i then ty else any))
-  | Parsing.Ast.Hd ->
+  | Hd ->
     mk_cons ty list_typ
-  | Parsing.Ast.Tl ->
+  | Tl ->
     mk_cons any (cap ty list_typ)
-  | Parsing.Ast.PiTag tag ->
+  | PiTag tag ->
     mk_tag tag ty
 
 let proj p ty =
-  let open Parsing.Ast in
   match p with
   | Field label -> get_field ty label
   | Pi (n,i) -> pi n i ty
@@ -33,7 +32,7 @@ let proj p ty =
 
 (* Expressions *)
 
-type error = { eid: Parsing.Ast.exprid ; title: string ; descr: string option }
+type error = { eid: exprid ; title: string ; descr: string option }
 exception Untypeable of error
 
 let untypeable id msg = raise (Untypeable { eid=id ; title=msg ; descr=None })

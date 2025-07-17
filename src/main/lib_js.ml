@@ -22,8 +22,8 @@ let add_res res res' =
   match res' with
   | TDone -> res
   | TFailure (Some v, pos, msg, descr, time) ->
-    let name = Parsing.Variable.Variable.get_name v |> Option.get in
-    let def_pos = Parsing.Variable.Variable.get_location v in
+    let name = System.Variable.Variable.get_name v |> Option.get in
+    let def_pos = System.Variable.Variable.get_location v in
     let descr = match descr with None -> [] | Some d -> [("descr", `String d)] in
     let untyp =
       `Assoc ([("name", `String name) ; ("def_pos", json_of_pos def_pos) ; ("time", `Float time) ;
@@ -40,8 +40,8 @@ let add_res res res' =
   | TSuccess (lst,time) ->
     let res = ref res in
     lst |> List.iter (fun (v,t)->
-      let name = Parsing.Variable.Variable.get_name v |> Option.get in
-      let def_pos = Parsing.Variable.Variable.get_location v in
+      let name = System.Variable.Variable.get_name v |> Option.get in
+      let def_pos = System.Variable.Variable.get_location v in
       let typ = Format.asprintf "%a" Types.TyScheme.pp_short t in
       let typ =
         `Assoc [("name", `String name) ; ("def_pos", json_of_pos def_pos) ;
