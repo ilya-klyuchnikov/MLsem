@@ -14,9 +14,12 @@ module GTy : sig
     val components : t -> typ * bool
     val cap: t -> t -> t
     val cup: t -> t -> t
+    val conj : t list -> t
+    val disj : t list -> t
 
     val fv : t -> TVarSet.t
     val substitute : Subst.t -> t -> t
+    val map_dyn : typ -> t -> typ
 
     val is_top : t -> bool
     val is_bot : t -> bool
@@ -26,7 +29,11 @@ module GTy : sig
     val equiv_static : t -> t -> bool
 
     val simplify : t -> t
+    val normalize : t -> t
     val map : (typ -> typ) -> t -> t
+    val map2 : (typ -> typ -> typ) -> t -> t -> t
+    val map3 : (typ -> typ -> typ -> typ) -> t -> t -> t -> t
+    val mapl : (typ list -> typ) -> t list -> t
 
     val pp : Format.formatter -> t -> unit
 end

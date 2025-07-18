@@ -1,5 +1,6 @@
 open Types.Base
 open Types.Tvar
+open Types.Gradual
 open Env
 
 module Annot : sig
@@ -21,7 +22,7 @@ module Annot : sig
   | ALambda of typ * t
   | ALambdaRec of (typ * t) list
   | AInter of inter
-  and t = { mutable cache: typ option ; ann: a }
+  and t = { mutable cache: GTy.t option ; ann: a }
 
   val nc : a -> t
   val substitute : Subst.t -> t -> t

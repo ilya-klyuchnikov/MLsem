@@ -1,5 +1,6 @@
 open Types.Base
 open Types.Tvar
+open Types.Gradual
 open Env
 
 module Annot = struct
@@ -25,7 +26,7 @@ module Annot = struct
   | ALambdaRec of (typ * t) list
   | AInter of inter
   [@@deriving show]
-  and t = { mutable cache: typ option ; ann: a }
+  and t = { mutable cache: GTy.t option ; ann: a }
   [@@deriving show]
 
   let substitute s t =
@@ -45,7 +46,7 @@ module Annot = struct
       | ALambda (ty, t) -> ALambda (Subst.apply s ty, aux t)
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (Subst.apply s ty, aux t)) lst)
       | AInter ts -> AInter (List.map aux ts)
-    in { cache=Option.map (Subst.apply s) t.cache ; ann }
+    in { cache=Option.map (GTy.substitute s) t.cache ; ann }
     and aux_b b =
       match b with BSkip -> BSkip | BType t -> BType (aux t)  
     in
