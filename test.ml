@@ -651,3 +651,11 @@ let gradual4 x =
   | y & :bool -> lnot y
   | y -> 42::y
   end
+
+val gradual4_ann : any -> int | bool
+let gradual4_ann x =
+  match reflect x with
+  | y & :int -> y + 1
+  | y & :bool -> lnot y
+  | y -> 42::y
+  end
