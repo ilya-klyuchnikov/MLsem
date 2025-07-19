@@ -108,7 +108,7 @@ let rec typeof' env annot (id,e) =
     let env = lst |> List.fold_left
       (fun env ((_,v,_),(ty,_)) -> Env.add v (TyScheme.mk_mono ty) env) env in
     let tys = lst |> List.map (fun ((_,_,e),(ty,annot)) -> typeof env annot e, ty) in
-    if List.for_all (fun (ty, ty') -> GTy.leq ty ty') tys
+    if List.for_all (fun (ty, ty') -> subtype (GTy.lb ty) (GTy.lb ty')) tys
     then tys |> List.map fst |> GTy.mapl mk_tuple
     else untypeable id ("Invalid recursive lambda.")
   | Ite (e, tau, e1, e2), AIte (annot, b1, b2) ->

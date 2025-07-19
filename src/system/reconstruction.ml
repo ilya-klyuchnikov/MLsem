@@ -1,13 +1,14 @@
 open Annot
 open Types.Base
 open Types.Tvar
+open Types.Gradual
 open Types
 open Env
 open Ast
 open Caching
 
 type ('a,'b) result =
-| Ok of 'a * typ
+| Ok of 'a * GTy.t
 | Fail
 | Subst of (Subst.t * typ) list * 'b * 'b * (Eid.t * REnv.t)
 
@@ -130,7 +131,7 @@ let tallying_with_result cache env res cs =
 (* Reconstruction algorithm *)
 
 type ('a,'b) result_seq =
-| AllOk of 'a list * typ list
+| AllOk of 'a list * GTy.t list
 | OneFail
 | OneSubst of (Subst.t * typ) list * 'b list * 'b list * (Eid.t * REnv.t)
 
@@ -180,6 +181,7 @@ let rec infer cache env renvs annot (id, e) =
     | OneSubst (ss, a, a',r) -> Subst (ss,AConstruct a,AConstruct a',r)
     | AllOk (annots,tys) ->
       let doms = Checker.domains_of_construct c in
+      let tys = List.map GTy.lb tys in
       let ss = tallying_no_result cache env (List.combine tys doms) in
       log "untypeable constructor" (fun fmt ->
         Format.fprintf fmt "expected: %a\ngiven: %a"
@@ -194,7 +196,7 @@ let rec infer cache env renvs annot (id, e) =
     begin match infer' { cache with dom=Domain.empty } env' renvs annot' e' with
     | Ok (annot', _) -> retry_with (nc (Annot.ALambda (ty, annot')))
     | Subst (ss,a,a',(eid,r)) ->
-      Subst (ss,ALambda (ty, a),ALambda (ty, a'),(eid,REnv.add v ty r))
+      Subst (ss,ALambda (ty, a),ALambda (ty, a'),(eid,REnv.add v (GTy.lb ty) r))
     | Fail -> Fail
     end
   | LambdaRec lst, Infer ->
@@ -209,10 +211,11 @@ let rec infer cache env renvs annot (id, e) =
     | OneFail -> Fail
     | OneSubst (ss, a, a',(eid,r)) ->
       let r = lst |> List.fold_left
-        (fun r ((_,v,_),(ty,_)) -> REnv.add v ty r) r in
+        (fun r ((_,v,_),(ty,_)) -> REnv.add v (GTy.lb ty) r) r in
       Subst (ss,ALambdaRec (List.combine tys a),ALambdaRec (List.combine tys a'),(eid,r))
     | AllOk (annots,tys') ->
-      let cs = List.combine tys' tys in
+      let tys' = List.map GTy.lb tys' in
+      let cs = List.combine tys' (List.map GTy.lb tys) in
       let ss = tallying_with_result cache env (mk_tuple tys') cs in
       let ok_ann = nc (Annot.ALambdaRec (List.combine tys annots)) in
       log "untypeable recursive function" (fun fmt ->
