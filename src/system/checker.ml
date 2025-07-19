@@ -75,8 +75,8 @@ let generalize ~e env s =
 let rec typeof' env annot (id,e) =
   let open Annot in
   match e, annot with
-  | Abstract _, AAbstract ty -> GTy.mk_static ty
-  | Const c, AConst -> typeof_const c |> GTy.mk_static
+  | Abstract _, AAbstract ty -> ty
+  | Const c, AConst -> typeof_const c |> GTy.mk
   | Var v, AAx s ->
     if Env.mem v env then begin
       let (tvs, ty) = Env.find v env |> TyScheme.get in
@@ -88,24 +88,27 @@ let rec typeof' env annot (id,e) =
       untypeable id ("Undefined variable "^(Variable.show v)^".")
   | Constructor (c, es), AConstruct annots when List.length es = List.length annots ->
     let doms = domains_of_construct c in
-    if List.length doms = List.length es then begin
-      let ts = List.map2 (fun e a -> typeof env a e) es annots in
-      if List.for_all2 subtype (List.map GTy.static_comp ts) doms then
-        GTy.mapl (construct c) ts
-      else
-        untypeable id ("Invalid domain for constructor.")
-    end else
+    if List.length doms = List.length es then
+      let check tys = List.for_all2 subtype tys doms in
+      let tys = List.map2 (fun e a -> typeof env a e) es annots in
+      begin match GTy.opl check (construct c) tys with
+      | Some ty -> ty
+      | None -> untypeable id ("Invalid domain for constructor.")
+      end
+    else
       untypeable id ("Invalid arity for constructor.")
   | Lambda (_, v, e), ALambda (s, annot) ->
-    let env = Env.add v (GTy.mk_static s |> TyScheme.mk_mono) env in
-    let t = typeof env annot e |> GTy.map_dyn any in
-    mk_arrow s t |> GTy.mk_static
+    let env = Env.add v (TyScheme.mk_mono s) env in
+    let t = typeof env annot e in
+    let lb = mk_arrow (GTy.ub s) (GTy.lb t) in
+    let ub = mk_arrow (GTy.lb s) (GTy.ub t) in
+    GTy.mk_gradual lb ub
   | LambdaRec lst, ALambdaRec anns when List.length lst = List.length anns ->
     let lst = List.combine lst anns in
     let env = lst |> List.fold_left
-      (fun env ((_,v,_),(ty,_)) -> Env.add v (GTy.mk_static ty |> TyScheme.mk_mono) env) env in
+      (fun env ((_,v,_),(ty,_)) -> Env.add v (TyScheme.mk_mono ty) env) env in
     let tys = lst |> List.map (fun ((_,_,e),(ty,annot)) -> typeof env annot e, ty) in
-    if List.for_all (fun (ty, ty') -> subtype (GTy.static_comp ty) ty') tys
+    if List.for_all (fun (ty, ty') -> GTy.leq ty ty') tys
     then tys |> List.map fst |> GTy.mapl mk_tuple
     else untypeable id ("Invalid recursive lambda.")
   | Ite (e, tau, e1, e2), AIte (annot, b1, b2) ->
@@ -117,20 +120,26 @@ let rec typeof' env annot (id,e) =
     let s = typeof env annot e in
     let _ = typeof_b env b1 e1 s tau in
     let _ = typeof_b env b2 e2 s (neg tau) in
-    GTy.mk_static unit_typ
+    GTy.mk unit_typ
   | App (e1, e2), AApp (annot1, annot2) ->
+    let check ty1 ty2 =
+      subtype ty1 arrow_any &&
+      subtype ty2 (domain ty1)
+    in
     let t1 = typeof env annot1 e1 in
     let t2 = typeof env annot2 e2 in
-    if subtype (GTy.static_comp t1) arrow_any then
-      if subtype (GTy.static_comp t2) (GTy.static_comp t1 |> domain)
-      then GTy.map2 apply t1 t2
-      else untypeable id "Invalid application: argument not in the domain."
-    else untypeable id "Invalid application: not a function."
+    begin match GTy.op2 check apply t1 t2 with
+    | Some ty -> ty
+    | None -> untypeable id "Invalid application."
+    end
   | Projection (p, e), AProj annot ->
+    let dom = domain_of_proj p any in
+    let check ty = subtype ty dom in
     let t = typeof env annot e in
-    if subtype (GTy.static_comp t) (domain_of_proj p any)
-    then GTy.map (proj p) t
-    else untypeable id "Invalid projection."
+    begin match GTy.op check (proj p) t with
+    | Some ty -> ty
+    | None -> untypeable id "Invalid projection."
+    end
   | Let (_, v, e1, e2), ALet (annot1, annots2) ->
     let tvs,s = typeof_def env annot1 e1 |> TyScheme.get in
     let aux (si, annot) =

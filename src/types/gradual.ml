@@ -27,20 +27,17 @@ module GTy = struct
         (ts |> List.map (fun t -> t.lb) |> flb)
         (ts |> List.map (fun t -> t.ub) |> fub)
   let mapl f = mapl_ f f f
-  let op f t =
-    let flb t = match f t with None -> raise Exit | Some t -> t in
-    let fub t = match f t with None -> Base.any | Some t -> t in
-    try Some (map_ flb flb fub t)
+  let op check f t =
+    let f' t = if check t then f t else raise Exit in
+    try Some (map_ f' f' f t)
     with Exit -> None
-  let op2 f t1 t2 =
-    let flb t1 t2 = match f t1 t2 with None -> raise Exit | Some t -> t in
-    let fub t1 t2 = match f t1 t2 with None -> Base.any | Some t -> t in
-    try Some (map2_ flb flb fub t1 t2)
+  let op2 check f t1 t2 =
+    let f' t1 t2 = if check t1 t2 then f t1 t2 else raise Exit in
+    try Some (map2_ f' f' f t1 t2)
     with Exit -> None
-  let opl f ts =
-    let flb ts = match f ts with None -> raise Exit | Some t -> t in
-    let fub ts = match f ts with None -> Base.any | Some t -> t in
-    try Some (mapl_ flb flb fub ts)
+  let opl check f ts =
+    let f' ts = if check ts then f ts else raise Exit in
+    try Some (mapl_ f' f' f ts)
     with Exit -> None
   let cup = map2 cup
   let cap = map2 cap

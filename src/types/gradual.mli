@@ -22,9 +22,9 @@ module GTy : sig
     val map : (typ -> typ) -> t -> t
     val map2 : (typ -> typ -> typ) -> t -> t -> t
     val mapl : (typ list -> typ) -> t list -> t
-    val op : (typ -> typ option) -> t -> t option
-    val op2 : (typ -> typ -> typ option) -> t -> t -> t option
-    val opl : (typ list -> typ option) -> t list -> t option
+    val op : (typ -> bool) -> (typ -> typ) -> t -> t option
+    val op2 : (typ -> typ -> bool) -> (typ -> typ -> typ) -> t -> t -> t option
+    val opl : (typ list -> bool) -> (typ list -> typ) -> t list -> t option
 
     val is_empty : t -> bool
     val is_any : t -> bool
