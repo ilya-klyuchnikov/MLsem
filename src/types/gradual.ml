@@ -7,6 +7,7 @@ module GTy = struct
   let mk_gradual lb ub = { lb ; ub ; eq=subtype ub lb }
   let empty = mk empty
   let any = mk any
+  let dyn = mk_gradual Base.empty Base.any
   let lb t = t.lb
   let ub t = t.ub
   let destruct t = t.lb, t.ub
@@ -74,7 +75,7 @@ module GTy = struct
     else
       let lb,ub = Base.is_empty t.lb, Base.is_any t.ub in
       if lb && ub then
-        Format.fprintf fmt ".."
+        Format.fprintf fmt "*"
       else if lb then
         Format.fprintf fmt "..(%a)" pp_typ t.ub
       else if ub then

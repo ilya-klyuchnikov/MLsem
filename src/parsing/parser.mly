@@ -118,7 +118,8 @@ unique_term: t=term EOF { t }
 
 element:
 | LET ds=separated_nonempty_list(AND_KW, tl_let) { annot $symbolstartpos $endpos (Definitions ds) }
-| VAL id=generalized_identifier COLON ty=typ { annot $symbolstartpos $endpos (SigDef (id, ty)) }
+| VAL id=generalized_identifier COLON ty=typ { annot $symbolstartpos $endpos (SigDef (id, Some ty)) }
+| VAL id=generalized_identifier { annot $symbolstartpos $endpos (SigDef (id, None)) }
 | TYPE ts=separated_nonempty_list(AND_KW, param_type_def) { annot $symbolstartpos $endpos (Types ts) }
 | ABSTRACT TYPE name=ID params=abs_params { annot $symbolstartpos $endpos (AbsType (name, params)) }
 | HASHTAG cmd=ID EQUAL v=literal { annot $symbolstartpos $endpos (Command (cmd, v)) }

@@ -5,6 +5,7 @@ module GTy : sig
     type t
     val empty : t
     val any : t
+    val dyn : t
     val mk: typ -> t
     val mk_gradual: typ -> typ -> t
     val lb: t -> typ

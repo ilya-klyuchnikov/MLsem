@@ -55,17 +55,21 @@ let check_resolved var env typ =
   then raise (UnresolvedType (var,typ))
 
 let type_check_with_sigs env (var,e,sigs,aty) =
-  let e = Transform.expr_to_ast e in
-  let es = List.map (fun s -> coerce true (GTy.mk s) e) sigs in
-  let typs = List.map (infer (Some var) env) es in
-  let tscap t1 t2 =
-    let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
-    TyScheme.mk (TVarSet.union tvs1 tvs2) (GTy.cap t1 t2)
-  in
-  let typ = List.fold_left tscap (TyScheme.mk_mono GTy.any) typs |> TyScheme.simplify in
-  if TyScheme.leq typ aty |> not then raise (IncompatibleType (var,typ)) ;
-  check_resolved var env typ ;
-  var,typ
+  if sigs = [] then
+    (* Dyn type *)
+    var, aty
+  else
+    let e = Transform.expr_to_ast e in
+    let es = List.map (fun s -> coerce true (GTy.mk s) e) sigs in
+    let typs = List.map (infer (Some var) env) es in
+    let tscap t1 t2 =
+      let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
+      TyScheme.mk (TVarSet.union tvs1 tvs2) (GTy.cap t1 t2)
+    in
+    let typ = List.fold_left tscap (TyScheme.mk_mono GTy.any) typs |> TyScheme.simplify in
+    if TyScheme.leq typ aty |> not then raise (IncompatibleType (var,typ)) ;
+    check_resolved var env typ ;
+    var,typ
 
 let type_check_recs pos env lst =
   let e =
@@ -130,19 +134,27 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       let tys2 = List.map (type_check_with_sigs env) sigs in
       let senv = List.fold_left (fun senv (v,_) -> VarMap.remove v senv) senv tys2 in
       (tenv,varm,senv,env), TSuccess (tys1@tys2,retrieve_time time)
-    | Ast.SigDef (name, ty) ->
+    | Ast.SigDef (name, tyo) ->
       check_not_defined varm name ;
       let v = Variable.create_let (Some name) in
       Variable.attach_location v (Position.position annot) ;
-      let (ty, _) = type_expr_to_typ tenv empty_vtenv ty in
-      begin match sigs_of_ty (Env.tvars env) ty with
-      | None -> (tenv,varm,senv,env),
-        TFailure (Some v, pos, "Invalid signature annotation.", None, 0.0)
-      | Some (sigs, ty) ->
+      begin match tyo with
+      | None ->
         let varm = StrMap.add name v varm in
-        let senv = VarMap.add v sigs senv in
-        let env = Env.add v ty env in
+        let senv = VarMap.add v [] senv in
+        let env = Env.add v (TyScheme.mk_mono GTy.dyn) env in
         (tenv,varm,senv,env), TDone
+      | Some ty ->
+        let (ty, _) = type_expr_to_typ tenv empty_vtenv ty in
+        begin match sigs_of_ty (Env.tvars env) ty with
+        | None -> (tenv,varm,senv,env),
+          TFailure (Some v, pos, "Invalid signature annotation.", None, 0.0)
+        | Some (sigs, ty) ->
+          let varm = StrMap.add name v varm in
+          let senv = VarMap.add v sigs senv in
+          let env = Env.add v ty env in
+          (tenv,varm,senv,env), TDone
+        end
       end
     | Ast.Command (str, c) ->
       begin match str, c with

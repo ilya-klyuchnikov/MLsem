@@ -615,3 +615,40 @@ let rec_and_imp arr k i n =
 let interval i j =
   let arr = array () in
   rec_and_imp arr 0 i ((j-i)+1) ; arr
+
+(* ========= GRADUAL ========= *)
+
+val reflect
+let reflect x = x
+
+let test_reflect x = reflect x
+
+val test_reflect2 : int -> int
+let test_reflect2 x = reflect x
+
+let gradual1 x =
+  match reflect x with
+  | y & :int -> y + 1
+  | y & :bool -> lnot y
+  end
+
+let gradual2 x =
+  match reflect x with
+  | y & :int -> y
+  | y & :bool -> y
+  end
+
+let gradual3 x =
+  match reflect x with
+  | y & :int -> y + 1
+  | y & :bool -> lnot y
+  | y -> y
+  end
+
+(* TODO: investigate *)
+let gradual4 x =
+  match reflect x with
+  | y & :int -> y + 1
+  | y & :bool -> lnot y
+  | y -> 42::y
+  end
