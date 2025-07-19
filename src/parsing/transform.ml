@@ -1,5 +1,6 @@
 open Types.Base
 open Types.Tvar
+open Types.Gradual
 open System.Ast
 open Variable
 
@@ -101,7 +102,7 @@ let encode_pattern_matching e pats =
   Ast.Let (x, def, body)
 
 let expr_to_ast t =
-  let sugg = Hashtbl.create 100 in
+  let sugg : (Variable.t, typ list) Hashtbl.t = Hashtbl.create 100 in
   let get_sugg v =
     match Hashtbl.find_opt sugg v with Some lst -> lst | None -> []
   in
@@ -120,12 +121,12 @@ let expr_to_ast t =
   in
   let lambda_annot x a =
     match a with
-    | None -> TVar.mk ~user:false (Variable.get_name x) |> TVar.typ
-    | Some d -> d
+    | None -> TVar.mk ~user:false (Variable.get_name x) |> TVar.typ |> GTy.mk
+    | Some d -> GTy.mk d
   in
   let rec aux_e e =
     match e with
-    | Ast.Abstract t -> Abstract t
+    | Ast.Abstract t -> Abstract (GTy.mk t)
     | Ast.Const c -> Const c
     | Ast.Var v -> Var v
     | Ast.Atom a -> Constructor (Atom a, [])
@@ -147,7 +148,7 @@ let expr_to_ast t =
     | Ast.RecordUpdate (e, lbl, None) -> Constructor (RecDel lbl, [aux e])
     | Ast.RecordUpdate (e, lbl, Some e') -> Constructor (RecUpd lbl, [aux e ; aux e'])
     | Ast.TypeConstr (e, ty) -> TypeConstr (aux e, ty)
-    | Ast.TypeCoerce (e, ty) -> TypeCoerce (aux e, ty)
+    | Ast.TypeCoerce (e, ty) -> TypeCoerce (aux e, GTy.mk ty)
     | Ast.PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
     | Ast.Cond (e,t,e1,None) ->
       ControlFlow (CfCond, aux e, t, aux e1, (Eid.unique (), Const Unit))
