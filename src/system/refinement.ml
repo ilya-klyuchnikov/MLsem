@@ -73,7 +73,7 @@ let sufficient_refinements env e t =
       let alpha = TVar.mk None in
       let (mono, ty) = Env.find v env |> TyScheme.get_fresh in
       let mono = TVarSet.union mono (vars t) in
-      begin match dnf (GTy.static_comp ty) with
+      begin match dnf (GTy.lb ty) with
       | [] -> []
       | [arrows] ->
         let t1 = branch_type arrows in
@@ -102,7 +102,7 @@ let refine env e t =
       renv' |> REnv.filter (fun v ty ->
         let _, ty' = Env.find v env |> TyScheme.get in
         let ty'' = REnv.find' v renv in
-        subtype (cap (GTy.static_comp ty') ty'') ty |> not
+        subtype (cap (GTy.lb ty') ty'') ty |> not
       )
     )
     in
@@ -119,7 +119,9 @@ let rec typeof env (_,e) =
     let _, ty = typeof env t |> TyScheme.get in
     TyScheme.mk_mono (GTy.map (Checker.proj p) ty)
   | TypeConstr (t, _) -> typeof env t
-  | _ -> TyScheme.mk_mono GTy.static
+  | TypeCoerce (_, ty) -> TyScheme.mk_mono (GTy.mk ty)
+  (* TODO: TypeCast *)
+  | _ -> TyScheme.mk_mono GTy.any
 
 let refinement_envs env e =
   let res = ref REnvSet.empty in
@@ -127,7 +129,7 @@ let refinement_envs env e =
     res := REnvSet.add !res (refine env e t)
   in
   let rec aux_lambda env (d,v,e) =
-    let t = TyScheme.mk_mono (GTy.mk_static d) in
+    let t = TyScheme.mk_mono (GTy.mk d) in
     aux (Env.add v t env) e
   and aux env (_,e) : unit =
     match e with
