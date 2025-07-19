@@ -2,6 +2,7 @@ open Parsing.IO
 open Types.Base
 open Types.Additions
 open Types.Tvar
+open Types.Gradual
 open Types
 open Parsing
 open Variable
@@ -28,7 +29,7 @@ let sigs_of_ty mono ty =
   in
   if ty |> vars_internal |> TVarSet.is_empty then
     let sigs = aux ty in
-    Some (sigs, TyScheme.mk_poly_except mono ty |> TyScheme.simplify)
+    Some (sigs, GTy.mk ty |> TyScheme.mk_poly_except mono |> TyScheme.simplify)
   else None
 let infer var env e =
   let annot =
@@ -43,7 +44,9 @@ let infer var env e =
       (* Format.printf "@.@.%a@.@." System.Ast.pp e ; *)
       raise (Untypeable (var, err))
   in
-  System.Checker.typeof_def env annot e |> TyScheme.simplify
+  let ty = System.Checker.typeof_def env annot e |> TyScheme.simplify in
+  let (tvs, ty) = TyScheme.get ty in
+  TyScheme.mk tvs (GTy.ub ty |> GTy.mk)
 let retrieve_time time =
   let time' = Unix.gettimeofday () in
   (time' -. time) *. 1000.
@@ -53,13 +56,13 @@ let check_resolved var env typ =
 
 let type_check_with_sigs env (var,e,sigs,aty) =
   let e = Transform.expr_to_ast e in
-  let es = List.map (fun s -> coerce s e) sigs in
+  let es = List.map (fun s -> coerce (GTy.mk s) e) sigs in
   let typs = List.map (infer (Some var) env) es in
   let tscap t1 t2 =
     let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
-    TyScheme.mk (TVarSet.union tvs1 tvs2) (cap t1 t2)
+    TyScheme.mk (TVarSet.union tvs1 tvs2) (GTy.cap t1 t2)
   in
-  let typ = List.fold_left tscap (TyScheme.mk_mono any) typs |> TyScheme.simplify in
+  let typ = List.fold_left tscap (TyScheme.mk_mono GTy.any) typs |> TyScheme.simplify in
   if TyScheme.leq typ aty |> not then raise (IncompatibleType (var,typ)) ;
   check_resolved var env typ ;
   var,typ
@@ -72,7 +75,7 @@ let type_check_recs pos env lst =
   let tvs, ty = infer None env e |> TyScheme.get in
   let n = List.length lst in
   List.mapi (fun i (var,_) ->
-    let ty = TyScheme.mk tvs (pi n i ty) |> TyScheme.bot_instance in
+    let ty = TyScheme.mk tvs (GTy.map (pi n i) ty) |> TyScheme.bot_instance in
     check_resolved var env ty ;
     (var, ty)
   ) lst
@@ -202,7 +205,7 @@ let treat_all_sigs envs elts =
 
 let builtin_functions =
   let arith_operators_typ =
-    mk_arrow int_typ (mk_arrow int_typ int_typ) |> TyScheme.mk_poly
+    mk_arrow int_typ (mk_arrow int_typ int_typ) |> GTy.mk |> TyScheme.mk_poly
   in
   [
     ("+", arith_operators_typ) ;
