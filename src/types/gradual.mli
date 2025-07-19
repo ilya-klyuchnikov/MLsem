@@ -21,8 +21,10 @@ module GTy : sig
     (* Mapping functions below assume the operation is monotonic *)
     val map : (typ -> typ) -> t -> t
     val map2 : (typ -> typ -> typ) -> t -> t -> t
+    val mapl : (typ list -> typ) -> t list -> t
     val op : (typ -> typ option) -> t -> t option
     val op2 : (typ -> typ -> typ option) -> t -> t -> t option
+    val opl : (typ list -> typ option) -> t list -> t option
 
     val is_empty : t -> bool
     val is_any : t -> bool

@@ -38,7 +38,7 @@ val fold : (t -> 'a list -> 'a) -> t -> 'a
 val fv : t -> VarSet.t
 val apply_subst : Subst.t -> t -> t
 val substitute : Variable.t -> Variable.t -> t -> t
-val coerce : typ -> t -> t
+val coerce : GTy.t -> t -> t
 
 val pp : Format.formatter -> t -> unit
 val pp_e : Format.formatter -> e -> unit

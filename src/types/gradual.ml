@@ -19,6 +19,14 @@ module GTy = struct
     else
       mk_gradual (flb t1.lb t2.lb) (fub t1.ub t2.ub)
   let map2 f = map2_ f f f
+  let mapl_ f flb fub ts =
+    if List.for_all (fun t -> t.eq) ts then
+      ts |> List.map (fun t -> t.lb) |> f |> mk
+    else
+      mk_gradual
+        (ts |> List.map (fun t -> t.lb) |> flb)
+        (ts |> List.map (fun t -> t.ub) |> fub)
+  let mapl f = mapl_ f f f
   let op f t =
     let flb t = match f t with None -> raise Exit | Some t -> t in
     let fub t = match f t with None -> Base.any | Some t -> t in
@@ -28,6 +36,11 @@ module GTy = struct
     let flb t1 t2 = match f t1 t2 with None -> raise Exit | Some t -> t in
     let fub t1 t2 = match f t1 t2 with None -> Base.any | Some t -> t in
     try Some (map2_ flb flb fub t1 t2)
+    with Exit -> None
+  let opl f ts =
+    let flb ts = match f ts with None -> raise Exit | Some t -> t in
+    let fub ts = match f ts with None -> Base.any | Some t -> t in
+    try Some (mapl_ flb flb fub ts)
     with Exit -> None
   let cup = map2 cup
   let cap = map2 cap

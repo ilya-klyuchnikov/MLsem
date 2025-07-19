@@ -126,20 +126,33 @@ let apply_subst s e =
   in
   map aux e
 
-(* TODO: make ty gradual? *)
 let rec coerce ty (id,t) =
+  let unify ty1 ty2 =
+    match tallying (GTy.fv ty)
+      [(GTy.lb ty1, GTy.lb ty2) ; (GTy.lb ty2, GTy.lb ty1) ;
+       (GTy.ub ty1, GTy.ub ty2) ; (GTy.ub ty2, GTy.ub ty1)]
+    with
+    | [] -> raise Exit
+    | s::_ -> s
+  in
   try match t with
   | Let (tys, v, e1, e2) ->
     id, Let (tys, v, e1, coerce ty e2)
   | Lambda (da,v,e) ->
-    let d = domain ty in
-    let cd = apply ty d in
-    if equiv ty (mk_arrow d cd) |> not then raise Exit ;
-    begin match tallying (vars ty) [(d,da) ; (da,d)] with
-    | [] -> raise Exit
-    | s::_ ->
-      let e = apply_subst s e in
-      id, Lambda (d, v, coerce cd e)
-    end
+    let d = GTy.map domain ty in
+    let cd = GTy.map2 apply ty d in
+    if GTy.equiv ty (GTy.map2 mk_arrow d cd) |> not then raise Exit ;
+    let s = unify d da in
+    let e = apply_subst s e |> coerce cd in
+    id, Lambda (d, v, e)
+  | LambdaRec lst ->
+    let n = List.length lst in
+    let tys = List.mapi (fun i _ -> GTy.map (pi n i) ty) lst in
+    if GTy.equiv ty (GTy.mapl mk_tuple tys) |> not then raise Exit ;
+    id, LambdaRec (List.combine lst tys |> List.map (fun ((tya,v,e), ty) ->
+      let s = unify ty tya in
+      let e = apply_subst s e |> coerce ty in
+      (ty,v,e))
+      )
   | _ -> raise Exit
-  with Exit -> Eid.refresh id, TypeCoerce ((id,t), GTy.mk ty)
+  with Exit -> Eid.refresh id, TypeCoerce ((id,t), ty)
