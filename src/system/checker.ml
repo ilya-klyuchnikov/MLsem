@@ -134,9 +134,8 @@ let rec typeof' env annot (id,e) =
   | Let (_, v, e1, e2), ALet (annot1, annots2) ->
     let tvs,s = typeof_def env annot1 e1 |> TyScheme.get in
     let aux (si, annot) =
-      let si = GTy.mk si true in
-      if TVarSet.inter tvs (GTy.fv si) |> TVarSet.is_empty then
-        let s = TyScheme.mk tvs (GTy.cap s si) in
+      if TVarSet.inter tvs (vars si) |> TVarSet.is_empty then
+        let s = TyScheme.mk tvs (GTy.map (cap si) s) in
         typeof (Env.add v s env) annot e2
       else
         untypeable id ("Partition of "^(Variable.show v)^" contains generalized variables.")
@@ -154,7 +153,7 @@ let rec typeof' env annot (id,e) =
     if subtype (GTy.static_comp t) ty then GTy.mk ty (GTy.dyn_comp t)
     else untypeable id "Impossible type coercion."
   | e, AInter lst ->
-    lst |> List.map (fun a -> typeof env a (id,e)) |> GTy.conj
+    lst |> List.map (fun a -> typeof env a (id,e)) |> GTy.mapl conj
   | e, a ->
     Format.printf "e:@.%a@.@.a:@.%a@.@." Ast.pp_e e Annot.pp_a a ;
     assert false

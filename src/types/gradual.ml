@@ -5,16 +5,13 @@ module GTy = struct
   type t = typ * bool
   let dyn = (empty, true)
   let static = (any, false)
-  let top = (any, true)
   let bot = (empty, false)
   let mk ty b = (ty, b)
   let mk_static ty = mk ty false
   let dyn_comp (_,b) = b
   let static_comp (ty,_) = ty
   let components = Fun.id
-  let cap (ty1,b1) (ty2,b2) = (cap ty1 ty2, b1 && b2)
   let cup (ty1,b1) (ty2,b2) = (cup ty1 ty2, b1 || b2)
-  let conj = List.fold_left cap top
   let disj = List.fold_left cup bot
 
   let fv (ty,_) = vars ty
@@ -22,7 +19,6 @@ module GTy = struct
   let map_dyn ty' (ty,b) =
     if b then Base.cup ty ty' else ty
 
-  let is_top (ty, b) = b && (is_any ty)
   let is_bot (ty, b) = (not b) && (is_empty ty)
   let leq (ty1,b1) (ty2,b2) = (b2 || not b1) && (subtype ty1 ty2)
   let equiv (ty1,b1) (ty2,b2) = (b1 = b2) && (equiv ty1 ty2)
