@@ -1,6 +1,7 @@
 open Variable
 open Types.Base
 open Types.Tvar
+open Types.Gradual
 
 module Zd = struct
   type t = Z.t
@@ -37,18 +38,18 @@ type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of tag | Atom of atom
 [@@deriving show]
 type e =
-| Abstract of typ
+| Abstract of GTy.t
 | Const of const
 | Var of Variable.t
 | Constructor of constructor * t list
-| Lambda of typ * Variable.t * t
-| LambdaRec of (typ * Variable.t * t) list
+| Lambda of GTy.t * Variable.t * t
+| LambdaRec of (GTy.t * Variable.t * t) list
 | Ite of t * typ * t * t
 | App of t * t
 | Projection of projection * t
 | Let of (typ list) * Variable.t * t * t
 | TypeConstr of t * typ
-| TypeCoerce of t * typ
+| TypeCoerce of t * GTy.t
 | ControlFlow of cf * t * typ * t * t
 [@@deriving show]
 and t = Eid.t * e
@@ -115,16 +116,17 @@ let apply_subst s e =
   let aux (id,e) =
     let e = match e with
     (* Ite and TypeConstr should not contain type variables *)
-    | Abstract t -> Abstract (Subst.apply s t)
-    | Lambda (ty,v,e) -> Lambda (Subst.apply s ty,v,e)
-    | LambdaRec lst -> LambdaRec (List.map (fun (ty,v,e) -> (Subst.apply s ty, v, e)) lst)
+    | Abstract t -> Abstract (GTy.substitute s t)
+    | Lambda (ty,v,e) -> Lambda (GTy.substitute s ty,v,e)
+    | LambdaRec lst -> LambdaRec (List.map (fun (ty,v,e) -> (GTy.substitute s ty, v, e)) lst)
     | Let (ts, v, e1, e2) -> Let (List.map (Subst.apply s) ts, v, e1, e2)
-    | TypeCoerce (e, ty) -> TypeCoerce (e, Subst.apply s ty)
+    | TypeCoerce (e, ty) -> TypeCoerce (e, GTy.substitute s ty)
     | e -> e
     in id,e
   in
   map aux e
 
+(* TODO: make ty gradual? *)
 let rec coerce ty (id,t) =
   try match t with
   | Let (tys, v, e1, e2) ->
@@ -140,4 +142,4 @@ let rec coerce ty (id,t) =
       id, Lambda (d, v, coerce cd e)
     end
   | _ -> raise Exit
-  with Exit -> Eid.refresh id, TypeCoerce ((id,t), ty)
+  with Exit -> Eid.refresh id, TypeCoerce ((id,t), GTy.mk ty)

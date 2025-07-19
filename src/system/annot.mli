@@ -9,18 +9,18 @@ module Annot : sig
   and part = (typ * t) list
   and a =
   | AConst
-  | AAbstract of typ
+  | AAbstract of GTy.t
   | AAx of Subst.t
   | AConstruct of t list
   | ALet of t * part
   | AApp of t * t
   | AProj of t
   | AConstr of t
-  | ACoerce of typ * t
+  | ACoerce of GTy.t * t
   | AIte of t * branch * branch
   | ACf of t * branch * branch
-  | ALambda of typ * t
-  | ALambdaRec of (typ * t) list
+  | ALambda of GTy.t * t
+  | ALambdaRec of (GTy.t * t) list
   | AInter of inter
   and t = { mutable cache: GTy.t option ; ann: a }
 
@@ -45,11 +45,11 @@ module IAnnot : sig
   | AApp of t * t
   | AProj of t
   | AConstr of t
-  | ACoerce of typ * t
+  | ACoerce of GTy.t * t
   | AIte of t * branch * branch
   | ACf of t * branch * branch
-  | ALambda of typ * t
-  | ALambdaRec of (typ * t) list
+  | ALambda of GTy.t * t
+  | ALambdaRec of (GTy.t * t) list
   | AInter of inter
 
   val substitute : Subst.t -> t -> t

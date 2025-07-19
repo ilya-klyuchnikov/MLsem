@@ -120,7 +120,6 @@ let rec typeof env (_,e) =
     TyScheme.mk_mono (GTy.map (Checker.proj p) ty)
   | TypeConstr (t, _) -> typeof env t
   | TypeCoerce (_, ty) -> TyScheme.mk_mono (GTy.mk ty)
-  (* TODO: TypeCast *)
   | _ -> TyScheme.mk_mono GTy.any
 
 let refinement_envs env e =
