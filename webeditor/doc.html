@@ -88,7 +88,7 @@
     <var>stmt</var> ::=  <kbd>type</kbd> <var>id</var> [<kbd>(</kbd><var>tvar</var>, ..., <var>tvar</var><kbd>)</kbd>] <kbd>=</kbd> <var>t</var> [<kbd>and</kbd> ...]
            | <kbd>abstract</kbd> <kbd>type</kbd> <var>id</var> [<kbd>(</kbd>[<kbd>+</kbd>|<kbd>-</kbd>]<var>tvar</var>, ..., [<kbd>+</kbd>|<kbd>-</kbd>]<var>tvar</var><kbd>)</kbd>]
            | <kbd>let</kbd> <var>gid</var> <var>param</var>* <kbd>=</kbd> <var>e</var> [<kbd>and</kbd> ...]
-           | <kbd>val</kbd> <var>gid</var> <kbd>:</kbd> <var>t</var>
+           | <kbd>val</kbd> <var>gid</var> [<kbd>:</kbd> <var>t</var>]
 
     <var>param</var> ::= <var>pat</var>
            | <kbd>(</kbd> <var>pat</var> <kbd>:</kbd> <var>t</var> <kbd>)</kbd>
@@ -112,7 +112,9 @@
                 identifiers or <a href="#patterns">patterns</a> and optionally
                 feature a <a href="#type">type</a> constraint.
             </li>
-            <li>a type signature, composed of a simple identifier and the associated type.</li>
+            <li>a type signature, composed of a simple identifier and the associated type.
+                If no type is given, the identifier will be given the dynamic type (gradual typing).
+            </li>
         </ul>
 
         Note that top-level definitions are considered recursive. A definition may refer to an identifier
@@ -187,6 +189,7 @@
             | <var>cid</var> [<kbd>(</kbd><var>e</var><kbd>)</kbd>]
             | <kbd>(</kbd><var>e</var> <kbd>:</kbd> <var>t</var> <kbd>)</kbd>
             | <kbd>(</kbd><var>e</var> <kbd>:&gt;</kbd> <var>t</var> <kbd>)</kbd>
+            | <kbd>(</kbd><var>e</var> <kbd>:&gt;!</kbd> <var>t</var> <kbd>)</kbd>
             | <kbd>{</kbd> [<var>e</var> <kbd>with</kbd>] <var>id</var><kbd>=</kbd><var>e</var><kbd>;</kbd>...<kbd>;</kbd><var>id</var><kbd>=</kbd><var>e</var> <kbd>}</kbd>
             | <kbd>[</kbd> <var>e</var><kbd>;</kbd> ... <kbd>;</kbd><var>e</var> <kbd>]</kbd>
             | <var>e</var> <kbd>,</kbd>...<kbd>,</kbd> <var>e</var>
@@ -215,11 +218,11 @@
             <li>identifiers</li>
             <li>constructors (note that constructors are created on-the-fly,
                 they do not need to be declared)</li>
-            <li>type annotated expressions, e.g. <kbd> (x : bool)</kbd> which
-            can be used locally to suggest a type constraint</li>
-            <li>type coerced expressions, e.g. <kbd> (42 :> int)</kbd> which
+            <li>type casts, e.g. <kbd> (x : bool)</kbd></li>
+            <li>type coercions, e.g. <kbd>(42 :> int)</kbd> which
             can be used locally to coerce the type of an expression into
-            a supertype</li>
+            a supertype. Another type coercion operator <kbd>(x :>! int)</kbd>
+            is available and allows coercion of the dynamic type into any type.</li>
             <li>constructors for products, lists and records</li>
             <li>anonymous functions</li>
             <li>local let binding (defined using either a variable or a <a href="#pattern">pattern</a>)</li>
