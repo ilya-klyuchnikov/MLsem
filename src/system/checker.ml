@@ -160,8 +160,9 @@ let rec typeof' env annot (id,e) =
     else untypeable id "Type constraint not satisfied."
   | TypeCoerce (e, _, only_lb), ACoerce (ty, annot) ->
     let t = typeof env annot e in
-    let t = if only_lb then GTy.mk (GTy.lb t) else t in
-    if GTy.leq t ty then ty
+    if (only_lb && subtype (GTy.lb t) (GTy.lb ty))
+    || (not only_lb && GTy.leq t ty)
+    then ty
     else untypeable id "Impossible type coercion."
   | e, AInter lst ->
     lst |> List.map (fun a -> typeof env a (id,e)) |> GTy.conj
