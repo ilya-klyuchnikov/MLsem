@@ -1,3 +1,4 @@
 typechecker.js
 version.txt
 node_modules/
+wasm.bc.wasm.assets/*

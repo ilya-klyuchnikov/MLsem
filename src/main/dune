@@ -13,15 +13,34 @@
  (modules prototype))
 
 (executable
- (name lib_js)
- (libraries main yojson zarith_stubs_js)
+ (name js)
+ (libraries main yojson zarith_js)
  (modes js)
- (preprocess (pps js_of_ocaml-ppx))
- (modules lib_js))
+ (preprocess
+  (pps js_of_ocaml-ppx))
+ (modules js))
+
+(executable
+ (name wasm)
+ (libraries main yojson zarith_wasm)
+ (modes wasm)
+ (preprocess
+  (pps js_of_ocaml-ppx))
+ (modules wasm))
 
 (env
  (_
   (js_of_ocaml
-   (flags (:standard --effects=cps))
+   (flags
+    (:standard --effects=cps))
    (compilation_mode whole_program)
-   (build_runtime_flags (:standard --effects=cps)))))
+   (build_runtime_flags
+    (:standard --effects=cps)))
+  (wasm_of_ocaml
+   (flags
+    (:standard --effects=cps))
+   (compilation_mode whole_program)
+   (build_runtime_flags
+    (:standard --effects=cps)))
+  ; TODO: --effects=jspi fails with an illegal cast
+  ))

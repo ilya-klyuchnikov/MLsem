@@ -43,19 +43,18 @@ jobs:
         run: |
           opam pin sstt https://github.com/E-Sh4rk/sstt.git#main
           make deps
-      - name: Build
-        run: |
-          make libjs
 
-      # Node dependencies
+      # Build web version
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Install Node.js dependencies
         run: |
-          cd webeditor
-          npm ci
+          make web-deps
+      - name: Build web version
+        run: |
+          make wasm
 
       # Upload artifact
       - name: Configure GitHub Pages
