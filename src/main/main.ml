@@ -60,7 +60,7 @@ let type_check_with_sigs env (var,e,sigs,aty) =
     var, aty
   else
     let e = Transform.expr_to_ast e in
-    let es = List.map (fun s -> coerce true (GTy.mk s) e) sigs in
+    let es = List.map (fun s -> coerce (!Config.allow_implicit_downcast) (GTy.mk s) e) sigs in
     let typs = List.map (infer (Some var) env) es in
     let tscap t1 t2 =
       let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
@@ -161,6 +161,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       | "log", Int i -> Config.log_level := Z.to_int i
       | "value_restriction", Bool b -> Config.value_restriction := b
       | "type_narrowing", Bool b -> Config.type_narrowing := b
+      | "allow_implicit_downcast", Bool b -> Config.allow_implicit_downcast := b
       | "no_empty_param", Bool b -> Config.no_empty_param := b
       | "no_abstract_inter", Bool b -> Config.no_abstract_inter := b
       | _ -> failwith ("Invalid command "^str)
