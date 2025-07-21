@@ -190,9 +190,10 @@ let treat (tenv,varm,senv,env) (annot, elem) =
     (tenv,varm,senv,env), TFailure (Some var, Variable.get_location var,
       "the type inferred is not a subtype of the type specified", None,
       retrieve_time time)
-  | UnresolvedType (var,_) ->
+  | UnresolvedType (var,ty) ->
     (tenv,varm,senv,env), TFailure (Some var, Variable.get_location var,
-      "the type inferred is not fully resolved", None,
+      "the type inferred is not fully resolved",
+      Some (Format.asprintf "type inferred: %a" TyScheme.pp_short ty),
       retrieve_time time)
 
 let treat_sig envs (annot,elem) =
