@@ -77,11 +77,11 @@ module GTy = struct
       if lb && ub then
         Format.fprintf fmt "*"
       else if lb then
-        Format.fprintf fmt "..(%a)" pp_typ t.ub
+        Format.fprintf fmt "(%a)*" pp_typ t.ub
       else if ub then
-        Format.fprintf fmt "(%a).." pp_typ t.lb
+        Format.fprintf fmt "(%a) | *" pp_typ t.lb
       else
-        Format.fprintf fmt "(%a)..(%a)" pp_typ t.lb pp_typ t.ub
+        Format.fprintf fmt "(%a) | (%a)*" pp_typ t.lb pp_typ t.ub
 
   let mk_gradual lb ub =
     assert (subtype lb ub) ;

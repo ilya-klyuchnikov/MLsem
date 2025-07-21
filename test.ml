@@ -659,3 +659,16 @@ let gradual4_ann x =
   | y & :bool -> lnot y
   | y -> 42::y
   end
+
+# allow_implicit_downcast = true
+
+let gradual4_ann x =
+  match reflect x with
+  | y & :int -> y + 1
+  | y & :bool -> lnot y
+  | y -> 42::y
+  end
+
+# allow_implicit_downcast = false
+
+
