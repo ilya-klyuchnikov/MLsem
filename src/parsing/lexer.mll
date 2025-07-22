@@ -68,7 +68,7 @@ rule token = parse
 | ":?"    { COLON_OPT }
 | "::"    { CONS }
 | ":>"    { COERCE }
-| ":>!"   { COERCE_STATIC }
+| ":>>"   { COERCE_STATIC }
 | ","     { COMMA }
 | "."     { POINT }
 | "="     { EQUAL }
