@@ -5,6 +5,13 @@ open Variable
 
 module Html = Dom_html
 
+let severity_to_str s =
+    match s with
+    | System.Analyzer.Error -> "error"
+    | Warning -> "warning"
+    | Notice -> "notice"
+    | Message -> "message"
+
 let json_of_pos pos =
   let open Position in
   if pos = Position.dummy
@@ -18,6 +25,11 @@ let json_of_pos pos =
     `Assoc [("startLine", `Int (line startp)) ; ("startCol", `Int (column startp)) ;
     ("endLine", `Int (line endp)) ; ("endCol", `Int (column endp)) ;
     ("startOffset", `Int (offset startp)) ; ("endOffset", `Int (offset endp))]
+
+let json_of_msg (s, pos, title, descr) =
+    let descr = match descr with None -> [] | Some d -> [("descr", `String d)] in
+    `Assoc ([("severity", `String (severity_to_str s)) ; ("message", `String title) ;
+    ("pos", json_of_pos pos)]@descr)
 
 let add_res res res' =
   match res' with
@@ -38,7 +50,7 @@ let add_res res res' =
       ("typeable", `Bool false) ; ("message", `String msg) ; ("pos", json_of_pos pos)]@descr)
     in
     untyp::res
-  | TSuccess (lst,_,time) (* TODO: msg *) ->
+  | TSuccess (lst,msgs,time) ->
     let res = ref res in
     lst |> List.iter (fun (v,t)->
       let name = Variable.get_name v |> Option.get in
@@ -46,7 +58,8 @@ let add_res res res' =
       let typ = Format.asprintf "%a" Types.TyScheme.pp_short t in
       let typ =
         `Assoc [("name", `String name) ; ("def_pos", json_of_pos def_pos) ;
-        ("typeable", `Bool true) ; ("type", `String typ) ; ("time", `Float time)]
+        ("typeable", `Bool true) ; ("type", `String typ) ; ("time", `Float time) ;
+        ("messages", `List (List.map json_of_msg msgs))]
       in
       res := typ::!res
     ) ;
