@@ -1,7 +1,9 @@
 open Annot
 open Ast
+open Types.Gradual
+open Types.Base
 
-type severity = Message | Notice | Warning
+type severity = Message | Notice | Warning | Error
 type msg = { eid: Eid.t ; severity: severity ; title: string ; descr: string option }
 
 let rec iter_ann f (id,e) a =
@@ -23,7 +25,7 @@ let rec iter_ann f (id,e) a =
     | _, AInter anns -> anns |> List.map (fun a -> ((id,e), a))
     | _, _ -> assert false
   in
-  f (id,e) ; children |> List.iter (fun (e, a) -> iter_ann f e a)
+  f (id,e) a ; children |> List.iter (fun (e, a) -> iter_ann f e a)
 
 let analyze e a =
   let tyof a =
@@ -31,4 +33,17 @@ let analyze e a =
     | None -> failwith "Analyzer must be called on a fully cached annotation tree."
     | Some ty -> ty
   in
-  ignore (iter_ann,tyof,e,a) ; failwith "TODO"
+  let res = ref [] in
+  let msg m = res := m::!res in
+  let aux e a =
+    let msg s t d = msg { eid=fst e ; severity=s ; title=t ; descr=Some d } in
+    match e, a.Annot.ann with
+    | _, ACoerce (ty, a) ->
+      let s = tyof a in
+      if GTy.leq s ty |> not then
+        msg Notice "Unchecked dynamic coercion"
+        (Format.asprintf "expected: %a\ngiven: %a" pp_typ (GTy.ub ty) pp_typ (GTy.ub s))
+    | _, _ -> ()
+  in
+  iter_ann aux e a ;
+  List.rev !res
