@@ -12,20 +12,24 @@
  (libraries main)
  (modules prototype))
 
-(executable
- (name js)
- (libraries main yojson zarith_js)
- (modes js)
+(library
+ (name web)
+ (wrapped false)
+ (libraries main yojson)
  (preprocess
   (pps js_of_ocaml-ppx))
+ (modules web))
+
+(executable
+ (name js)
+ (libraries web zarith_js)
+ (modes js)
  (modules js))
 
 (executable
  (name wasm)
- (libraries main yojson zarith_wasm)
+ (libraries web zarith_wasm)
  (modes wasm)
- (preprocess
-  (pps js_of_ocaml-ppx))
  (modules wasm))
 
 (env
