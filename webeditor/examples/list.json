@@ -10,5 +10,9 @@
     {
         "name": "Imperative Programming",
         "path": "imperative.stml"
+    },
+    {
+        "name": "Gradual Typing",
+        "path": "gradual.stml"
     }
 ]

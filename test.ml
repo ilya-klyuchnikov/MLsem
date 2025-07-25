@@ -619,12 +619,11 @@ let interval i j =
 (* ========= GRADUAL ========= *)
 
 val reflect
-let reflect x = x
 
 let test_reflect x = reflect x
 
-val test_reflect2 : int -> int
-let test_reflect2 x = reflect x
+val test_reflect_ann : int -> int
+let test_reflect_ann x = reflect x
 
 let gradual1 x =
   match reflect x with
@@ -659,16 +658,3 @@ let gradual4_ann x =
   | y & :bool -> lnot y
   | y -> 42::y
   end
-
-# allow_implicit_downcast = true
-
-let gradual4_ann x =
-  match reflect x with
-  | y & :int -> y + 1
-  | y & :bool -> lnot y
-  | y -> 42::y
-  end
-
-# allow_implicit_downcast = false
-
-

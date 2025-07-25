@@ -6,7 +6,7 @@ let log_level = ref log_disabled
 let value_restriction = ref true
 let type_narrowing = ref true
 
-let allow_implicit_downcast = ref false
+let allow_implicit_downcast = ref true
 
 let no_empty_param = ref true
 let no_abstract_inter = ref true
