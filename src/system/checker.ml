@@ -64,6 +64,7 @@ let rec is_value (_,e) =
   | Const _ | Lambda _ | Abstract _ -> true
   | Constructor (_, es) -> List.for_all is_value es
   | LambdaRec lst -> List.for_all (fun (_,_,e) -> is_value e) lst
+  | TypeCast (e, _) | TypeCoerce (e, _, _) -> is_value e
   | _ -> false
 
 let generalize ~e env s =
