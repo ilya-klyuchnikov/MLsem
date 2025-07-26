@@ -33,6 +33,8 @@ let typeof_const c =
 
 type cf = CfWhile | CfCond
 [@@deriving show]
+type coerce = Check | CheckStatic | NoCheck
+[@@deriving show]
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 [@@deriving show]
 type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of tag | Enum of enum
@@ -49,7 +51,7 @@ type e =
 | Projection of projection * t
 | Let of (typ list) * Variable.t * t * t
 | TypeCast of t * typ
-| TypeCoerce of t * GTy.t * bool
+| TypeCoerce of t * GTy.t * coerce
 | ControlFlow of cf * t * typ * t * t
 [@@deriving show]
 and t = Eid.t * e
@@ -126,7 +128,7 @@ let apply_subst s e =
   in
   map aux e
 
-let rec coerce b ty (id,t) =
+let rec coerce c ty (id,t) =
   let unify ty1 ty2 =
     match tallying (GTy.fv ty)
       [(GTy.lb ty1, GTy.lb ty2) ; (GTy.lb ty2, GTy.lb ty1) ;
@@ -137,13 +139,13 @@ let rec coerce b ty (id,t) =
   in
   try match t with
   | Let (tys, v, e1, e2) ->
-    id, Let (tys, v, e1, coerce b ty e2)
+    id, Let (tys, v, e1, coerce c ty e2)
   | Lambda (da,v,e) ->
     let d = GTy.map domain ty in
     let cd = GTy.map2 apply ty d in
     if GTy.equiv ty (GTy.map2 mk_arrow d cd) |> not then raise Exit ;
     let s = unify d da in
-    let e = apply_subst s e |> coerce b cd in
+    let e = apply_subst s e |> coerce c cd in
     id, Lambda (d, v, e)
   | LambdaRec lst ->
     let n = List.length lst in
@@ -151,8 +153,8 @@ let rec coerce b ty (id,t) =
     if GTy.equiv ty (GTy.mapl mk_tuple tys) |> not then raise Exit ;
     id, LambdaRec (List.combine lst tys |> List.map (fun ((tya,v,e), ty) ->
       let s = unify ty tya in
-      let e = apply_subst s e |> coerce b ty in
+      let e = apply_subst s e |> coerce c ty in
       (ty,v,e))
       )
   | _ -> raise Exit
-  with Exit -> Eid.refresh id, TypeCoerce ((id,t), ty, b)
+  with Exit -> Eid.refresh id, TypeCoerce ((id,t), ty, c)

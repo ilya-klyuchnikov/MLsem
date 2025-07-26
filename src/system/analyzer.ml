@@ -37,12 +37,17 @@ let analyze e a =
   let msg m = res := m::!res in
   let aux e a =
     let msg s t d = msg { eid=fst e ; severity=s ; title=t ; descr=Some d } in
-    match e, a.Annot.ann with
-    | _, ACoerce (ty, a) ->
+    match snd e, a.Annot.ann with
+    | TypeCoerce (_, _, c), ACoerce (ty, a) ->
       let s = tyof a in
       if GTy.leq s ty |> not then
-        msg Notice "Unchecked dynamic coercion"
-        (Format.asprintf "expected: %a\ngiven: %a" pp_typ (GTy.ub ty) pp_typ (GTy.ub s))
+        begin if c = CheckStatic then
+          msg Notice "Unchecked dynamic coercion"
+          (Format.asprintf "expected: %a\ngiven: %a" pp_typ (GTy.ub ty) pp_typ (GTy.ub s))
+        else if c = NoCheck then
+          msg Notice "Unchecked coercion"
+          (Format.asprintf "expected: %a\ngiven: %a" GTy.pp ty GTy.pp s)
+        end
     | _, _ -> ()
   in
   iter_ann aux e a ;

@@ -219,8 +219,8 @@ atomic_term:
   annot (Ite (t,ty,annot (Const (Bool true)),annot (Const (Bool false))))
   }
 | LPAREN t=term COLON ty=typ RPAREN { annot $startpos $endpos (TypeCast (t,ty)) }
-| LPAREN t=term COERCE ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,ty,false)) }
-| LPAREN t=term COERCE_STATIC ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,ty,true)) }
+| LPAREN t=term COERCE ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,ty,Check)) }
+| LPAREN t=term COERCE_STATIC ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,ty,CheckStatic)) }
 | LBRACE obr=optional_base_record fs=separated_list(SEMICOLON, field_term) RBRACE
 { record_update $startpos $endpos obr fs }
 | LBRACKET lst=separated_list(SEMICOLON, simple_term) RBRACKET

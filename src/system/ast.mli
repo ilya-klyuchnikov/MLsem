@@ -15,6 +15,7 @@ type const =
 val typeof_const : const -> typ
 
 type cf = CfWhile | CfCond
+type coerce = Check | CheckStatic | NoCheck
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
 type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of tag | Enum of enum
 type e =
@@ -29,7 +30,7 @@ type e =
 | Projection of projection * t
 | Let of (typ list) * Variable.t * t * t
 | TypeCast of t * typ
-| TypeCoerce of t * GTy.t * bool (* Only check lower-bound *)
+| TypeCoerce of t * GTy.t * coerce
 | ControlFlow of cf * t * typ * t * t
 and t = Eid.t * e
 
@@ -38,11 +39,12 @@ val fold : (t -> 'a list -> 'a) -> t -> 'a
 val fv : t -> VarSet.t
 val apply_subst : Subst.t -> t -> t
 val substitute : Variable.t -> Variable.t -> t -> t
-val coerce : bool (* Only check lower-bound *) -> GTy.t -> t -> t
+val coerce : coerce -> GTy.t -> t -> t
 
 val pp : Format.formatter -> t -> unit
 val pp_e : Format.formatter -> e -> unit
 val pp_cf : Format.formatter -> cf -> unit
+val pp_coerce : Format.formatter -> coerce -> unit
 val pp_projection : Format.formatter -> projection -> unit
 val pp_constructor : Format.formatter -> constructor -> unit
 val pp_const : Format.formatter -> const -> unit

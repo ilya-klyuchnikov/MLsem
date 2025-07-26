@@ -41,7 +41,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Projection of projection * ('a, 'typ, 'enu, 'tag, 'v) t
 | RecordUpdate of ('a, 'typ, 'enu, 'tag, 'v) t * string * ('a, 'typ, 'enu, 'tag, 'v) t option
 | TypeCast of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ
-| TypeCoerce of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * bool
+| TypeCoerce of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * coerce
 | PatMatch of ('a, 'typ, 'enu, 'tag, 'v) t * (('a, 'typ, 'tag, 'v) pattern * ('a, 'typ, 'enu, 'tag, 'v) t) list
 | Cond of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t option
 | While of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t
@@ -130,9 +130,9 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             if is_test_type ty
             then TypeCast (aux vtenv env e, ty)
             else raise (SymbolError ("type constraint should be a test type"))
-        | TypeCoerce (e, ty, b) ->
+        | TypeCoerce (e, ty, c) ->
             let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
-            TypeCoerce (aux vtenv env e, ty, b)
+            TypeCoerce (aux vtenv env e, ty, c)
         | PatMatch (e, pats) ->
             PatMatch (aux vtenv env e, List.map (aux_pat pos vtenv env) pats)
         | Cond (e, t, e1, e2) ->

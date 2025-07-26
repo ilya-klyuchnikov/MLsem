@@ -62,7 +62,8 @@ let type_check_with_sigs env (var,e,sigs,aty) =
     (var, aty), []
   else
     let e = Transform.expr_to_ast e in
-    let es = List.map (fun s -> coerce (!Config.allow_implicit_downcast) (GTy.mk s) e) sigs in
+    let c = if !Config.allow_implicit_downcast then CheckStatic else Check in
+    let es = List.map (fun s -> coerce c (GTy.mk s) e) sigs in
     let typs, msg = List.map (infer (Some var) env) es |> List.split in
     let msg = List.concat msg in
     let tscap t1 t2 =

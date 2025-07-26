@@ -312,17 +312,18 @@ let rec infer cache env renvs annot (id, e) =
     | Subst (ss,a,a',r) -> Subst (ss,ACast a,ACast a',r)
     | Fail -> Fail
     end
-  | TypeCoerce (e', _, only_lb), ACoerce (t,annot') ->
+  | TypeCoerce (e', _, c), ACoerce (t,annot') ->
     begin match infer' cache env renvs annot' e' with
     | Ok (annot', s) ->
       let lbc, ubc = (GTy.lb s, GTy.lb t), (GTy.ub s, GTy.ub t) in
-      let cs = if only_lb then [lbc] else [lbc;ubc] in
+      let cs = match c with
+        | Check -> [lbc;ubc] | CheckStatic -> [lbc] | NoCheck -> [] in
       let ss = tallying_simpl cache env (GTy.lb t) cs in
       log "untypeable coercion" (fun fmt ->
-        if only_lb then
-          Format.fprintf fmt "expected: %a\ngiven: %a" pp_typ (GTy.lb t) pp_typ (GTy.lb s)
-        else
+        if c = Check then
           Format.fprintf fmt "expected: %a\ngiven: %a" GTy.pp t GTy.pp s
+        else if c = CheckStatic then
+          Format.fprintf fmt "expected: %a\ngiven: %a" pp_typ (GTy.lb t) pp_typ (GTy.lb s)
         ) ;
       Subst (ss, nc (Annot.ACoerce(t,annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,ACoerce (t,a),ACoerce (t,a'),r)
