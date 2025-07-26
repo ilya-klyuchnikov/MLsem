@@ -42,7 +42,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Projection of projection * ('a, 'typ, 'enu, 'tag, 'v) t
 | RecordUpdate of ('a, 'typ, 'enu, 'tag, 'v) t * string * ('a, 'typ, 'enu, 'tag, 'v) t option
 | TypeCast of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ
-| TypeCoerce of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * coerce
+| TypeCoerce of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ option * coerce
 | PatMatch of ('a, 'typ, 'enu, 'tag, 'v) t * (('a, 'typ, 'tag, 'v) pattern * ('a, 'typ, 'enu, 'tag, 'v) t) list
 | Cond of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t option
 | While of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t

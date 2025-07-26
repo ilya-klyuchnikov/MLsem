@@ -120,7 +120,8 @@ unique_term: t=term EOF { t }
 element:
 | LET ds=separated_nonempty_list(AND_KW, tl_let) { annot $symbolstartpos $endpos (Definitions ds) }
 | VAL id=generalized_identifier COLON ty=typ { annot $symbolstartpos $endpos (SigDef (id, Some ty)) }
-| VAL id=generalized_identifier { annot $symbolstartpos $endpos (SigDef (id, None)) }
+| VAL id=generalized_identifier | VAL id=generalized_identifier COLON HASHTAG
+{ annot $symbolstartpos $endpos (SigDef (id, None)) }
 | TYPE ts=separated_nonempty_list(AND_KW, param_type_def) { annot $symbolstartpos $endpos (Types ts) }
 | ABSTRACT TYPE name=ID params=abs_params { annot $symbolstartpos $endpos (AbsType (name, params)) }
 | HASHTAG cmd=ID EQUAL v=literal { annot $symbolstartpos $endpos (Command (cmd, v)) }
@@ -220,7 +221,8 @@ atomic_term:
   annot (Ite (t,ty,annot (Const (Bool true)),annot (Const (Bool false))))
   }
 | LPAREN t=term COLON ty=typ RPAREN { annot $startpos $endpos (TypeCast (t,ty)) }
-| LPAREN t=term c=coerce ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,ty,c)) }
+| LPAREN t=term c=coerce ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,Some ty,c)) }
+| LPAREN t=term c=coerce HASHTAG RPAREN { annot $startpos $endpos (TypeCoerce (t,None,c)) }
 | LBRACE obr=optional_base_record fs=separated_list(SEMICOLON, field_term) RBRACE
 { record_update $startpos $endpos obr fs }
 | LBRACKET lst=separated_list(SEMICOLON, simple_term) RBRACKET

@@ -148,7 +148,9 @@ let expr_to_ast t =
     | Ast.RecordUpdate (e, lbl, None) -> Constructor (RecDel lbl, [aux e])
     | Ast.RecordUpdate (e, lbl, Some e') -> Constructor (RecUpd lbl, [aux e ; aux e'])
     | Ast.TypeCast (e, ty) -> TypeCast (aux e, ty)
-    | Ast.TypeCoerce (e, ty, c) -> TypeCoerce (aux e, GTy.mk ty, c)
+    | Ast.TypeCoerce (e, tyo, c) ->
+      let ty = match tyo with None -> GTy.dyn | Some ty -> GTy.mk ty in
+      TypeCoerce (aux e, ty, c)
     | Ast.PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
     | Ast.Cond (e,t,e1,None) ->
       ControlFlow (CfCond, aux e, t, aux e1, (Eid.unique (), Const Unit))
