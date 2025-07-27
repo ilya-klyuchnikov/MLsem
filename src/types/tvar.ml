@@ -145,7 +145,7 @@ module Subst = struct
     Format.fprintf fmt "%a ===> %a" pp_var v pp_typ t
   let pp fmt t =
     Format.fprintf fmt "%a@." (Utils.pp_long_list pp_entry) (destruct t) *)
-  let pp = Base.pp_subst
+  let pp = Sstt.Printer.print_subst (Base.printer_params ())
 end
 
 let vars_user t =
@@ -223,6 +223,12 @@ let clean' ~pos ~neg mono ts =
   let s = clean_subst' ~pos ~neg mono ts in
   List.map (Subst.apply s) ts
 let clean ~pos ~neg mono t = clean' ~pos ~neg mono [t] |> List.hd
+
+let bot_instance mono =
+    clean ~pos:Base.empty ~neg:Base.any mono
+
+let top_instance mono =
+    clean ~pos:Base.any ~neg:Base.empty mono
 
 let tallying mono cs =
   Sstt.Tallying.tally mono cs

@@ -17,18 +17,16 @@ let pparams =
     Sstt.Extensions.Chars.printer_params'
   ] |> Sstt.Printer.merge_params
 let pparams_abs = ref []
-let pp_typ fmt t =
+let printer_params () =
   let pparams' = { Sstt.Printer.empty_params with aliases = !aliases } in
-  let pparams = [ pparams ; pparams' ]@(!pparams_abs) |> Sstt.Printer.merge_params in
-  Sstt.Printer.print_ty pparams fmt t
-let pp_subst fmt t =
-  let pparams' = { Sstt.Printer.empty_params with aliases = !aliases } in
-  let pparams = [ pparams ; pparams' ]@(!pparams_abs) |> Sstt.Printer.merge_params in
-  Sstt.Printer.print_subst pparams fmt t
+  [ pparams ; pparams' ]@(!pparams_abs) |> Sstt.Printer.merge_params
+
+let pp_typ = Sstt.Printer.print_ty (printer_params ())
 
 let any = Sstt.Ty.any
 let empty = Sstt.Ty.empty
 let normalize = Sstt.Ty.factorize
+let simplify = Sstt.Transform.simplify
 
 (* ----- *)
 
@@ -159,6 +157,10 @@ let mk_record opened bindings =
   { Sstt.Records.Atom.opened ; bindings }
   |> Sstt.Descr.mk_record |> Sstt.Ty.mk_descr
 
+let record_any_with l = mk_record true [l, (false, any)]
+
+let record_any_without l = mk_record true [l, (true, empty)]
+
 let record_dnf t =
   t |> Sstt.Ty.get_descr |> Sstt.Descr.get_records
   |> Sstt.Op.Records.as_union |> List.map (fun a ->
@@ -217,3 +219,7 @@ let apply t args =
 let dnf t =
   let a = Sstt.Ty.get_descr t |> Sstt.Descr.get_arrows in
   Sstt.Arrows.dnf a |> Sstt.Arrows.Dnf.simplify |> List.map (fun (ps,_,_) -> ps)
+
+let of_dnf lst =
+  lst |> List.map (fun ps -> (ps,[],true)) |> Sstt.Arrows.of_dnf
+  |> Sstt.Descr.mk_arrows |> Sstt.Ty.mk_descr

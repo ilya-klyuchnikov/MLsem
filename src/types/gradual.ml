@@ -66,7 +66,7 @@ module GTy = struct
   let leq = test2 subtype
   let equiv = test2 equiv
 
-  let simplify = map Additions.simplify_typ
+  let simplify = map simplify
   let normalize = map normalize
 
   let pp fmt t =

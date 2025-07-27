@@ -27,11 +27,11 @@ let leq (tvs1,ty1) (tvs2,ty2) =
 let equiv t1 t2 = leq t1 t2 && leq t2 t1
 let bot_instance (tvs,t) =
   let mono = TVarSet.diff (GTy.fv t) tvs in
-  let t = GTy.map (Additions.bot_instance mono) t in
+  let t = GTy.map (bot_instance mono) t in
   mk tvs t
 let top_instance (tvs,t) =
   let mono = TVarSet.diff (GTy.fv t) tvs in
-  let t = GTy.map (Additions.top_instance mono) t in
+  let t = GTy.map (top_instance mono) t in
   mk tvs t
 let simplify (tvs,ty) = (tvs, GTy.simplify ty)
 let normalize (tvs,ty) = (tvs, GTy.normalize ty)

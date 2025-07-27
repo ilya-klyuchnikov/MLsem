@@ -1,6 +1,5 @@
 
 open Base
-open Tvar
 
 module StrMap : Map.S with type key = String.t
 
@@ -57,34 +56,9 @@ val refine_partition : typ list -> typ -> typ list
 
 val is_test_type : typ -> bool
 
-val branch_type : (typ*typ) list -> typ
-val tuple_branch_type : typ list -> typ
-val cons_branch_type : (typ*typ) -> typ
-val record_branch_type : ((string * (bool * typ)) list * bool) -> typ
+(* Type transformations *)
 
-(* Simplification and transformations of types *)
-
-val simplify_typ : typ -> typ
 val transform_abstract :
     (abstract * (typ list list * typ list list) list ->
                 (typ list list * typ list list) list)
         -> typ -> typ
-
-(* Record manipulation *)
-
-val record_any_with : string -> typ
-(** [record_any_with l] creates the record type {l = Any ..} *)
-
-val record_any_without : string -> typ
-(** [record_any_without l] creates the record type {l =? Empty ..} *)
-
-val remove_field_info : typ -> string -> typ
-(** [remove_field_info t label] removes all the information
-    about the field label in the record t. *)
-
-(* Operations on type variables *)
-
-val instantiate : Subst.t list -> typ -> typ
-
-val bot_instance : TVarSet.t -> typ -> typ
-val top_instance : TVarSet.t -> typ -> typ

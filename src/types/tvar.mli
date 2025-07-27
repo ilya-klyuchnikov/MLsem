@@ -90,6 +90,9 @@ val clean_subst : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ -> Subst
 val clean' : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ list -> Base.typ list
 val clean_subst' : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ list -> Subst.t
 
+val bot_instance : TVarSet.t -> Base.typ -> Base.typ
+val top_instance : TVarSet.t -> Base.typ -> Base.typ
+
 val test_tallying : TVarSet.t -> (Base.typ * Base.typ) list -> bool
 val tallying : TVarSet.t -> (Base.typ * Base.typ) list -> Subst.t list
 val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Base.typ * Base.typ) list -> Subst.t list

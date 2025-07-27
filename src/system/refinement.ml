@@ -4,7 +4,6 @@ open Types
 open Types.Base
 open Types.Tvar
 open Types.Gradual
-open Types.Additions
 open Utils
 
 let rec is_undesirable_arrow s =
@@ -21,6 +20,11 @@ let combine rs1 rs2 =
   |> List.map (fun (r1, r2) -> REnv.cap r1 r2)
 
 let sufficient_refinements env e t =
+  let remove_field_info t label =
+    let t = remove_field t label in
+    let singleton = mk_record false [label, (true, any)] in
+    merge_records t singleton
+  in
   let rec aux (_,e) t =
     if is_any t then [REnv.empty] else
     match e with
@@ -29,21 +33,21 @@ let sufficient_refinements env e t =
     | Var v -> [REnv.singleton v t]
     | Constructor (Tuple n, es) when List.length es = n ->
       tuple_dnf n t
-      |> List.filter (fun b -> subtype (tuple_branch_type b) t)
+      |> List.filter (fun b -> subtype (mk_tuple b) t)
       |> List.map (fun ts ->
         List.map2 (fun e t -> aux e t) es ts
         |> carthesian_prod' |> List.map REnv.conj
       ) |> List.flatten
     | Constructor (Cons, [e1;e2]) ->
       cons_dnf t
-      |> List.filter (fun b -> subtype (cons_branch_type b) t)
+      |> List.filter (fun (a,b) -> subtype (mk_cons a b) t)
       |> List.map (fun (t1,t2) ->
         combine (aux e1 t1) (aux e2 t2)
       ) |> List.flatten
     | Constructor (RecUpd label, [e;e']) ->
       let t = cap t (record_any_with label) in
       record_dnf t
-      |> List.map (fun b -> record_branch_type b)
+      |> List.map (fun (fields,o) -> mk_record o fields)
       |> List.filter (fun ti -> subtype ti t)
       |> List.map (fun ti ->
         let field_type = get_field ti label in
@@ -53,7 +57,7 @@ let sufficient_refinements env e t =
     | Constructor (RecDel label, [e]) ->
       let t = cap t (record_any_without label) in
       record_dnf t
-      |> List.map (fun b -> record_branch_type b)
+      |> List.map (fun (fields,o) -> mk_record o fields)
       |> List.filter (fun ti -> subtype ti t)
       |> List.map (fun ti ->
         aux e (remove_field_info ti label)
@@ -76,7 +80,7 @@ let sufficient_refinements env e t =
       begin match dnf (GTy.lb ty) with
       | [] -> []
       | [arrows] ->
-        let t1 = branch_type arrows in
+        let t1 = of_dnf [arrows] in
         let res = tallying mono [ (t1, mk_arrow (TVar.typ alpha) t) ] in
         res |> List.map (fun sol ->
           let targ = Subst.find sol alpha |> top_instance mono in

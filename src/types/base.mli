@@ -2,12 +2,13 @@
 type typ = Sstt.Ty.t
 
 val register : string -> typ -> unit
+val printer_params : unit -> Sstt.Printer.params
 val pp_typ : Format.formatter -> typ -> unit
-val pp_subst : Format.formatter -> Sstt.Subst.t -> unit
 
 val any : typ
 val empty : typ
 val normalize : typ -> typ
+val simplify : typ -> typ
 
 val true_typ : typ
 val false_typ : typ
@@ -71,6 +72,8 @@ val destruct_list : typ -> typ * typ
 val to_label : string -> Sstt.Label.t
 val from_label : Sstt.Label.t -> string
 val mk_record : bool (* is_open *) -> (string * (bool * typ)) list -> typ
+val record_any_with : string -> typ
+val record_any_without : string -> typ
 val record_dnf : typ -> ((string * (bool * typ)) list * bool) list
 val record_of_dnf : ((string * (bool * typ)) list * bool) list -> typ
 val record_any : typ
@@ -84,6 +87,7 @@ val arrow_any : typ
 val domain : typ -> typ
 val apply : typ -> typ -> typ
 val dnf : typ -> (typ * typ) list list
+val of_dnf : (typ * typ) list list -> typ
 
 val is_empty : typ -> bool
 val is_any : typ -> bool

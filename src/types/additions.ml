@@ -293,20 +293,7 @@ let is_test_type t =
         ) ; true
     with NotTestType -> false
 
-let branch_type lst =
-    if lst = [] then arrow_any
-    else begin
-        lst
-        |> List.map (fun (a, b) -> mk_arrow a b)
-        |> conj
-    end
-let tuple_branch_type ts = mk_tuple ts
-let cons_branch_type (a, b) = mk_cons a b
-let record_branch_type (fields, o) = mk_record o fields
-
-(* Simplification of types *)
-
-let simplify_typ = Sstt.Transform.simplify
+(* Type transformations *)
 
 let trans_tagcomp f c =
   match Sstt.Extensions.Abstracts.destruct c with
@@ -334,26 +321,3 @@ let trans_descr f d =
   ) |> of_components
 let trans_vdescr f = Sstt.VDescr.map (trans_descr f)
 let transform_abstract f = Sstt.Transform.transform (trans_vdescr f)
-
-(* Record manipulation *)
-
-let record_any_with l = mk_record true [l, (false, any)]
-
-let record_any_without l = mk_record true [l, (true, empty)]
-
-let remove_field_info t label =
-    let t = remove_field t label in
-    let singleton = mk_record false [label, (true, any)] in
-    merge_records t singleton
-
-(* Operations on type variables *)
-
-let instantiate ss t =
-    List.map (fun s -> Subst.apply s t) ss
-    |> conj
-
-let bot_instance mono =
-    clean ~pos:empty ~neg:any mono
-
-let top_instance mono =
-    clean ~pos:any ~neg:empty mono
