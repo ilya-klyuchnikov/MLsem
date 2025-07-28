@@ -49,11 +49,6 @@ val define_types : type_env -> var_type_env -> (string * string list * type_expr
 val get_enum : type_env -> string -> enum
 val get_tag : type_env -> string -> tag
 
-(* Operations on types *)
-
-val partition : typ list -> typ list
-val refine_partition : typ list -> typ -> typ list
-
 val is_test_type : typ -> bool
 
 (* Type transformations *)

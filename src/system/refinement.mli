@@ -4,6 +4,7 @@ open Variable
 
 val refine : Env.t -> Ast.t -> typ -> REnv.t
 val refinement_envs : Env.t -> Ast.t -> REnvSet.t
+val partition : typ list -> typ list
 
 module Partitioner : sig
   type t

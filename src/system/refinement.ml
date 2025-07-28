@@ -160,6 +160,19 @@ let refinement_envs env e =
   in
   aux env e ; !res
 
+let partition ts =
+  let cap_if_nonempty t t' =
+    let s = cap t t' in
+    if is_empty s then t else s
+  in
+  let rec aux t =
+    if is_empty t then []
+    else
+      let s = List.fold_left cap_if_nonempty t ts in
+      s::(aux (diff t s))
+  in
+  aux any
+
 module Partitioner = struct
   type t = REnv.t list
 
@@ -190,7 +203,7 @@ module Partitioner = struct
     let tys = t |> List.filter_map (fun renv ->
       if REnv.mem v renv then Some (REnv.find v renv) else None
     ) |> List.map isolate_conjuncts |> List.flatten in
-    extra@tys |> Types.Additions.partition
+    extra@tys |> partition
     (* |> (fun tys -> Format.printf "Partition for %a: %a@." Parsing.Variable.Variable.pp v
       (Utils.pp_list pp_typ) tys ; tys) *)
 end
