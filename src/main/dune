@@ -1,6 +1,6 @@
 (library
  (name main)
- (public_name mlsem)
+ (public_name mlsem-lang)
  (wrapped false)
  (libraries types common parsing utils system)
  (preprocess
@@ -9,6 +9,8 @@
 
 (executable
  (name prototype)
+ (public_name mlsem)
+ (package mlsem-bin)
  (libraries main)
  (modules prototype))
 

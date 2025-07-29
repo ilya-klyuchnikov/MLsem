@@ -41,7 +41,6 @@ jobs:
           opam-pin: false
       - name: Install OCaml dependencies
         run: |
-          opam pin sstt https://github.com/E-Sh4rk/sstt.git#main
           make deps
 
       # Build web version

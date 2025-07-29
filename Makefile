@@ -11,6 +11,11 @@ web-deps:
 build:
 	opam exec -- dune build src/main/prototype.exe
 
+doc:
+	opam exec -- dune build @doc
+	rm -rf webeditor/doc
+	cp -r _build/default/_doc/_html/ webeditor/doc
+
 run:
 	opam exec -- dune exec ./src/main/prototype.exe
 

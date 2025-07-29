@@ -17,6 +17,18 @@
 
 (package
  (name mlsem)
- (synopsis "A prototype type-checker for dynamic languages")
+ (synopsis "A type-checker for dynamic languages")
  (depends (ocaml (>= 5.3.0)) dune (sstt (>= 0.1.0)) ppx_deriving zarith yojson)
+)
+
+(package
+ (name mlsem-lang)
+ (synopsis "A statically typed dynamic languages")
+ (depends mlsem menhir)
+)
+
+(package
+ (name mlsem-bin)
+ (synopsis "Binaries for mlsem-lang")
+ (depends mlsem-lang)
 )

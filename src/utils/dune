@@ -1,6 +1,6 @@
 (library
  (name utils)
- (public_name mlsem.utils)
  (wrapped false)
+ (package mlsem)
  (libraries str)
  (modules (:standard)))
