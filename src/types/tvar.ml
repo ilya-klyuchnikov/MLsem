@@ -141,7 +141,7 @@ module Subst = struct
       | `Pos _ -> true
       | _ -> false)
 
-  let pp = Sstt.Printer.print_subst (Base.printer_params ())
+  let pp fmt s = Sstt.Printer.print_subst (Base.printer_params ()) fmt s
 end
 
 let vars_user t =

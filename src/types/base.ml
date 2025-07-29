@@ -21,7 +21,7 @@ let printer_params () =
   let pparams' = { Sstt.Printer.empty_params with aliases = !aliases } in
   [ pparams ; pparams' ]@(!pparams_abs) |> Sstt.Printer.merge_params
 
-let pp_typ = Sstt.Printer.print_ty (printer_params ())
+let pp_typ fmt ty = Sstt.Printer.print_ty (printer_params ()) fmt ty
 
 let any = Sstt.Ty.any
 let empty = Sstt.Ty.empty
