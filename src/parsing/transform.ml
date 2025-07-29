@@ -8,18 +8,18 @@ let rec type_of_pat pat =
   match pat with
   | PatType t -> t
   | PatLit c -> System.Ast.typeof_const c
-  | PatVar _ -> any
-  | PatTag (tag, p) -> mk_tag tag (type_of_pat p)
+  | PatVar _ -> Ty.any
+  | PatTag (tag, p) -> Tag.mk tag (type_of_pat p)
   | PatAnd (p1, p2) ->
-    cap (type_of_pat p1) (type_of_pat p2)
+    Ty.cap (type_of_pat p1) (type_of_pat p2)
   | PatOr (p1, p2) ->
-    cup (type_of_pat p1) (type_of_pat p2)
-  | PatTuple ps -> mk_tuple (List.map type_of_pat ps)
+    Ty.cup (type_of_pat p1) (type_of_pat p2)
+  | PatTuple ps -> Tuple.mk (List.map type_of_pat ps)
   | PatCons (p1, p2) ->
-    mk_cons (type_of_pat p1) (type_of_pat p2)
+    Lst.cons (type_of_pat p1) (type_of_pat p2)
   | PatRecord (fields, o) ->
-    mk_record o (List.map (fun (str, p) -> (str, (false, type_of_pat p))) fields)
-  | PatAssign _ -> any
+    Record.mk o (List.map (fun (str, p) -> (str, (false, type_of_pat p))) fields)
+  | PatAssign _ -> Ty.any
 
 let rec vars_of_pat pat =
   let open Ast in
@@ -78,7 +78,7 @@ let encode_pattern_matching e pats =
   let x = Variable.create_gen None in
   let ex = (Eid.unique (), Var x) in
   let ts = pats |> List.map fst |> List.map type_of_pat in
-  let t = disj ts in
+  let t = Ty.disj ts in
   let body_of_pat pat e' =
     let vars = vars_of_pat pat in
     let add_def acc v =
@@ -103,7 +103,7 @@ let encode_pattern_matching e pats =
 
 let expr_to_ast t =
   let open System.Ast in
-  let sugg : (Variable.t, typ list) Hashtbl.t = Hashtbl.create 100 in
+  let sugg = Hashtbl.create 100 in
   let get_sugg v =
     match Hashtbl.find_opt sugg v with Some lst -> lst | None -> []
   in

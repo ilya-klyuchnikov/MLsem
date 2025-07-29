@@ -8,7 +8,7 @@ open Types
 open Parsing
 open System.Ast
 
-type def = Variable.t * Ast.expr * typ option
+type def = Variable.t * Ast.expr * Ty.t option
 
 exception IncompatibleType of Variable.t * TyScheme.t
 exception UnresolvedType of Variable.t * TyScheme.t
@@ -16,13 +16,13 @@ exception Untypeable of Variable.t option * System.Checker.error
 
 let sigs_of_ty mono ty =
   let rec aux ty =
-    match dnf ty with
+    match Arrow.dnf ty with
     | [arrs] ->
       let arrs = arrs |> List.map (fun (a,b) ->
-        aux b |> List.map (fun b -> mk_arrow a b)
+        aux b |> List.map (fun b -> Arrow.mk a b)
       ) |> List.flatten
       in
-      if equiv ty (conj arrs)
+      if Ty.equiv ty (Ty.conj arrs)
       then arrs else [ty]
     | _ -> [ty]
   in
@@ -83,7 +83,7 @@ let type_check_recs pos env lst =
   let tvs, ty = ty |> TyScheme.get in
   let n = List.length lst in
   List.mapi (fun i (var,_) ->
-    let ty = TyScheme.mk tvs (GTy.map (pi n i) ty) |> TyScheme.bot_instance in
+    let ty = TyScheme.mk tvs (GTy.map (Tuple.proj n i) ty) |> TyScheme.bot_instance in
     check_resolved var env ty ;
     (var, ty)
   ) lst, msg
@@ -195,7 +195,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
     (tenv,varm,senv,env), TFailure (Some v, pos, err.title, err.descr, retrieve_time time)
   | IncompatibleType (var,_) ->
     (tenv,varm,senv,env), TFailure (Some var, Variable.get_location var,
-      "the type inferred is not a subtype of the type specified", None,
+      "the type inferred is not a Ty.leq of the type specified", None,
       retrieve_time time)
   | UnresolvedType (var,ty) ->
     (tenv,varm,senv,env), TFailure (Some var, Variable.get_location var,
@@ -226,7 +226,7 @@ let treat_all_sigs envs elts =
 
 let builtin_functions =
   let arith_operators_typ =
-    mk_arrow int_typ (mk_arrow int_typ int_typ) |> GTy.mk |> TyScheme.mk_poly
+    Arrow.mk Ty.int (Arrow.mk Ty.int Ty.int) |> GTy.mk |> TyScheme.mk_poly
   in
   [
     ("+", arith_operators_typ) ;

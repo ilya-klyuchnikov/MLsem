@@ -42,8 +42,8 @@ end
 module Env : Env with type ty:=TyScheme.t
 
 module REnv : sig
-  include Env with type ty:=typ
-  val find' : Variable.t -> t -> typ
+  include Env with type ty:=Ty.t
+  val find' : Variable.t -> t -> Ty.t
   val cap : t -> t -> t
   val conj : t list -> t
   val neg : t -> t list

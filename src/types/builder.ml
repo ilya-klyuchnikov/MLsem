@@ -268,12 +268,12 @@ let is_test_type t =
                             let ty = Sstt.Descr.mk_tagcomp comp |> Sstt.Ty.mk_descr in
                             let any_ty = Sstt.Extensions.Abstracts.mk_any tag in
                             if Sstt.Extensions.Abstracts.is_abstract tag &&
-                                (Ty.is_empty ty || Ty.subtype any_ty ty) |> not
+                                (Ty.is_empty ty || Ty.leq any_ty ty) |> not
                             then raise NotTestType
                         )
                     | Arrows a ->
                         let t = mk_arrows a |> Sstt.Ty.mk_descr in
-                        if (Ty.is_empty t || Ty.subtype Arrow.any t) |> not
+                        if (Ty.is_empty t || Ty.leq Arrow.any t) |> not
                         then raise NotTestType
                 )
             )

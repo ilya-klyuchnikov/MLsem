@@ -9,7 +9,7 @@ module type T = sig
   val leq : t -> t -> bool
   val substitute : Subst.t -> t -> t
   val pp : Format.formatter -> t -> unit
-end  
+end
 
 module type Env = sig
   type t
@@ -117,19 +117,19 @@ end)
 
 module REnv = struct
   include Make(struct
-    type t = typ
+    type t = Ty.t
     let fv = vars
-    let leq = subtype
+    let leq = Ty.leq
     let substitute = Subst.apply
-    let pp = pp_typ
+    let pp = Ty.pp
   end)
 
   let find' v t =
-    try find v t with Not_found -> any
+    try find v t with Not_found -> Ty.any
 
   let cap (m1, s1) (m2, s2) =
     (VarMap.union (fun _ t1 t2 ->
-      Some (cap t1 t2)
+      Some (Ty.cap t1 t2)
       ) m1 m2,
     TVarSet.union s1 s2)
     
@@ -137,15 +137,15 @@ module REnv = struct
 
   let neg t =
     bindings t |> List.filter_map (fun (v,ty) ->
-      let nty = neg ty in
-      if Base.is_empty nty then None else Some (singleton v nty)
+      let nty = Ty.neg ty in
+      if Ty.is_empty nty then None else Some (singleton v nty)
     )
 
   let cup_approx (m1, s1) (m2, s2) =
     (VarMap.merge (fun _ t1 t2 -> match t1, t2 with
       | None, None -> None
       | Some _, None | None, Some _ -> None
-      | Some t1, Some t2 -> Some (cup t1 t2)
+      | Some t1, Some t2 -> Some (Ty.cup t1 t2)
     ) m1 m2,
     TVarSet.union s1 s2)
 

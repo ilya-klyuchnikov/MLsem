@@ -33,7 +33,7 @@ module Ty : sig
     val is_any : t -> bool
     val non_empty: t -> bool
     val non_any : t -> bool
-    val subtype  : t -> t -> bool
+    val leq  : t -> t -> bool
     val disjoint : t -> t -> bool
     val equiv : t -> t -> bool
 

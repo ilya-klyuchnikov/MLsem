@@ -50,7 +50,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 
 and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 
-type expr = (Eid.t, typ, enum, tag, Variable.t) t
+type expr = (Eid.t, Ty.t, Enum.t, Tag.t, Variable.t) t
 type parser_expr = (annotation, type_expr, string, string, varname) t
 
 type name_var_map = Variable.t StrMap.t
@@ -66,7 +66,7 @@ type parser_element =
 | Definitions of (string * parser_expr) list
 | SigDef of string * type_expr option
 | Types of (string * string list * type_expr) list
-| AbsType of string * variance list
+| AbsType of string * Abstract.variance list
 | Command of string * const
 
 type parser_program = (annotation * parser_element) list

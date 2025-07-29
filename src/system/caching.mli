@@ -16,7 +16,7 @@ module TVCache : sig
     val empty : unit -> t
     val get : t -> Eid.t -> TVar.t -> TVar.t
     val get' : t -> Eid.t -> TVarSet.t -> Subst.t
-    val get_abs_param : t -> abstract -> int -> TVar.t -> TVar.t
+    val get_abs_param : t -> Abstract.t -> int -> TVar.t -> TVar.t
     val res_tvar : TVar.t
     val res_tvar' : int -> TVar.t
 end

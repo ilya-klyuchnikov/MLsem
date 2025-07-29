@@ -44,7 +44,7 @@ let analyze e a =
       if GTy.leq s ty |> not then
         begin if c = CheckStatic then
           msg Notice "Unchecked dynamic coercion"
-          (Format.asprintf "expected: %a\ngiven: %a" pp_typ (GTy.ub ty) pp_typ (GTy.ub s))
+          (Format.asprintf "expected: %a\ngiven: %a" Ty.pp (GTy.ub ty) Ty.pp (GTy.ub s))
         else if c = NoCheck then
           msg Notice "Unchecked coercion"
           (Format.asprintf "expected: %a\ngiven: %a" GTy.pp ty GTy.pp s)

@@ -10,7 +10,7 @@ open Caching
 type ('a,'b) result =
 | Ok of 'a * GTy.t
 | Fail
-| Subst of (Subst.t * typ) list * 'b * 'b * (Eid.t * REnv.t)
+| Subst of (Subst.t * Ty.t) list * 'b * 'b * (Eid.t * REnv.t)
 
 type log = { eid: Eid.t ; title: string ; descr: Format.formatter -> unit }
 type cache = { dom : Domain.t ; tvcache : TVCache.t ; logs : log list ref }
@@ -32,7 +32,7 @@ let substitute_by_similar_var v t =
     if TVarSet.mem vs v' then
     match k with
     | `Pos -> Some (TVar.typ v')
-    | `Neg -> Some (TVar.typ v' |> neg)
+    | `Neg -> Some (TVar.typ v' |> Ty.neg)
     | `Both -> (* Cases like Bool & 'a \ 'b  |  Int & 'a & 'b *) None
     else None
     )
@@ -45,28 +45,28 @@ let abstract_factors cache v ty =
   let (factor, _) = factorize (TVarSet.construct [v], TVarSet.empty) ty in
   let res = ref [] in
   let aux (abs, dnf) =
-    let vs = params_of_abstract abs in
+    let vs = Abstract.params abs in
     let mk_arg i (ty,variance) =
       let tv = TVCache.get_abs_param cache.tvcache abs i v in
       let arg = match variance with
-      | Inv -> ty | Cov -> cap ty (TVar.typ tv) | Cav -> cup ty (TVar.typ tv)
+      | Abstract.Inv -> ty | Abstract.Cov -> Ty.cap ty (TVar.typ tv) | Abstract.Cav -> Ty.cup ty (TVar.typ tv)
       in
       let s = substitute_by_similar_var tv arg in
       Subst.apply s arg
     in
-    let mk_abstract' tys =
+    let mk_abs tys =
       let args = List.combine tys vs |> List.mapi mk_arg in
-      mk_abstract abs args
+      Abstract.mk abs args
     in
     dnf |> List.filter (fun (ps, ns) ->
       if ps = [] then true
       else
-        let ps = ps |> List.map mk_abstract' |> conj in
-        let ns = ns |> List.map (mk_abstract abs) |> List.map neg |> conj in
-        res := (cap ps ns)::(!res) ; false
+        let ps = ps |> List.map mk_abs |> Ty.conj in
+        let ns = ns |> List.map (Abstract.mk abs) |> List.map Ty.neg |> Ty.conj in
+        res := (Ty.cap ps ns)::(!res) ; false
     )
   in
-  let remaining = transform_abstract aux factor in
+  let remaining = Abstract.transform aux factor in
   match !res with
   | [] -> [ Subst.identity ]
   | res -> (remaining::res) |> List.map (fun ty -> Subst.construct [v, ty])
@@ -97,9 +97,9 @@ let minimize_new_tvars tvars sol =
 
 let tallying_simpl cache env res cs =
   let tvars = Env.tvars env in
-  let leq_sol (_,r1) (_,r2) = subtype r1 r2 in
+  let leq_sol (_,r1) (_,r2) = Ty.leq r1 r2 in
   (* Format.printf "Tallying:@." ;
-  cs |> List.iter (fun (a,b) -> Format.printf "%a <= %a@." pp_typ a pp_typ b) ; *)
+  cs |> List.iter (fun (a,b) -> Format.printf "%a <= %a@." Ty.pp a Ty.pp b) ; *)
   (* Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
     (TVarSet.destruct tvars) ; *)
   (* Format.printf "with env=%a@." Env.pp env ; *)
@@ -111,18 +111,18 @@ let tallying_simpl cache env res cs =
   |> List.map (fun (s,r) ->
     let mono = Subst.restrict s tvars |> Subst.vars in
     let mono = TVarSet.union_many [mono ; tvars ; TVar.user_vars ()] in
-    let clean = clean_subst ~pos:empty ~neg:any mono r in
+    let clean = clean_subst ~pos:Ty.empty ~neg:Ty.any mono r in
     (Subst.compose clean s, Subst.apply clean r)
   )
   |> tsort leq_sol
-  (* |> List.map (fun (s,r) -> Format.printf "%a@.%a@." Subst.pp s pp_typ r ; s,r) *)
+  (* |> List.map (fun (s,r) -> Format.printf "%a@.%a@." Subst.pp s Ty.pp r ; s,r) *)
 
 (* Reconstruction algorithm *)
 
 type ('a,'b) result_seq =
 | AllOk of 'a list * GTy.t list
 | OneFail
-| OneSubst of (Subst.t * typ) list * 'b list * 'b list * (Eid.t * REnv.t)
+| OneSubst of (Subst.t * Ty.t) list * 'b list * 'b list * (Eid.t * REnv.t)
 
 let rec seq (f : 'b -> 'c -> ('a,'b) result) (c : 'a->'b) (lst:('b*'c) list)
   : ('a,'b) result_seq =
@@ -174,8 +174,8 @@ let rec infer cache env renvs annot (id, e) =
       let ss = tallying_simpl cache env (Checker.construct c tys) (List.combine tys doms) in
       log "untypeable constructor" (fun fmt ->
         Format.fprintf fmt "expected: %a\ngiven: %a"
-          (Utils.pp_seq pp_typ " ; ") doms
-          (Utils.pp_seq pp_typ " ; ") tys
+          (Utils.pp_seq Ty.pp " ; ") doms
+          (Utils.pp_seq Ty.pp " ; ") tys
         ) ;
       Subst (ss, nc (Annot.AConstruct annots), Untyp, empty_cov)
     end
@@ -205,7 +205,7 @@ let rec infer cache env renvs annot (id, e) =
     | AllOk (annots,tys') ->
       let tys' = List.map GTy.lb tys' in
       let cs = List.combine tys' (List.map GTy.lb tys) in
-      let ss = tallying_simpl cache env (mk_tuple tys') cs in
+      let ss = tallying_simpl cache env (Tuple.mk tys') cs in
       let ok_ann = nc (Annot.ALambdaRec (List.combine tys annots)) in
       log "untypeable recursive function" (fun fmt ->
         Format.fprintf fmt "cannot unify the body with self"
@@ -223,7 +223,7 @@ let rec infer cache env renvs annot (id, e) =
       | Subst (ss, a1, a1',r) ->
         Subst (ss, AIte(A a0,a1,a2), AIte(A a0,a1',a2),r)
       | Ok (a1,_) ->
-        begin match infer_b' cache env renvs a2 e2 s (neg tau) with
+        begin match infer_b' cache env renvs a2 e2 s (Ty.neg tau) with
         | Fail -> Fail
         | Subst (ss, a2, a2',r) ->
           Subst (ss, AIte(A a0,to_i a1,a2), AIte(A a0,to_i a1,a2'),r)
@@ -242,7 +242,7 @@ let rec infer cache env renvs annot (id, e) =
       | Subst (ss, a1, a1',r) ->
         Subst (ss, ACf(A a0,a1,a2), ACf(A a0,a1',a2),r)
       | Ok (a1,_) ->
-        begin match infer_cf_b' cache env renvs a2 e2 s (neg tau) with
+        begin match infer_cf_b' cache env renvs a2 e2 s (Ty.neg tau) with
         | Fail -> Fail
         | Subst (ss, a2, a2',r) ->
           Subst (ss, ACf(A a0,to_i a1,a2), ACf(A a0,to_i a1,a2'),r)
@@ -259,10 +259,10 @@ let rec infer cache env renvs annot (id, e) =
     | AllOk ([a1;a2],[t1;t2]) ->
       let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
       let t1, t2 = GTy.lb t1, GTy.lb t2 in
-      let arrow = mk_arrow t2 (TVar.typ tv) in
+      let arrow = Arrow.mk t2 (TVar.typ tv) in
       let ss = tallying_simpl cache env (TVar.typ tv) [(t1, arrow)] in
       log "untypeable application" (fun fmt ->
-        Format.fprintf fmt "function: %a\nargument: %a" pp_typ t1 pp_typ t2
+        Format.fprintf fmt "function: %a\nargument: %a" Ty.pp t1 Ty.pp t2
         ) ;
       Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
@@ -276,7 +276,7 @@ let rec infer cache env renvs annot (id, e) =
       let s = GTy.lb s in
       let ss = tallying_simpl cache env (TVar.typ tv) [(s, ty)] in
       log "untypeable projection" (fun fmt ->
-        Format.fprintf fmt "argument: %a" pp_typ s
+        Format.fprintf fmt "argument: %a" Ty.pp s
         ) ;
       Subst (ss, nc (Annot.AProj annot'), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AProj a,AProj a',r)
@@ -291,7 +291,7 @@ let rec infer cache env renvs annot (id, e) =
     | Subst (ss,a,a',r) -> Subst (ss,ALet (a,parts),ALet (a',parts),r)
     | Ok (annot1, s) ->
       let tvs, s = Checker.generalize ~e:e1 env s |> TyScheme.get in
-      let parts = parts |> List.filter (fun (t,_) -> disjoint (GTy.ub s) t |> not) in
+      let parts = parts |> List.filter (fun (t,_) -> Ty.disjoint (GTy.ub s) t |> not) in
       begin match infer_part_seq' cache env renvs e2 v (tvs,s) parts with
       | OneFail -> Fail
       | OneSubst (ss,p,p',r) -> Subst (ss,ALet(A annot1,p),ALet(A annot1,p'),r)
@@ -306,7 +306,7 @@ let rec infer cache env renvs annot (id, e) =
       let s = GTy.lb s in
       let ss = tallying_simpl cache env s [(s,t)] in
       log "untypeable constraint" (fun fmt ->
-        Format.fprintf fmt "expected: %a\ngiven: %a" pp_typ t pp_typ s
+        Format.fprintf fmt "expected: %a\ngiven: %a" Ty.pp t Ty.pp s
         ) ;
       Subst (ss, nc (Annot.ACast(annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,ACast a,ACast a',r)
@@ -323,7 +323,7 @@ let rec infer cache env renvs annot (id, e) =
         if c = Check then
           Format.fprintf fmt "expected: %a\ngiven: %a" GTy.pp t GTy.pp s
         else if c = CheckStatic then
-          Format.fprintf fmt "expected: %a\ngiven: %a" pp_typ (GTy.lb t) pp_typ (GTy.lb s)
+          Format.fprintf fmt "expected: %a\ngiven: %a" Ty.pp (GTy.lb t) Ty.pp (GTy.lb s)
         ) ;
       Subst (ss, nc (Annot.ACoerce(t,annot')), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,ACoerce (t,a),ACoerce (t,a'),r)
@@ -390,7 +390,7 @@ and infer_b' cache env renvs bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
   | IAnnot.BInfer ->
-    let ss = tallying_simpl cache env empty [(GTy.ub s,neg tau)] in
+    let ss = tallying_simpl cache env Ty.empty [(GTy.ub s,Ty.neg tau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType Infer, empty_cov)
   | IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
   | IAnnot.BType annot ->
@@ -403,13 +403,13 @@ and infer_cf_b' cache env renvs bannot e s tau =
   let retry_with bannot = infer_cf_b' cache env renvs bannot e s tau in
   match bannot with
   | IAnnot.BInfer ->
-    if subtype (GTy.ub s) (neg tau)
+    if Ty.leq (GTy.ub s) (Ty.neg tau)
     then retry_with (IAnnot.BSkip)
     else retry_with (IAnnot.BType Infer)
   | IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
   | IAnnot.BType annot ->
     begin match infer' cache env renvs annot e with
-    | Ok (a, ty) (* when subtype ty unit_typ *) -> Ok (Annot.BType a, ty)
+    | Ok (a, ty) (* when Ty.leq ty Ty.unit *) -> Ok (Annot.BType a, ty)
     (* | Ok _ -> Fail *)
     | Subst (ss,a1,a2,r) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2,r)
     | Fail -> Fail

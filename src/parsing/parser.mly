@@ -131,9 +131,9 @@ element:
 | LPAREN vs=separated_nonempty_list(COMMA, variance) RPAREN { vs }
 
 variance:
-  TVAR { Inv }
-| PLUS TVAR { Cov }
-| MINUS TVAR { Cav }
+  TVAR { Abstract.Inv }
+| PLUS TVAR { Abstract.Cov }
+| MINUS TVAR { Abstract.Cav }
 
 (* ===== TERMS ===== *)
 

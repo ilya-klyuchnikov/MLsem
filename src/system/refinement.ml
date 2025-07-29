@@ -7,9 +7,9 @@ open Types.Gradual
 open Utils
 
 let rec is_undesirable_arrow s =
-  subtype s arrow_any &&
-  dnf s |> List.for_all
-    (List.exists (fun (a, b) -> non_empty a && is_undesirable_arrow b))
+  Ty.leq s Arrow.any &&
+  Arrow.dnf s |> List.for_all
+    (List.exists (fun (a, b) -> Ty.non_empty a && is_undesirable_arrow b))
 
 let is_undesirable mono s =
   TVarSet.subset (vars s) mono |> not ||
@@ -21,55 +21,55 @@ let combine rs1 rs2 =
 
 let sufficient_refinements env e t =
   let remove_field_info t label =
-    let t = remove_field t label in
-    let singleton = mk_record false [label, (true, any)] in
-    merge_records t singleton
+    let t = Record.remove_field t label in
+    let singleton = Record.mk false [label, (true, Ty.any)] in
+    Record.merge t singleton
   in
   let rec aux (_,e) t =
-    if is_any t then [REnv.empty] else
+    if Ty.is_any t then [REnv.empty] else
     match e with
     | Lambda _ -> []
     | LambdaRec _ -> []
     | Var v -> [REnv.singleton v t]
     | Constructor (Tuple n, es) when List.length es = n ->
-      tuple_dnf n t
-      |> List.filter (fun b -> subtype (mk_tuple b) t)
+      Tuple.dnf n t
+      |> List.filter (fun b -> Ty.leq (Tuple.mk b) t)
       |> List.map (fun ts ->
         List.map2 (fun e t -> aux e t) es ts
         |> carthesian_prod' |> List.map REnv.conj
       ) |> List.flatten
     | Constructor (Cons, [e1;e2]) ->
-      cons_dnf t
-      |> List.filter (fun (a,b) -> subtype (mk_cons a b) t)
+      Lst.dnf t
+      |> List.filter (fun (a,b) -> Ty.leq (Lst.cons a b) t)
       |> List.map (fun (t1,t2) ->
         combine (aux e1 t1) (aux e2 t2)
       ) |> List.flatten
     | Constructor (RecUpd label, [e;e']) ->
-      let t = cap t (record_any_with label) in
-      record_dnf t
-      |> List.map (fun (fields,o) -> mk_record o fields)
-      |> List.filter (fun ti -> subtype ti t)
+      let t = Ty.cap t (Record.any_with label) in
+      Record.dnf t
+      |> List.map (fun (fields,o) -> Record.mk o fields)
+      |> List.filter (fun ti -> Ty.leq ti t)
       |> List.map (fun ti ->
-        let field_type = get_field ti label in
+        let field_type = Record.proj ti label in
         let ti = remove_field_info ti label in
         combine (aux e ti) (aux e' field_type)
       ) |> List.flatten
     | Constructor (RecDel label, [e]) ->
-      let t = cap t (record_any_without label) in
-      record_dnf t
-      |> List.map (fun (fields,o) -> mk_record o fields)
-      |> List.filter (fun ti -> subtype ti t)
+      let t = Ty.cap t (Record.any_without label) in
+      Record.dnf t
+      |> List.map (fun (fields,o) -> Record.mk o fields)
+      |> List.filter (fun ti -> Ty.leq ti t)
       |> List.map (fun ti ->
         aux e (remove_field_info ti label)
       ) |> List.flatten
-    | Constructor (Tag tag, [e]) -> aux e (destruct_tag tag t)
+    | Constructor (Tag tag, [e]) -> aux e (Tag.proj tag t)
     | Constructor (Enum e, []) ->
-      if subtype (mk_enum e) t then [REnv.empty] else []
+      if Ty.leq (Enum.typ e) t then [REnv.empty] else []
     | Constructor _ -> assert false
-    | TypeCoerce (_, s, _) when subtype (GTy.lb s) t -> [REnv.empty]
-    | Abstract s when subtype (GTy.lb s) t -> [REnv.empty]
-    | Const c when subtype (typeof_const c) t -> [REnv.empty]
-    | ControlFlow _ when subtype unit_typ t -> [REnv.empty]
+    | TypeCoerce (_, s, _) when Ty.leq (GTy.lb s) t -> [REnv.empty]
+    | Abstract s when Ty.leq (GTy.lb s) t -> [REnv.empty]
+    | Const c when Ty.leq (typeof_const c) t -> [REnv.empty]
+    | ControlFlow _ when Ty.leq Ty.unit t -> [REnv.empty]
     | Abstract _ | Const _ | TypeCoerce _ | ControlFlow _ -> []
     | Projection (p, e) -> aux e (Checker.domain_of_proj p t)
     | TypeCast (e, _) -> aux e t
@@ -77,11 +77,11 @@ let sufficient_refinements env e t =
       let alpha = TVar.mk None in
       let (mono, ty) = Env.find v env |> TyScheme.get_fresh in
       let mono = TVarSet.union mono (vars t) in
-      begin match dnf (GTy.lb ty) with
+      begin match Arrow.dnf (GTy.lb ty) with
       | [] -> []
       | [arrows] ->
-        let t1 = of_dnf [arrows] in
-        let res = tallying mono [ (t1, mk_arrow (TVar.typ alpha) t) ] in
+        let t1 = Arrow.of_dnf [arrows] in
+        let res = tallying mono [ (t1, Arrow.mk (TVar.typ alpha) t) ] in
         res |> List.map (fun sol ->
           let targ = Subst.find sol alpha |> top_instance mono in
           if is_undesirable mono targ then [] else aux e targ
@@ -92,7 +92,7 @@ let sufficient_refinements env e t =
     | App _ -> []
     | Ite (e, s, e1, e2) ->
       let r1 = combine (aux e s) (aux e1 t) in
-      let r2 = combine (aux e (neg s)) (aux e2 t) in
+      let r2 = combine (aux e (Ty.neg s)) (aux e2 t) in
       r1@r2
     | Let (_, _, _, _) -> []
   in
@@ -100,13 +100,13 @@ let sufficient_refinements env e t =
 
 let refine env e t =
   let base_renv = REnv.empty in
-  let renvs = sufficient_refinements env e (neg t) in
+  let renvs = sufficient_refinements env e (Ty.neg t) in
   let rec aux renv renvs =
     let renvs = renvs |> List.map (fun renv' ->
       renv' |> REnv.filter (fun v ty ->
         let _, ty' = Env.find v env |> TyScheme.get in
         let ty'' = REnv.find' v renv in
-        subtype (cap (GTy.lb ty') ty'') ty |> not
+        Ty.leq (Ty.cap (GTy.lb ty') ty'') ty |> not
       )
     )
     in
@@ -142,7 +142,7 @@ let refinement_envs env e =
     | Lambda (d, v, e) -> aux_lambda env (d,v,e)
     | LambdaRec lst -> lst |> List.iter (aux_lambda env)
     | Ite (e, tau, e1, e2) | ControlFlow (_, e, tau, e1, e2) ->
-      add_refinement env e tau ; add_refinement env e (neg tau) ;
+      add_refinement env e tau ; add_refinement env e (Ty.neg tau) ;
       aux env e1 ; aux env e2
     | App (e1, e2) -> aux env e1 ; aux env e2
     | Let (_, v, e1, e2) ->
@@ -162,16 +162,16 @@ let refinement_envs env e =
 
 let partition ts =
   let cap_if_nonempty t t' =
-    let s = cap t t' in
-    if is_empty s then t else s
+    let s = Ty.cap t t' in
+    if Ty.is_empty s then t else s
   in
   let rec aux t =
-    if is_empty t then []
+    if Ty.is_empty t then []
     else
       let s = List.fold_left cap_if_nonempty t ts in
-      s::(aux (diff t s))
+      s::(aux (Ty.diff t s))
   in
-  aux any
+  aux Ty.any
 
 module Partitioner = struct
   type t = REnv.t list
@@ -181,14 +181,14 @@ module Partitioner = struct
     List.filter (function [] -> false | _ -> true) |>
     List.map (fun atom -> n, [atom])
   let isolate_tuple_conjuncts t =
-    let (comps, _) = tuple_decompose t in
+    let (comps, _) = Tuple.decompose t in
     let comps = comps |> List.map (fun cp -> isolate_tuple_comp cp) |> List.flatten in
-    let comps = comps |> List.map (fun cp -> tuple_recompose ([cp], false)) in
+    let comps = comps |> List.map (fun cp -> Tuple.recompose ([cp], false)) in
     comps
   let isolate_record_conjuncts t =
-    record_dnf t |>
+    Record.dnf t |>
     List.filter (function [], _ -> false | _, _ -> true) |>
-    List.map (fun atom -> record_of_dnf [atom])
+    List.map (fun atom -> Record.of_dnf [atom])
   let isolate_conjuncts t =
     (* Necessary because of pattern matching encoding for uncurrified functions *)
     t::(isolate_tuple_conjuncts t)@(isolate_record_conjuncts t)
@@ -197,7 +197,7 @@ module Partitioner = struct
   let filter_compatible lst v ty =
     lst |> List.filter (fun renv ->
       (REnv.mem v renv |> not) ||
-      (disjoint ty (REnv.find v renv) |> not)
+      (Ty.disjoint ty (REnv.find v renv) |> not)
     )
   let partition_for t v extra =
     let tys = t |> List.filter_map (fun renv ->
@@ -205,5 +205,5 @@ module Partitioner = struct
     ) |> List.map isolate_conjuncts |> List.flatten in
     extra@tys |> partition
     (* |> (fun tys -> Format.printf "Partition for %a: %a@." Parsing.Variable.Variable.pp v
-      (Utils.pp_list pp_typ) tys ; tys) *)
+      (Utils.pp_list Ty.pp) tys ; tys) *)
 end

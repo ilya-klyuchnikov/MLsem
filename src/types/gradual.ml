@@ -4,7 +4,7 @@ open Tvar
 module GTy = struct
   type t = { lb:Ty.t ; ub:Ty.t ; eq:bool }
   let mk ty = { lb=ty ; ub=ty ; eq=true }
-  let mk_gradual lb ub = { lb ; ub ; eq=Ty.subtype ub lb }
+  let mk_gradual lb ub = { lb ; ub ; eq=Ty.leq ub lb }
   let empty = mk Ty.empty
   let any = mk Ty.any
   let dyn = mk_gradual Ty.empty Ty.any
@@ -63,7 +63,7 @@ module GTy = struct
       (f t1.lb t2.lb) && (f t1.ub t2.ub)
   let is_empty = test Ty.is_empty
   let is_any = test Ty.is_any
-  let leq = test2 Ty.subtype
+  let leq = test2 Ty.leq
   let equiv = test2 Ty.equiv
 
   let simplify = map Ty.simplify
@@ -84,6 +84,6 @@ module GTy = struct
         Format.fprintf fmt "(%a) | #(%a)" Ty.pp t.lb Ty.pp t.ub
 
   let mk_gradual lb ub =
-    assert (Ty.subtype lb ub) ;
+    assert (Ty.leq lb ub) ;
     mk_gradual lb ub
 end

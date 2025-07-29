@@ -6,7 +6,7 @@ open Types.Gradual
 module Annot : sig
   type branch = BType of t | BSkip
   and inter = t list
-  and part = (typ * t) list
+  and part = (Ty.t * t) list
   and a =
   | AConst
   | AAbstract of GTy.t
@@ -31,11 +31,11 @@ module Annot : sig
 end
 
 module IAnnot : sig
-  type coverage = (Eid.t * typ) option * REnv.t
+  type coverage = (Eid.t * Ty.t) option * REnv.t
   type branch = BType of t | BSkip | BInfer
   and inter_branch = { coverage: coverage option ; ann: t }
   and inter = inter_branch list
-  and part = (typ * t) list
+  and part = (Ty.t * t) list
   and t =
   | A of Annot.t
   | Infer

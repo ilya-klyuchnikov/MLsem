@@ -9,16 +9,16 @@ module Domain = struct
 
   let transform_abstract =
     let aux (abs, dnf) =
-      let vs = params_of_abstract abs in
+      let vs = Abstract.params abs in
       let has_no_empty lst =
-        List.for_all2 (fun v ty -> v <> Inv || non_empty ty) vs lst
+        List.for_all2 (fun v ty -> v <> Abstract.Inv || Ty.non_empty ty) vs lst
       in
       let has_no_empty (ps,_) =
         List.for_all has_no_empty ps
       in
       List.filter has_no_empty dnf
     in
-    transform_abstract aux
+    Abstract.transform aux
 
   let empty = []
   let add c t = c::t
@@ -29,14 +29,14 @@ module Domain = struct
       |> REnv.bindings |> List.map
         (fun (v, ty) -> (Variable.get_unique_name v, (false, f ty)))
     in
-    mk_record true bindings
+    Record.mk true bindings
 
   let more_specific res1 res2 =
     match res1, res2 with
     | _, None -> true
     | None, _ -> false
     | Some (eid1,ty1), Some (eid2,ty2) when eid1=eid2 ->
-      subtype ty1 ty2
+      Ty.leq ty1 ty2
     | Some _, Some _ -> false
 
   let covers t (res,renv) =
@@ -44,14 +44,14 @@ module Domain = struct
       |> List.filter (fun (res',_) -> more_specific res' res)
       |> List.map (fun (_,renv) -> renv)
     in
-    let a = renvs |> List.map env_to_typ |> disj in
+    let a = renvs |> List.map env_to_typ |> Ty.disj in
     let b = env_to_typ ~normalize:(!Config.no_empty_param) renv in
-    subtype b a
+    Ty.leq b a
 end
 
 module TVCache = struct
   type t = { expr: (Eid.t * TVar.t, TVar.t) Hashtbl.t ;
-             abs: (abstract * int * TVar.t, TVar.t) Hashtbl.t }
+             abs: (Abstract.t * int * TVar.t, TVar.t) Hashtbl.t }
 
   let empty () =
     { expr = Hashtbl.create 100 ; abs = Hashtbl.create 100 }

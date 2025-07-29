@@ -1,13 +1,13 @@
 open Common
 open Types.Base
 
-val refine : Env.t -> Ast.t -> typ -> REnv.t
+val refine : Env.t -> Ast.t -> Ty.t -> REnv.t
 val refinement_envs : Env.t -> Ast.t -> REnvSet.t
-val partition : typ list -> typ list
+val partition : Ty.t list -> Ty.t list
 
 module Partitioner : sig
   type t
   val from_renvset : REnvSet.t -> t
-  val filter_compatible : t -> Variable.t -> typ -> t
-  val partition_for : t -> Variable.t -> typ list -> typ list
+  val filter_compatible : t -> Variable.t -> Ty.t -> t
+  val partition_for : t -> Variable.t -> Ty.t list -> Ty.t list
 end

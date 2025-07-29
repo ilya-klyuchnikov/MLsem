@@ -8,7 +8,7 @@ module Annot = struct
   [@@deriving show]
   and inter = t list
   [@@deriving show]
-  and part = (typ * t) list
+  and part = (Ty.t * t) list
   [@@deriving show]
   and a =
   | AConst
@@ -56,7 +56,7 @@ module Annot = struct
 end
 
 module IAnnot = struct
-  type coverage = (Eid.t * typ) option * REnv.t
+  type coverage = (Eid.t * Ty.t) option * REnv.t
   [@@deriving show]
   type branch = BType of t | BSkip | BInfer
   [@@deriving show]
@@ -64,7 +64,7 @@ module IAnnot = struct
   [@@deriving show]
   and inter = inter_branch list
   [@@deriving show]
-  and part = (typ * t) list
+  and part = (Ty.t * t) list
   [@@deriving show]
   and t =
   | A of Annot.t

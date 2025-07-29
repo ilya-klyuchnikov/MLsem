@@ -12,12 +12,12 @@ type const =
 | Char of char
 | String of string
 
-val typeof_const : const -> typ
+val typeof_const : const -> Ty.t
 
 type cf = CfWhile | CfCond
 type coerce = Check | CheckStatic | NoCheck
-type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
-type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of tag | Enum of enum
+type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of Tag.t
+type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of Tag.t | Enum of Enum.t
 type e =
 | Abstract of GTy.t
 | Const of const
@@ -25,13 +25,13 @@ type e =
 | Constructor of constructor * t list
 | Lambda of GTy.t * Variable.t * t
 | LambdaRec of (GTy.t * Variable.t * t) list
-| Ite of t * typ * t * t
+| Ite of t * Ty.t * t * t
 | App of t * t
 | Projection of projection * t
-| Let of (typ list) * Variable.t * t * t
-| TypeCast of t * typ
+| Let of (Ty.t list) * Variable.t * t * t
+| TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * coerce
-| ControlFlow of cf * t * typ * t * t
+| ControlFlow of cf * t * Ty.t * t * t
 and t = Eid.t * e
 
 val map : (t -> t) -> t -> t

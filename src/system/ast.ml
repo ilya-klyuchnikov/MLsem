@@ -19,15 +19,15 @@ type const =
 
 let typeof_const c =
   match c with
-  | Unit -> unit_typ
-  | Nil -> nil_typ
-  | EmptyRecord -> empty_closed_record
-  | Bool true -> true_typ
-  | Bool false -> false_typ
-  | Int i -> interval (Some i) (Some i)
-  | Float _ -> float_typ
-  | Char c -> char_interval c c
-  | String str -> single_string str
+  | Unit -> Ty.unit
+  | Nil -> Lst.nil
+  | EmptyRecord -> Record.empty_closed
+  | Bool true -> Ty.tt
+  | Bool false -> Ty.ff
+  | Int i -> Ty.interval (Some i) (Some i)
+  | Float _ -> Ty.float
+  | Char c -> Ty.char_interval c c
+  | String str -> Ty.string_lit str
 
 (* -------------------- *)
 
@@ -35,9 +35,9 @@ type cf = CfWhile | CfCond
 [@@deriving show]
 type coerce = Check | CheckStatic | NoCheck
 [@@deriving show]
-type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of tag
+type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of Tag.t
 [@@deriving show]
-type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of tag | Enum of enum
+type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of Tag.t | Enum of Enum.t
 [@@deriving show]
 type e =
 | Abstract of GTy.t
@@ -46,13 +46,13 @@ type e =
 | Constructor of constructor * t list
 | Lambda of GTy.t * Variable.t * t
 | LambdaRec of (GTy.t * Variable.t * t) list
-| Ite of t * typ * t * t
+| Ite of t * Ty.t * t * t
 | App of t * t
 | Projection of projection * t
-| Let of (typ list) * Variable.t * t * t
-| TypeCast of t * typ
+| Let of (Ty.t list) * Variable.t * t * t
+| TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * coerce
-| ControlFlow of cf * t * typ * t * t
+| ControlFlow of cf * t * Ty.t * t * t
 [@@deriving show]
 and t = Eid.t * e
 [@@deriving show]
@@ -141,16 +141,16 @@ let rec coerce c ty (id,t) =
   | Let (tys, v, e1, e2) ->
     id, Let (tys, v, e1, coerce c ty e2)
   | Lambda (da,v,e) ->
-    let d = GTy.map domain ty in
-    let cd = GTy.map2 apply ty d in
-    if GTy.equiv ty (GTy.map2 mk_arrow d cd) |> not then raise Exit ;
+    let d = GTy.map Arrow.domain ty in
+    let cd = GTy.map2 Arrow.apply ty d in
+    if GTy.equiv ty (GTy.map2 Arrow.mk d cd) |> not then raise Exit ;
     let s = unify d da in
     let e = apply_subst s e |> coerce c cd in
     id, Lambda (d, v, e)
   | LambdaRec lst ->
     let n = List.length lst in
-    let tys = List.mapi (fun i _ -> GTy.map (pi n i) ty) lst in
-    if GTy.equiv ty (GTy.mapl mk_tuple tys) |> not then raise Exit ;
+    let tys = List.mapi (fun i _ -> GTy.map (Tuple.proj n i) ty) lst in
+    if GTy.equiv ty (GTy.mapl Tuple.mk tys) |> not then raise Exit ;
     id, LambdaRec (List.combine lst tys |> List.map (fun ((tya,v,e), ty) ->
       let s = unify ty tya in
       let e = apply_subst s e |> coerce c ty in

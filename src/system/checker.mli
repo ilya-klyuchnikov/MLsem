@@ -4,11 +4,11 @@ open Types
 open Annot
 open Gradual
 
-val domain_of_proj : Ast.projection -> typ -> typ
-val proj : Ast.projection -> typ -> typ
+val domain_of_proj : Ast.projection -> Ty.t -> Ty.t
+val proj : Ast.projection -> Ty.t -> Ty.t
 
-val domains_of_construct : Ast.constructor -> typ list
-val construct : Ast.constructor -> typ list -> typ
+val domains_of_construct : Ast.constructor -> Ty.t list
+val construct : Ast.constructor -> Ty.t list -> Ty.t
 
 type error = { eid: Eid.t ; title: string ; descr: string option }
 exception Untypeable of error
