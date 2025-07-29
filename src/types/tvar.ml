@@ -141,10 +141,6 @@ module Subst = struct
       | `Pos _ -> true
       | _ -> false)
 
-(* let pp_entry fmt (v,t) =
-    Format.fprintf fmt "%a ===> %a" pp_var v pp_typ t
-  let pp fmt t =
-    Format.fprintf fmt "%a@." (Utils.pp_long_list pp_entry) (destruct t) *)
   let pp = Sstt.Printer.print_subst (Base.printer_params ())
 end
 

@@ -1,4 +1,5 @@
 open Lexing
+module Position = System.Position
 
 let pos_of_lexbuf lexbuf =
   let pos = lexbuf.lex_curr_p in

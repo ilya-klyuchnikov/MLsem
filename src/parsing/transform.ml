@@ -1,11 +1,14 @@
+module PAst = Ast
+
+open System
 open Types.Base
 open Types.Tvar
 open Types.Gradual
 open System.Ast
-open Variable
+open System.Variable
 
 let rec type_of_pat pat =
-  let open Ast in
+  let open PAst in
   match pat with
   | PatType t -> t
   | PatLit c -> typeof_const c
@@ -23,7 +26,7 @@ let rec type_of_pat pat =
   | PatAssign _ -> any
 
 let rec vars_of_pat pat =
-  let open Ast in
+  let open PAst in
   match pat with
   | PatType _ | PatLit _ -> VarSet.empty
   | PatVar x when Variable.equals x dummy_pat_var -> VarSet.empty
@@ -40,8 +43,8 @@ let rec vars_of_pat pat =
   | PatAssign (x,_) -> VarSet.singleton x
 
 let rec def_of_var_pat pat v e =
-  assert (Variable.equals v Ast.dummy_pat_var |> not) ;
-  let open Ast in
+  let open PAst in
+  assert (Variable.equals v dummy_pat_var |> not) ;
   match pat with
   | PatVar v' when Variable.equals v v' -> e
   | PatVar _ -> assert false
@@ -75,21 +78,22 @@ let rec def_of_var_pat pat v e =
   | PatLit _ -> assert false
 
 let encode_pattern_matching e pats =
+  let open PAst in
   let x = Variable.create_gen None in
-  let ex : Ast.expr = (Eid.unique (), Var x) in
+  let ex = (Eid.unique (), Var x) in
   let ts = pats |> List.map fst |> List.map type_of_pat in
   let t = disj ts in
   let body_of_pat pat e' =
     let vars = vars_of_pat pat in
     let add_def acc v =
       let d = def_of_var_pat pat v ex in
-      (Eid.refresh (fst acc), Ast.Let (v, d, acc))
+      (Eid.refresh (fst acc), Let (v, d, acc))
     in
     List.fold_left add_def e' (VarSet.elements vars)
   in
   let add_branch acc (t, e') =
     let p1, p2 = Eid.loc (fst e'), Eid.loc (fst acc) in
-    (Eid.unique_with_pos (Position.join p1 p2), Ast.Ite (ex, t, e', acc))
+    (Eid.unique_with_pos (Position.join p1 p2), Ite (ex, t, e', acc))
   in
   let pats = pats |> List.map (fun (pat, e') ->
     (type_of_pat pat, body_of_pat pat e')) |> List.rev in
@@ -97,9 +101,9 @@ let encode_pattern_matching e pats =
   | [] -> assert false
   | (_, e')::pats -> List.fold_left add_branch e' pats
   in
-  let def = (Eid.refresh (fst e), Ast.TypeCast (e, t)) in
-  let body = (Eid.refresh (fst body), Ast.Suggest (x, ts, body)) in
-  Ast.Let (x, def, body)
+  let def = (Eid.refresh (fst e), TypeCast (e, t)) in
+  let body = (Eid.refresh (fst body), Suggest (x, ts, body)) in
+  Let (x, def, body)
 
 let expr_to_ast t =
   let sugg : (Variable.t, typ list) Hashtbl.t = Hashtbl.create 100 in
@@ -126,38 +130,38 @@ let expr_to_ast t =
   in
   let rec aux_e e =
     match e with
-    | Ast.Abstract t -> Abstract (GTy.mk t)
-    | Ast.Const c -> Const c
-    | Ast.Var v -> Var v
-    | Ast.Enum e -> Constructor (Enum e, [])
-    | Ast.Tag (t, e) -> Constructor (Tag t, [aux e])
-    | Ast.Suggest (v, tys, (_,e)) ->
+    | PAst.Abstract t -> Abstract (GTy.mk t)
+    | Const c -> Const c
+    | Var v -> Var v
+    | Enum e -> Constructor (Enum e, [])
+    | Tag (t, e) -> Constructor (Tag t, [aux e])
+    | Suggest (v, tys, (_,e)) ->
       add_suggs v tys ; aux_e e
-    | Ast.Lambda (x, a, e) ->
+    | Lambda (x, a, e) ->
       let e = aux e |> add_let x in
       Lambda (lambda_annot x a, x, e)
-    | Ast.LambdaRec lst ->
+    | LambdaRec lst ->
       let aux (x,a,e) = (lambda_annot x a, x, aux e) in
       LambdaRec (List.map aux lst)
-    | Ast.Ite (e,t,e1,e2) -> Ite (aux e, t, aux e1, aux e2)
-    | Ast.App (e1,e2) -> App (aux e1, aux e2)
-    | Ast.Let (x, e1, e2) -> let_binding x (aux e1) (aux e2)
-    | Ast.Tuple es -> Constructor (Tuple (List.length es), List.map aux es)
-    | Ast.Cons (e1, e2) -> Constructor (Cons, [aux e1 ; aux e2])
-    | Ast.Projection (p, e) -> Projection (p, aux e)
-    | Ast.RecordUpdate (e, lbl, None) -> Constructor (RecDel lbl, [aux e])
-    | Ast.RecordUpdate (e, lbl, Some e') -> Constructor (RecUpd lbl, [aux e ; aux e'])
-    | Ast.TypeCast (e, ty) -> TypeCast (aux e, ty)
-    | Ast.TypeCoerce (e, tyo, c) ->
+    | Ite (e,t,e1,e2) -> Ite (aux e, t, aux e1, aux e2)
+    | App (e1,e2) -> App (aux e1, aux e2)
+    | Let (x, e1, e2) -> let_binding x (aux e1) (aux e2)
+    | Tuple es -> Constructor (Tuple (List.length es), List.map aux es)
+    | Cons (e1, e2) -> Constructor (Cons, [aux e1 ; aux e2])
+    | Projection (p, e) -> Projection (p, aux e)
+    | RecordUpdate (e, lbl, None) -> Constructor (RecDel lbl, [aux e])
+    | RecordUpdate (e, lbl, Some e') -> Constructor (RecUpd lbl, [aux e ; aux e'])
+    | TypeCast (e, ty) -> TypeCast (aux e, ty)
+    | TypeCoerce (e, tyo, c) ->
       let ty = match tyo with None -> GTy.dyn | Some ty -> GTy.mk ty in
       TypeCoerce (aux e, ty, c)
-    | Ast.PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
-    | Ast.Cond (e,t,e1,None) ->
+    | PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
+    | Cond (e,t,e1,None) ->
       ControlFlow (CfCond, aux e, t, aux e1, (Eid.unique (), Const Unit))
-    | Ast.Cond (e,t,e1,Some e2) -> ControlFlow (CfCond, aux e, t, aux e1, aux e2)
-    | Ast.While (e,t,e1) ->
+    | Cond (e,t,e1,Some e2) -> ControlFlow (CfCond, aux e, t, aux e1, aux e2)
+    | While (e,t,e1) ->
       ControlFlow (CfWhile, aux e, t, aux e1, (Eid.unique (), Const Unit))
-    | Ast.Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
+    | Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
   and aux (id, e) =
     (id, aux_e e)
   in

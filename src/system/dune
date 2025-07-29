@@ -5,3 +5,5 @@
  (preprocess
   (pps ppx_deriving.show ppx_deriving.eq))
  (modules (:standard)))
+
+(include_subdirs unqualified)

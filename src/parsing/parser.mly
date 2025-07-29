@@ -1,5 +1,6 @@
 %{ (* Emacs, use -*- tuareg -*- to open this file. *)
 
+  module Position = System.Position
   open System.Ast
   open Ast
   open Types.Builder

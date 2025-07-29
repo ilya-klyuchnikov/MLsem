@@ -1,29 +1,4 @@
 
-let warning fmt (pos, msg) =
-  if pos <> [] then
-    let pos = List.fold_left (
-      fun acc pos ->
-      Format.asprintf "%s %s" acc (Position.string_of_pos pos)
-    ) "" pos in
-    Format.fprintf fmt "Warning (%s): %s@." pos msg
-  else Format.fprintf fmt "Warning: %s@." msg
-
-let error fmt (pos, msg) =
-  if pos <> [] then
-    let pos = List.fold_left (
-      fun acc pos ->
-      Format.asprintf "%s %s" acc (Position.string_of_pos pos)
-    ) "" pos in
-    Format.fprintf fmt "Error (%s): %s@." pos msg
-  else Format.fprintf fmt "Error: %s@." msg
-
-let success fmt msg =
-  Format.fprintf fmt "Success: %s@." msg
-
-let log ?(level=0) a =
-  if level <= !Config.log_level then Format.fprintf Format.std_formatter a
-  else Format.ifprintf Format.std_formatter a
-  
 let ccmp f e1 e2 r =
   match r with
   | 0 -> f e1 e2
@@ -70,11 +45,6 @@ let keep_only_minimal leq lst =
       let lst = remove_greater leq e lst in
       aux (e::explored) lst
   in aux [] lst
-
-let pp_long_list pp_elt fmt lst =
-  Format.fprintf fmt "[@,@[<v 1>" ;
-  List.iter (fun elt -> Format.fprintf fmt " %a ;@ " pp_elt elt) lst ;
-  Format.fprintf fmt "@]]"
 
 let pp_list pp_elt fmt lst =
   Format.fprintf fmt "[ " ;

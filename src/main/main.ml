@@ -5,9 +5,11 @@ open Types.Tvar
 open Types.Gradual
 open Types
 open Parsing
-open Variable
+open System.Variable
 open System.Env
 open System.Ast
+module Eid = System.Eid
+module Position = System.Position
 
 type def = Variable.t * Ast.expr * typ option
 
@@ -167,12 +169,11 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       end
     | Ast.Command (str, c) ->
       begin match str, c with
-      | "log", Int i -> Config.log_level := Z.to_int i
-      | "value_restriction", Bool b -> Config.value_restriction := b
+      | "value_restriction", Bool b -> System.Config.value_restriction := b
       | "type_narrowing", Bool b -> Config.type_narrowing := b
       | "allow_implicit_downcast", Bool b -> Config.allow_implicit_downcast := b
-      | "no_empty_param", Bool b -> Config.no_empty_param := b
-      | "no_abstract_inter", Bool b -> Config.no_abstract_inter := b
+      | "no_empty_param", Bool b -> System.Config.no_empty_param := b
+      | "no_abstract_inter", Bool b -> System.Config.no_abstract_inter := b
       | _ -> failwith ("Invalid command "^str)
       end ;
       (tenv,varm,senv,env), TDone
