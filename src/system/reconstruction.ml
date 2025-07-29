@@ -1,8 +1,5 @@
 open Common
 open Annot
-open Types.Base
-open Types.Tvar
-open Types.Gradual
 open Types
 open Ast
 open Caching

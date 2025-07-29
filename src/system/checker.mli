@@ -1,8 +1,6 @@
 open Common
-open Types.Base
 open Types
 open Annot
-open Gradual
 
 val domain_of_proj : Ast.projection -> Ty.t -> Ty.t
 val proj : Ast.projection -> Ty.t -> Ty.t

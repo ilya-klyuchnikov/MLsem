@@ -1,7 +1,6 @@
 open Common
 open Annot
-open Types.Tvar
-open Types.Base
+open Types
 
 module Domain : sig
     type t

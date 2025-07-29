@@ -1,9 +1,6 @@
 open Common
 open Ast
 open Types
-open Types.Base
-open Types.Tvar
-open Types.Gradual
 open Utils
 
 let rec is_undesirable_arrow s =

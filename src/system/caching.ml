@@ -1,6 +1,5 @@
 open Common
-open Types.Base
-open Types.Tvar
+open Types
 open Annot
 
 module Domain = struct

@@ -1,7 +1,5 @@
 open Common
-open Types.Base
-open Types.Tvar
-open Types.Gradual
+open Types
 
 let rec type_of_pat pat =
   let open Ast in

@@ -1,7 +1,5 @@
 open Variable
 open Types
-open Types.Base
-open Types.Tvar
 
 module type T = sig
   type t

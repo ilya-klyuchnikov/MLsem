@@ -1,5 +1,5 @@
 open Common
-open Types.Base
+open Types
 open Types.Builder
 open System.Ast
 

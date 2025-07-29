@@ -1,9 +1,6 @@
 open Common
 open Parsing.IO
-open Types.Base
 open Types.Builder
-open Types.Tvar
-open Types.Gradual
 open Types
 open Parsing
 open System.Ast

@@ -1,5 +1,5 @@
 open Common
-open Types.Base
+open Types
 
 val refine : Env.t -> Ast.t -> Ty.t -> REnv.t
 val refinement_envs : Env.t -> Ast.t -> REnvSet.t

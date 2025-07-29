@@ -1,8 +1,7 @@
 open Common
 open Annot
 open Ast
-open Types.Gradual
-open Types.Base
+open Types
 
 type severity = Message | Notice | Warning | Error
 type msg = { eid: Eid.t ; severity: severity ; title: string ; descr: string option }

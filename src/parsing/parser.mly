@@ -4,7 +4,7 @@
   open System.Ast
   open Ast
   open Types.Builder
-  open Types.Base
+  open Types
 
   let annot sp ep e =
     (Ast.new_annot (Position.lex_join sp ep), e)
