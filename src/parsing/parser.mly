@@ -2,9 +2,8 @@
 
   open System.Ast
   open Ast
-  open Types.Additions
+  open Types.Builder
   open Types.Base
-  open Sstt.Extensions
 
   let annot sp ep e =
     (Ast.new_annot (Position.lex_join sp ep), e)
@@ -346,21 +345,21 @@ tint:
 (* ===== REGEX ===== *)
 
 typ_re:
-| { Lists.Epsilon }
+| { Epsilon }
 | re=nonempty_re { re }
 
 nonempty_re:
-| res=separated_nonempty_list(OR, simple_re) { Lists.Union res }
+| res=separated_nonempty_list(OR, simple_re) { Union res }
 
 simple_re:
-| res=nonempty_list(atomic_re) { Lists.Concat res }
+| res=nonempty_list(atomic_re) { Concat res }
 
 atomic_re:
-  t=atomic_typ { Lists.Symbol t }
+  t=atomic_typ { Symbol t }
 | EXCLAMATION_MARK LPAREN re=nonempty_re RPAREN { re }
-| re=atomic_re TIMES { Lists.Star re }
-| re=atomic_re PLUS { Lists.Plus re }
-| re=atomic_re INTERROGATION_MARK { Lists.Option re }
+| re=atomic_re TIMES { Star re }
+| re=atomic_re PLUS { Plus re }
+| re=atomic_re INTERROGATION_MARK { Option re }
 
 (* ===== PATTERNS ===== *)
 

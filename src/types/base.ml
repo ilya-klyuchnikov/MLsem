@@ -68,7 +68,6 @@ let enum_any = Sstt.Enums.any |> Sstt.Descr.mk_enums |> Sstt.Ty.mk_descr
 type tag = Sstt.TagComp.Tag.t
 let pp_tag = Sstt.TagComp.Tag.pp
 let compare_tag = Sstt.TagComp.Tag.compare
-let unsafe_to_tag t = t
 let define_tag name = name |> Sstt.TagComp.Tag.mk
 let mk_tag tag ty = Sstt.Descr.mk_tag (tag, ty) |> Sstt.Ty.mk_descr
 let destruct_tag tag ty =
@@ -78,7 +77,6 @@ let tag_any = Sstt.Tags.any |> Sstt.Descr.mk_tags |> Sstt.Ty.mk_descr
 
 type variance = Cov | Cav | Inv
 type abstract = Sstt.TagComp.Tag.t
-let unsafe_to_abstract t = t
 let define_abstract name vs =
   let aux = function
   | Cov -> Sstt.Extensions.Abstracts.Cov
@@ -97,6 +95,31 @@ let params_of_abstract abs =
   Sstt.Extensions.Abstracts.params_of abs |> List.map aux
 let mk_abstract = Sstt.Extensions.Abstracts.mk
 let mk_abstract_any = Sstt.Extensions.Abstracts.mk_any
+let trans_tagcomp f c =
+  match Sstt.Extensions.Abstracts.destruct c with
+  | None -> c
+  | Some (abs, dnf) ->
+    let dnf = f (abs, dnf) in
+    let mk_line (ps,ns) =
+        let ps = ps |> List.map (fun lst -> mk_abstract abs lst) |> conj in
+        let ns = ns |> List.map (fun lst -> mk_abstract abs lst) |> List.map neg |> conj in
+        cap ps ns
+    in
+    dnf |> List.map mk_line |> disj
+    |> Sstt.Ty.get_descr |> Sstt.Descr.get_tags |> Sstt.Tags.get abs
+let trans_tags f t = Sstt.Tags.map (trans_tagcomp f) t
+let trans_descr f d =
+  let open Sstt.Descr in
+  d |> components |> List.map (function
+    | Intervals i -> Intervals i
+    | Enums e -> Enums e
+    | Tags t -> Tags (trans_tags f t)
+    | Arrows a -> Arrows a
+    | Tuples t -> Tuples t
+    | Records r -> Records r
+  ) |> of_components
+let trans_vdescr f = Sstt.VDescr.map (trans_descr f)
+let transform_abstract f = Sstt.Transform.transform (trans_vdescr f)
 
 let true_typ = Sstt.Extensions.Bools.bool true
 let false_typ = Sstt.Extensions.Bools.bool false

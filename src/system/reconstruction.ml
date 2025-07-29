@@ -66,7 +66,7 @@ let abstract_factors cache v ty =
         res := (cap ps ns)::(!res) ; false
     )
   in
-  let remaining = Types.Additions.transform_abstract aux factor in
+  let remaining = transform_abstract aux factor in
   match !res with
   | [] -> [ Subst.identity ]
   | res -> (remaining::res) |> List.map (fun ty -> Subst.construct [v, ty])

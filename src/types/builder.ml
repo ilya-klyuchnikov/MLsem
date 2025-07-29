@@ -16,7 +16,10 @@ type type_base =
     | TString | TList | TFloat | TArrowAny | TTupleAny | TTupleN of int | TEnumAny
     | TTagAny | TRecordAny 
 
-type type_regexp = type_expr Sstt.Extensions.Lists.regexp
+type type_regexp =
+    | Epsilon | Symbol of type_expr 
+    | Union of type_regexp list | Concat of type_regexp list
+    | Star of type_regexp | Plus of type_regexp | Option of type_regexp
 
 and type_expr =
     | TVar of string | TVarWeak of string
@@ -47,6 +50,19 @@ type var_type_env = TVar.t StrMap.t (* Var types *)
 let empty_tenv = { aliases=StrMap.empty ; enums=StrMap.empty ;
     tags=StrMap.empty ; abs=StrMap.empty }
 let empty_vtenv = StrMap.empty
+
+let reg_to_sstt f r =
+    let open Sstt.Extensions in
+    let rec aux r =
+        match r with
+        | Epsilon -> Lists.Epsilon
+        | Symbol s -> Lists.Symbol (f s)
+        | Union u -> Lists.Union (List.map aux u)
+        | Concat c -> Lists.Concat (List.map aux c)
+        | Star s -> Lists.Star (aux s)
+        | Plus p -> Lists.Plus (aux p)
+        | Option o -> Lists.Option (aux o)
+    in aux r
 
 let type_base_to_typ t =
     match t with
@@ -192,18 +208,7 @@ let derecurse_types tenv venv defs =
                 | _ -> assert false
                 end
         and aux_re lcl re =
-            let open Sstt.Extensions.Lists in
-            let rec aux_re re =
-                match re with
-                | Epsilon -> Epsilon
-                | Symbol ty -> Symbol (aux lcl ty)
-                | Concat lst -> Concat (List.map aux_re lst)
-                | Union lst -> Union (List.map aux_re lst)
-                | Star r -> Star (aux_re r)
-                | Option r -> Option (aux_re r)
-                | Plus r -> Plus (aux_re r)
-            in
-            aux_re re |> build
+            re |> reg_to_sstt (aux lcl) |> Sstt.Extensions.Lists.build
         in
         let res = defs |> List.map (fun (name, params, _) ->
             let params = List.map (fun _ -> TVar.mk None) params in
@@ -274,32 +279,3 @@ let is_test_type t =
             )
         ) ; true
     with NotTestType -> false
-
-(* Type transformations *)
-
-let trans_tagcomp f c =
-  match Sstt.Extensions.Abstracts.destruct c with
-  | None -> c
-  | Some (tag, dnf) ->
-    let abs = unsafe_to_abstract tag in
-    let dnf = f (abs, dnf) in
-    let mk_line (ps,ns) =
-        let ps = ps |> List.map (fun lst -> mk_abstract abs lst) |> conj in
-        let ns = ns |> List.map (fun lst -> mk_abstract abs lst) |> List.map neg |> conj in
-        cap ps ns
-    in
-    dnf |> List.map mk_line |> disj
-    |> Sstt.Ty.get_descr |> Sstt.Descr.get_tags |> Sstt.Tags.get tag
-let trans_tags f t = Sstt.Tags.map (trans_tagcomp f) t
-let trans_descr f d =
-  let open Sstt.Descr in
-  d |> components |> List.map (function
-    | Intervals i -> Intervals i
-    | Enums e -> Enums e
-    | Tags t -> Tags (trans_tags f t)
-    | Arrows a -> Arrows a
-    | Tuples t -> Tuples t
-    | Records r -> Records r
-  ) |> of_components
-let trans_vdescr f = Sstt.VDescr.map (trans_descr f)
-let transform_abstract f = Sstt.Transform.transform (trans_vdescr f)

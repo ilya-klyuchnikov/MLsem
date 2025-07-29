@@ -19,7 +19,7 @@ module Domain = struct
       in
       List.filter has_no_empty dnf
     in
-    Types.Additions.transform_abstract aux
+    transform_abstract aux
 
   let empty = []
   let add c t = c::t

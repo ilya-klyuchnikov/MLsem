@@ -1,6 +1,6 @@
 open Parsing.IO
 open Types.Base
-open Types.Additions
+open Types.Builder
 open Types.Tvar
 open Types.Gradual
 open Types

@@ -1,4 +1,3 @@
-
 open Base
 
 module StrMap : Map.S with type key = String.t
@@ -13,7 +12,10 @@ type type_base =
     | TString | TList | TFloat | TArrowAny | TTupleAny | TTupleN of int | TEnumAny
     | TTagAny | TRecordAny 
 
-type type_regexp = type_expr Sstt.Extensions.Lists.regexp
+type type_regexp =
+    | Epsilon | Symbol of type_expr 
+    | Union of type_regexp list | Concat of type_regexp list
+    | Star of type_regexp | Plus of type_regexp | Option of type_regexp
 
 and type_expr =
     | TVar of string | TVarWeak of string
@@ -50,10 +52,3 @@ val get_enum : type_env -> string -> enum
 val get_tag : type_env -> string -> tag
 
 val is_test_type : typ -> bool
-
-(* Type transformations *)
-
-val transform_abstract :
-    (abstract * (typ list list * typ list list) list ->
-                (typ list list * typ list list) list)
-        -> typ -> typ
