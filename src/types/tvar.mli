@@ -1,3 +1,4 @@
+open Base
 
 module type TVar = sig
     type set
@@ -11,7 +12,7 @@ module type TVar = sig
     val name : t -> string
 
     val mk : ?user:bool -> string option -> t
-    val typ : t -> Base.typ
+    val typ : t -> Ty.t
 
     val pp : Format.formatter -> t -> unit
 end
@@ -43,17 +44,17 @@ and TVarSet : (TVarSet with type var := TVar.t)
 
 module Subst : sig
     type t
-    val construct : (TVar.t * Base.typ) list -> t
+    val construct : (TVar.t * Ty.t) list -> t
     val identity : t
     val is_identity : t -> bool
     val dom : t -> TVarSet.t
     val vars : t -> TVarSet.t
     val mem : t -> TVar.t -> bool
     val rm: TVar.t -> t -> t
-    val find : t -> TVar.t -> Base.typ
+    val find : t -> TVar.t -> Ty.t
     val equiv : t -> t -> bool
-    val apply : t -> Base.typ -> Base.typ
-    val destruct : t -> (TVar.t * Base.typ) list
+    val apply : t -> Ty.t -> Ty.t
+    val destruct : t -> (TVar.t * Ty.t) list
     val compose : t -> t -> t
     val compose_restr : t -> t -> t
     val combine : t -> t -> t
@@ -65,37 +66,37 @@ module Subst : sig
     val pp : Format.formatter -> t -> unit
 end
 
-val vars : Base.typ -> TVarSet.t
-val vars' : Base.typ list -> TVarSet.t
-val vars_user : Base.typ -> TVarSet.t
-val vars_internal : Base.typ -> TVarSet.t
-val top_vars : Base.typ -> TVarSet.t
-val polarity : TVar.t -> Base.typ -> [ `Both | `Neg | `Pos | `None ]
-val polarity' : TVar.t -> Base.typ list -> [ `Both | `Neg | `Pos | `None ]
-val vars_with_polarity : Base.typ -> (TVar.t * [ `Both | `Neg | `Pos ]) list
-val vars_with_polarity' : Base.typ list -> (TVar.t * [ `Both | `Neg | `Pos ]) list
-val check_var : Base.typ -> [ `Not_var | `Pos of TVar.t | `Neg of TVar.t ]
-val is_ground_typ : Base.typ -> bool
+val vars : Ty.t -> TVarSet.t
+val vars' : Ty.t list -> TVarSet.t
+val vars_user : Ty.t -> TVarSet.t
+val vars_internal : Ty.t -> TVarSet.t
+val top_vars : Ty.t -> TVarSet.t
+val polarity : TVar.t -> Ty.t -> [ `Both | `Neg | `Pos | `None ]
+val polarity' : TVar.t -> Ty.t list -> [ `Both | `Neg | `Pos | `None ]
+val vars_with_polarity : Ty.t -> (TVar.t * [ `Both | `Neg | `Pos ]) list
+val vars_with_polarity' : Ty.t list -> (TVar.t * [ `Both | `Neg | `Pos ]) list
+val check_var : Ty.t -> [ `Not_var | `Pos of TVar.t | `Neg of TVar.t ]
+val is_ground_typ : Ty.t -> bool
 val refresh : TVarSet.t -> Subst.t
 val shorten_names : TVarSet.t -> Subst.t
-val pp_typ_short : Format.formatter -> Base.typ -> unit
+val pp_typ_short : Format.formatter -> Ty.t -> unit
 
 (* Operations on types *)
 
 (** [clean p n mono t] substitutes in [t]
     all type variables not in [mono] and only occurring positively by [p], and
     all type variables not in [mono] and only occurring negatively by [n] *)
-val clean : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ -> Base.typ
-val clean_subst : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ -> Subst.t
-val clean' : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ list -> Base.typ list
-val clean_subst' : pos:Base.typ -> neg:Base.typ -> TVarSet.t -> Base.typ list -> Subst.t
+val clean : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Ty.t
+val clean_subst : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Subst.t
+val clean' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Ty.t list
+val clean_subst' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Subst.t
 
-val bot_instance : TVarSet.t -> Base.typ -> Base.typ
-val top_instance : TVarSet.t -> Base.typ -> Base.typ
+val bot_instance : TVarSet.t -> Ty.t -> Ty.t
+val top_instance : TVarSet.t -> Ty.t -> Ty.t
 
-val test_tallying : TVarSet.t -> (Base.typ * Base.typ) list -> bool
-val tallying : TVarSet.t -> (Base.typ * Base.typ) list -> Subst.t list
-val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Base.typ * Base.typ) list -> Subst.t list
-(* val tallying_with_unprio : TVarSet.t -> (TVar.t list) -> (Base.typ * Base.typ) list -> Subst.t list *)
+val test_tallying : TVarSet.t -> (Ty.t * Ty.t) list -> bool
+val tallying : TVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
+val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Ty.t * Ty.t) list -> Subst.t list
+(* val tallying_with_unprio : TVarSet.t -> (TVar.t list) -> (Ty.t * Ty.t) list -> Subst.t list *)
 
-val factorize : TVarSet.t * TVarSet.t -> Base.typ -> Base.typ * Base.typ
+val factorize : TVarSet.t * TVarSet.t -> Ty.t -> Ty.t * Ty.t

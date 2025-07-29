@@ -1,3 +1,4 @@
+open Base
 
 module type TVar = sig
   type set
@@ -11,7 +12,7 @@ module type TVar = sig
   val name : t -> string
 
   val mk : ?user:bool -> string option -> t
-  val typ : t -> Base.typ
+  val typ : t -> Ty.t
 
   val pp : Format.formatter -> t -> unit
 end
@@ -141,7 +142,7 @@ module Subst = struct
       | `Pos _ -> true
       | _ -> false)
 
-  let pp fmt s = Sstt.Printer.print_subst (Base.printer_params ()) fmt s
+  let pp fmt s = Sstt.Printer.print_subst (Ty.printer_params ()) fmt s
 end
 
 let vars_user t =
@@ -200,7 +201,7 @@ let shorten_names vs =
 
 let pp_typ_short fmt t =
   let t = Subst.apply (vars t |> shorten_names) t in
-  Base.pp_typ fmt t
+  Ty.pp fmt t
 
 (* Operations on types *)
 
@@ -221,10 +222,10 @@ let clean' ~pos ~neg mono ts =
 let clean ~pos ~neg mono t = clean' ~pos ~neg mono [t] |> List.hd
 
 let bot_instance mono =
-    clean ~pos:Base.empty ~neg:Base.any mono
+    clean ~pos:Ty.empty ~neg:Ty.any mono
 
 let top_instance mono =
-    clean ~pos:Base.any ~neg:Base.empty mono
+    clean ~pos:Ty.any ~neg:Ty.empty mono
 
 let tallying mono cs =
   Sstt.Tallying.tally mono cs

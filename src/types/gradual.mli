@@ -6,11 +6,11 @@ module GTy : sig
     val empty : t
     val any : t
     val dyn : t
-    val mk: typ -> t
-    val mk_gradual: typ -> typ -> t
-    val lb: t -> typ
-    val ub: t -> typ
-    val destruct : t -> typ * typ
+    val mk: Ty.t -> t
+    val mk_gradual: Ty.t -> Ty.t -> t
+    val lb: t -> Ty.t
+    val ub: t -> Ty.t
+    val destruct : t -> Ty.t * Ty.t
     val cup: t -> t -> t
     val cap: t -> t -> t
     val disj : t list -> t
@@ -20,12 +20,12 @@ module GTy : sig
     val fv : t -> TVarSet.t
     val substitute : Subst.t -> t -> t
     (* Mapping functions below assume the operation is monotonic *)
-    val map : (typ -> typ) -> t -> t
-    val map2 : (typ -> typ -> typ) -> t -> t -> t
-    val mapl : (typ list -> typ) -> t list -> t
-    val op : (typ -> bool) -> (typ -> typ) -> t -> t option
-    val op2 : (typ -> typ -> bool) -> (typ -> typ -> typ) -> t -> t -> t option
-    val opl : (typ list -> bool) -> (typ list -> typ) -> t list -> t option
+    val map : (Ty.t -> Ty.t) -> t -> t
+    val map2 : (Ty.t -> Ty.t -> Ty.t) -> t -> t -> t
+    val mapl : (Ty.t list -> Ty.t) -> t list -> t
+    val op : (Ty.t -> bool) -> (Ty.t -> Ty.t) -> t -> t option
+    val op2 : (Ty.t -> Ty.t -> bool) -> (Ty.t -> Ty.t -> Ty.t) -> t -> t -> t option
+    val opl : (Ty.t list -> bool) -> (Ty.t list -> Ty.t) -> t list -> t option
 
     val is_empty : t -> bool
     val is_any : t -> bool

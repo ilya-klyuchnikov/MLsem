@@ -40,10 +40,10 @@ and type_expr =
     | TWhere of type_expr * (string * string list * type_expr) list
 
 type type_env = {
-    aliases : (typ * TVar.t list) StrMap.t ; (* User-defined non-parametric types *)
-    mutable enums : enum StrMap.t ; (* Atoms *)
-    mutable tags : tag StrMap.t ; (* Tags *)
-    abs : abstract StrMap.t (* Abstract types *)
+    aliases : (Ty.t * TVar.t list) StrMap.t ; (* User-defined non-parametric types *)
+    mutable enums : Enum.t StrMap.t ; (* Atoms *)
+    mutable tags : Tag.t StrMap.t ; (* Tags *)
+    abs : Abstract.t StrMap.t (* Abstract types *)
 }
 type var_type_env = TVar.t StrMap.t (* Var types *)
 
@@ -66,21 +66,21 @@ let reg_to_sstt f r =
 
 let type_base_to_typ t =
     match t with
-    | TInt (lb,ub) -> interval lb ub
-    | TFloat -> float_typ
-    | TCharInt (c1, c2) -> char_interval c1 c2
-    | TSString str -> single_string str
-    | TBool -> bool_typ | TNil -> nil_typ
-    | TTrue -> true_typ | TFalse -> false_typ
-    | TUnit -> unit_typ | TChar -> char_typ
-    | TAny -> any | TEmpty -> empty
-    | TString -> string_typ | TList -> list_typ
-    | TArrowAny -> arrow_any
-    | TTupleAny -> tuple_any
-    | TTupleN n -> tuple_n n
-    | TTagAny -> tag_any
-    | TEnumAny -> enum_any
-    | TRecordAny -> record_any
+    | TInt (lb,ub) -> Ty.interval lb ub
+    | TFloat -> Ty.float
+    | TCharInt (c1, c2) -> Ty.char_interval c1 c2
+    | TSString str -> Ty.string_lit str
+    | TBool -> Ty.bool | TNil -> Lst.nil
+    | TTrue -> Ty.tt | TFalse -> Ty.ff
+    | TUnit -> Ty.unit | TChar -> Ty.char
+    | TAny -> Ty.any | TEmpty -> Ty.empty
+    | TString -> Ty.string | TList -> Lst.any
+    | TArrowAny -> Arrow.any
+    | TTupleAny -> Tuple.any
+    | TTupleN n -> Tuple.any_n n
+    | TTagAny -> Tag.any
+    | TEnumAny -> Enum.any
+    | TRecordAny -> Record.any
 
 let get_alias tenv name args =
     match StrMap.find_opt name tenv.aliases with
@@ -94,21 +94,21 @@ let get_abstract_type tenv name otys =
     | None -> None
     | Some abs ->
         begin match otys with
-        | None -> Some (mk_abstract_any abs)
-        | Some tys -> Some (mk_abstract abs tys)
+        | None -> Some (Abstract.any abs)
+        | Some tys -> Some (Abstract.mk abs tys)
         end
 let get_enum tenv name =
     match StrMap.find_opt name tenv.enums with
     | Some e -> e
     | None ->
-        let e = define_enum name in
+        let e = Enum.define name in
         tenv.enums <- StrMap.add name e tenv.enums ;
         e
 let get_tag tenv name =
     match StrMap.find_opt name tenv.tags with
     | Some t -> t
     | None ->
-        let t = define_tag name in
+        let t = Tag.define name in
         tenv.tags <- StrMap.add name t tenv.tags ;
         t
 
@@ -180,28 +180,28 @@ let derecurse_types tenv venv defs =
             | TApp (n, args) ->
                 let args = args |> List.map (aux lcl) in
                 get_name (Some args) n
-            | TEnum name -> get_enum tenv name |> mk_enum
-            | TTag (name, t) -> mk_tag (get_tag tenv name) (aux lcl t)
-            | TTuple ts -> mk_tuple (List.map (aux lcl) ts)
+            | TEnum name -> get_enum tenv name |> Enum.typ
+            | TTag (name, t) -> Tag.mk (get_tag tenv name) (aux lcl t)
+            | TTuple ts -> Tuple.mk (List.map (aux lcl) ts)
             | TRecord (is_open, fields) ->
                 let aux' (label,t,opt) = (label, (opt, aux lcl t)) in
-                mk_record is_open (List.map aux' fields)
+                Record.mk is_open (List.map aux' fields)
             | TSList lst -> aux_re lcl lst
-            | TCons (t1,t2) -> mk_cons (aux lcl t1) (aux lcl t2)
-            | TArrow (t1,t2) -> mk_arrow (aux lcl t1) (aux lcl t2)
+            | TCons (t1,t2) -> Lst.cons (aux lcl t1) (aux lcl t2)
+            | TArrow (t1,t2) -> Arrow.mk (aux lcl t1) (aux lcl t2)
             | TCup (t1,t2) ->
                 let t1 = aux lcl t1 in
                 let t2 = aux lcl t2 in
-                cup t1 t2
+                Ty.cup t1 t2
             | TCap (t1,t2) ->
                 let t1 = aux lcl t1 in
                 let t2 = aux lcl t2 in
-                cap t1 t2
+                Ty.cap t1 t2
             | TDiff (t1,t2) ->
                 let t1 = aux lcl t1 in
                 let t2 = aux lcl t2 in
-                diff t1 t2
-            | TNeg t -> neg (aux lcl t)
+                Ty.diff t1 t2
+            | TNeg t -> Ty.neg (aux lcl t)
             | TWhere (t, defs) ->
                 begin match derecurse_types (("", [], t)::defs) with
                 | ("", [], n)::_ -> TVar.typ n
@@ -241,7 +241,7 @@ let define_types tenv venv defs =
     let (res, _) = derecurse_types tenv venv defs in
     let aliases = List.fold_left
         (fun aliases (name, params, typ) ->
-            if params = [] then register name typ ;
+            if params = [] then Ty.register name typ ;
             StrMap.add name (typ, params) aliases
         )
         tenv.aliases res
@@ -251,7 +251,7 @@ let define_types tenv venv defs =
 let define_abstract tenv name vs =
     if StrMap.mem name tenv.abs
     then raise (TypeDefinitionError (Printf.sprintf "Abstract type %s already defined!" name))
-    else { tenv with abs = StrMap.add name (define_abstract name vs) tenv.abs }
+    else { tenv with abs = StrMap.add name (Abstract.define name vs) tenv.abs }
 
 let is_test_type t =
     let exception NotTestType in
@@ -268,12 +268,12 @@ let is_test_type t =
                             let ty = Sstt.Descr.mk_tagcomp comp |> Sstt.Ty.mk_descr in
                             let any_ty = Sstt.Extensions.Abstracts.mk_any tag in
                             if Sstt.Extensions.Abstracts.is_abstract tag &&
-                                (is_empty ty || subtype any_ty ty) |> not
+                                (Ty.is_empty ty || Ty.subtype any_ty ty) |> not
                             then raise NotTestType
                         )
                     | Arrows a ->
                         let t = mk_arrows a |> Sstt.Ty.mk_descr in
-                        if (is_empty t || subtype arrow_any t) |> not
+                        if (Ty.is_empty t || Ty.subtype Arrow.any t) |> not
                         then raise NotTestType
                 )
             )

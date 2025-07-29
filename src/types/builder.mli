@@ -41,14 +41,14 @@ type var_type_env
 val empty_tenv : type_env
 val empty_vtenv : var_type_env
 
-val type_base_to_typ : type_base -> typ
+val type_base_to_typ : type_base -> Ty.t
 
-val type_expr_to_typ : type_env -> var_type_env -> type_expr -> typ * var_type_env
-val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> typ list * var_type_env
+val type_expr_to_typ : type_env -> var_type_env -> type_expr -> Ty.t * var_type_env
+val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> Ty.t list * var_type_env
 
-val define_abstract : type_env -> string -> variance list -> type_env
+val define_abstract : type_env -> string -> Abstract.variance list -> type_env
 val define_types : type_env -> var_type_env -> (string * string list * type_expr) list -> type_env
-val get_enum : type_env -> string -> enum
-val get_tag : type_env -> string -> tag
+val get_enum : type_env -> string -> Enum.t
+val get_tag : type_env -> string -> Tag.t
 
-val is_test_type : typ -> bool
+val is_test_type : Ty.t -> bool

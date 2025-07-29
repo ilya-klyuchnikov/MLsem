@@ -2,12 +2,12 @@ open Base
 open Tvar
 
 module GTy = struct
-  type t = { lb:typ ; ub:typ ; eq:bool }
+  type t = { lb:Ty.t ; ub:Ty.t ; eq:bool }
   let mk ty = { lb=ty ; ub=ty ; eq=true }
-  let mk_gradual lb ub = { lb ; ub ; eq=subtype ub lb }
-  let empty = mk empty
-  let any = mk any
-  let dyn = mk_gradual Base.empty Base.any
+  let mk_gradual lb ub = { lb ; ub ; eq=Ty.subtype ub lb }
+  let empty = mk Ty.empty
+  let any = mk Ty.any
+  let dyn = mk_gradual Ty.empty Ty.any
   let lb t = t.lb
   let ub t = t.ub
   let destruct t = t.lb, t.ub
@@ -40,15 +40,15 @@ module GTy = struct
     let f' ts = if check ts then f ts else raise Exit in
     try Some (mapl_ f' f' f ts)
     with Exit -> None
-  let cup = map2 cup
-  let cap = map2 cap
+  let cup = map2 Ty.cup
+  let cap = map2 Ty.cap
   let disj = List.fold_left cup empty
   let conj = List.fold_left cap any
   let neg t =
     if t.eq then
-      neg t.lb |> mk
+      Ty.neg t.lb |> mk
     else
-      { lb=neg t.ub ; ub=neg t.lb ; eq=false }
+      { lb=Ty.neg t.ub ; ub=Ty.neg t.lb ; eq=false }
 
   let fv t =
     if t.eq then vars t.lb else TVarSet.union (vars t.lb) (vars t.ub)
@@ -61,29 +61,29 @@ module GTy = struct
       f t1.lb t2.lb
     else
       (f t1.lb t2.lb) && (f t1.ub t2.ub)
-  let is_empty = test is_empty
-  let is_any = test is_any
-  let leq = test2 subtype
-  let equiv = test2 equiv
+  let is_empty = test Ty.is_empty
+  let is_any = test Ty.is_any
+  let leq = test2 Ty.subtype
+  let equiv = test2 Ty.equiv
 
-  let simplify = map simplify
-  let normalize = map normalize
+  let simplify = map Ty.simplify
+  let normalize = map Ty.normalize
 
   let pp fmt t =
     if t.eq then
-      Format.fprintf fmt "%a" pp_typ t.lb
+      Format.fprintf fmt "%a" Ty.pp t.lb
     else
-      let lb,ub = Base.is_empty t.lb, Base.is_any t.ub in
+      let lb,ub = Ty.is_empty t.lb, Ty.is_any t.ub in
       if lb && ub then
         Format.fprintf fmt "#"
       else if lb then
-        Format.fprintf fmt "#(%a)" pp_typ t.ub
+        Format.fprintf fmt "#(%a)" Ty.pp t.ub
       else if ub then
-        Format.fprintf fmt "(%a) | #" pp_typ t.lb
+        Format.fprintf fmt "(%a) | #" Ty.pp t.lb
       else
-        Format.fprintf fmt "(%a) | #(%a)" pp_typ t.lb pp_typ t.ub
+        Format.fprintf fmt "(%a) | #(%a)" Ty.pp t.lb Ty.pp t.ub
 
   let mk_gradual lb ub =
-    assert (subtype lb ub) ;
+    assert (Ty.subtype lb ub) ;
     mk_gradual lb ub
 end
