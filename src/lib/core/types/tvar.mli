@@ -39,9 +39,13 @@ module type TVarSet = sig
     val pp : Format.formatter -> t -> unit
 end
 
+(** @canonical Types.TVar *)
 module rec TVar : (TVar with type set := TVarSet.t)
+
+(** @canonical Types.TVarSet *)
 and TVarSet : (TVarSet with type var := TVar.t)
 
+(** @canonical Types.Subst *)
 module Subst : sig
     type t
     val construct : (TVar.t * Ty.t) list -> t
@@ -61,37 +65,39 @@ module Subst : sig
     val restrict : t -> TVarSet.t -> t
     val remove : t -> TVarSet.t -> t
     val split : t -> TVarSet.t -> t * t
-    val is_renaming : t -> bool
     val pp : Format.formatter -> t -> unit
 end
 
-val vars : Ty.t -> TVarSet.t
-val vars' : Ty.t list -> TVarSet.t
-val vars_user : Ty.t -> TVarSet.t
-val vars_internal : Ty.t -> TVarSet.t
-val top_vars : Ty.t -> TVarSet.t
-val polarity : TVar.t -> Ty.t -> [ `Both | `Neg | `Pos | `None ]
-val polarity' : TVar.t -> Ty.t list -> [ `Both | `Neg | `Pos | `None ]
-val vars_with_polarity : Ty.t -> (TVar.t * [ `Both | `Neg | `Pos ]) list
-val vars_with_polarity' : Ty.t list -> (TVar.t * [ `Both | `Neg | `Pos ]) list
-val check_var : Ty.t -> [ `Not_var | `Pos of TVar.t | `Neg of TVar.t ]
-val is_ground_typ : Ty.t -> bool
-val refresh : TVarSet.t -> Subst.t
-val shorten_names : TVarSet.t -> Subst.t
-val pp_typ_short : Format.formatter -> Ty.t -> unit
+(** @canonical Types.TVOp *)
+module TVOp : sig
+    val vars : Ty.t -> TVarSet.t
+    val vars' : Ty.t list -> TVarSet.t
+    val vars_user : Ty.t -> TVarSet.t
+    val vars_internal : Ty.t -> TVarSet.t
+    val top_vars : Ty.t -> TVarSet.t
+    val polarity : TVar.t -> Ty.t -> [ `Both | `Neg | `Pos | `None ]
+    val polarity' : TVar.t -> Ty.t list -> [ `Both | `Neg | `Pos | `None ]
+    val vars_with_polarity : Ty.t -> (TVar.t * [ `Both | `Neg | `Pos ]) list
+    val vars_with_polarity' : Ty.t list -> (TVar.t * [ `Both | `Neg | `Pos ]) list
+    val check_var : Ty.t -> [ `Not_var | `Pos of TVar.t | `Neg of TVar.t ]
+    val is_ground_typ : Ty.t -> bool
+    val refresh : TVarSet.t -> Subst.t
+    val shorten_names : TVarSet.t -> Subst.t
+    val pp_typ_short : Format.formatter -> Ty.t -> unit
 
-(** [clean p n mono t] substitutes in [t]
-    all type variables not in [mono] and only occurring positively by [p], and
-    all type variables not in [mono] and only occurring negatively by [n] *)
-val clean : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Ty.t
-val clean_subst : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Subst.t
-val clean' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Ty.t list
-val clean_subst' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Subst.t
+    (** [clean p n mono t] substitutes in [t]
+        all type variables not in [mono] and only occurring positively by [p], and
+        all type variables not in [mono] and only occurring negatively by [n] *)
+    val clean : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Ty.t
+    val clean_subst : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Subst.t
+    val clean' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Ty.t list
+    val clean_subst' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Subst.t
 
-val bot_instance : TVarSet.t -> Ty.t -> Ty.t
-val top_instance : TVarSet.t -> Ty.t -> Ty.t
+    val bot_instance : TVarSet.t -> Ty.t -> Ty.t
+    val top_instance : TVarSet.t -> Ty.t -> Ty.t
 
-val tallying : TVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
-val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Ty.t * Ty.t) list -> Subst.t list
+    val tallying : TVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
+    val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Ty.t * Ty.t) list -> Subst.t list
 
-val factorize : TVarSet.t * TVarSet.t -> Ty.t -> Ty.t * Ty.t
+    val factorize : TVarSet.t * TVarSet.t -> Ty.t -> Ty.t * Ty.t
+end

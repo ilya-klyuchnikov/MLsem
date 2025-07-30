@@ -22,7 +22,7 @@ let sigs_of_ty mono ty =
       then arrs else [ty]
     | _ -> [ty]
   in
-  if ty |> vars_internal |> TVarSet.is_empty then
+  if ty |> TVOp.vars_internal |> TVarSet.is_empty then
     let sigs = aux ty in
     Some (sigs, GTy.mk ty |> TyScheme.mk_poly_except mono |> TyScheme.norm_and_simpl)
   else None

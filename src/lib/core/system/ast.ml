@@ -128,7 +128,7 @@ let apply_subst s e =
 
 let rec coerce c ty (id,t) =
   let unify ty1 ty2 =
-    match tallying (GTy.fv ty)
+    match TVOp.tallying (GTy.fv ty)
       [(GTy.lb ty1, GTy.lb ty2) ; (GTy.lb ty2, GTy.lb ty1) ;
        (GTy.ub ty1, GTy.ub ty2) ; (GTy.ub ty2, GTy.ub ty1)]
     with

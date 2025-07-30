@@ -1,13 +1,5 @@
-open Variable
+open Var
 open Types
-
-module type T = sig
-    type t
-    val fv : t -> TVarSet.t
-    val leq : t -> t -> bool
-    val substitute : Subst.t -> t -> t
-    val pp : Format.formatter -> t -> unit
-  end  
 
 module type Env = sig
     type t
@@ -37,8 +29,10 @@ module type Env = sig
     val pp_filtered : string list -> Format.formatter -> t -> unit
 end
 
+(** @canonical Common.Env *)
 module Env : Env with type ty:=TyScheme.t
 
+(** @canonical Common.REnv *)
 module REnv : sig
   include Env with type ty:=Ty.t
   val find' : Variable.t -> t -> Ty.t
@@ -50,6 +44,7 @@ module REnv : sig
   val neg_approx : t -> t option
 end
 
+(** @canonical Common.REnvSet *)
 module REnvSet : sig
   type t
   val empty : t

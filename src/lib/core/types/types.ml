@@ -1,6 +1,11 @@
 
 include Base
-include Tvar
-include Gradual
-include TyScheme
+
+module TVar = Tvar.TVar
+module TVarSet = Tvar.TVarSet
+module Subst = Tvar.Subst
+module TVOp = Tvar.TVOp
+
+module GTy = Gradual
+module TyScheme = Scheme
 module Builder = Builder

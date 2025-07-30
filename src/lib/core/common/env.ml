@@ -1,4 +1,4 @@
-open Variable
+open Var
 open Types
 
 module type T = sig
@@ -116,7 +116,7 @@ end)
 module REnv = struct
   include Make(struct
     type t = Ty.t
-    let fv = vars
+    let fv = TVOp.vars
     let leq = Ty.leq
     let substitute = Subst.apply
     let pp = Ty.pp

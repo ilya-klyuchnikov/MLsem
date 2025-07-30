@@ -1,3 +1,5 @@
+
+(** @canonical Common.Variable *)
 module Variable : sig
   type t
   val pp : Format.formatter -> t -> unit
@@ -15,5 +17,8 @@ module Variable : sig
   val get_unique_name : t -> string
 end
 
+(** @canonical Common.VarMap *)
 module VarMap : Map.S with type key=Variable.t
+
+(** @canonical Common.VarSet *)
 module VarSet : Set.S with type elt=Variable.t

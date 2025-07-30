@@ -1,4 +1,5 @@
 
+(** @canonical Types.Ty *)
 module Ty : sig
     type t = Sstt.Ty.t
 
@@ -41,6 +42,7 @@ module Ty : sig
     val simplify : t -> t
 end
 
+(** @canonical Types.Enum *)
 module Enum : sig
     type t
     val pp : Format.formatter -> t -> unit
@@ -50,6 +52,7 @@ module Enum : sig
     val typ : t -> Ty.t
 end
 
+(** @canonical Types.Tag *)
 module Tag : sig
     type t
     val pp : Format.formatter -> t -> unit
@@ -60,6 +63,7 @@ module Tag : sig
     val proj : t -> Ty.t -> Ty.t
 end
 
+(** @canonical Types.Abstract *)
 module Abstract : sig
     type variance = Cov | Cav | Inv
     type t
@@ -73,6 +77,7 @@ module Abstract : sig
         -> Ty.t -> Ty.t
 end
 
+(** @canonical Types.Tuple *)
 module Tuple : sig
     val any : Ty.t
     val any_n : int -> Ty.t
@@ -84,6 +89,7 @@ module Tuple : sig
     val recompose : (int * Ty.t list list) list * bool -> Ty.t
 end
 
+(** @canonical Types.Lst *)
 module Lst : sig
     val nil : Ty.t
     val any : Ty.t
@@ -93,6 +99,7 @@ module Lst : sig
     val proj : Ty.t -> Ty.t * Ty.t
 end
 
+(** @canonical Types.Record *)
 module Record : sig
     val mk : bool (* is_open *) -> (string * (bool * Ty.t)) list -> Ty.t
     val any : Ty.t
@@ -106,6 +113,7 @@ module Record : sig
     val remove_field : Ty.t -> string -> Ty.t
 end
 
+(** @canonical Types.Arrow *)
 module Arrow : sig
     val mk : Ty.t -> Ty.t -> Ty.t
     val any : Ty.t
