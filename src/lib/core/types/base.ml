@@ -70,10 +70,10 @@ module Enum = struct
 end
 
 module Tag = struct
-  type t = Sstt.TagComp.Tag.t
-  let pp = Sstt.TagComp.Tag.pp
-  let compare = Sstt.TagComp.Tag.compare
-  let define = Sstt.TagComp.Tag.mk
+  type t = Sstt.Tag.t
+  let pp = Sstt.Tag.pp
+  let compare = Sstt.Tag.compare
+  let define = Sstt.Tag.mk
   let mk tag ty = Sstt.Descr.mk_tag (tag, ty) |> Sstt.Ty.mk_descr
   let proj tag ty =
     Sstt.Ty.get_descr ty |> Sstt.Descr.get_tags |> Sstt.Tags.get tag
@@ -83,7 +83,7 @@ end
 
 module Abstract = struct
   type variance = Cov | Cav | Inv
-  type t = Sstt.TagComp.Tag.t
+  type t = Sstt.Tag.t
   let define name vs =
     let aux = function
     | Cov -> Sstt.Extensions.Abstracts.Cov
