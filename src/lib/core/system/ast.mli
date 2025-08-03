@@ -12,10 +12,12 @@ type const =
 
 val typeof_const : const -> Ty.t
 
-type cf = CfWhile | CfCond
+type cf = CfWhile | CfCond | CfOther
 type coerce = Check | CheckStatic | NoCheck
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of Tag.t
-type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of Tag.t | Enum of Enum.t
+type constructor =
+| Tuple of int | Cons | RecUpd of string | RecDel of string
+| Tag of Tag.t | Enum of Enum.t | Choice of int
 type e =
 | Abstract of GTy.t
 | Const of const

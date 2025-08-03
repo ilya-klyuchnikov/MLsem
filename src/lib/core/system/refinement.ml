@@ -36,6 +36,9 @@ let sufficient_refinements env e t =
         List.map2 (fun e t -> aux e t) es ts
         |> carthesian_prod' |> List.map REnv.conj
       ) |> List.flatten
+    | Constructor (Choice n, es) when List.length es = n ->
+      List.map (fun e -> aux e t) es
+      |> carthesian_prod' |> List.map REnv.conj
     | Constructor (Cons, [e1;e2]) ->
       Lst.dnf t
       |> List.filter (fun (a,b) -> Ty.leq (Lst.cons a b) t)

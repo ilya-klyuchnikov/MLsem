@@ -29,13 +29,15 @@ let typeof_const c =
 
 (* -------------------- *)
 
-type cf = CfWhile | CfCond
+type cf = CfWhile | CfCond | CfOther
 [@@deriving show]
 type coerce = Check | CheckStatic | NoCheck
 [@@deriving show]
 type projection = Pi of int * int | Field of string | Hd | Tl | PiTag of Tag.t
 [@@deriving show]
-type constructor = Tuple of int | Cons | RecUpd of string | RecDel of string | Tag of Tag.t | Enum of Enum.t
+type constructor =
+| Tuple of int | Cons | RecUpd of string | RecDel of string
+| Tag of Tag.t | Enum of Enum.t | Choice of int
 [@@deriving show]
 type e =
 | Abstract of GTy.t

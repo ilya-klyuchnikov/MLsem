@@ -30,6 +30,7 @@ let proj p ty =
 let domains_of_construct (c:Ast.constructor) =
   match c with
   | Tuple n -> List.init n (fun _ -> Ty.any)
+  | Choice n -> List.init n (fun _ -> Ty.any)
   | Cons -> [ Ty.any ; Lst.any ]
   | RecUpd _ -> [ Record.any ; Ty.any ]
   | RecDel _ -> [ Record.any ]
@@ -39,6 +40,7 @@ let domains_of_construct (c:Ast.constructor) =
 let construct (c:Ast.constructor) tys =
   match c, tys with
   | Tuple n, tys when List.length tys = n -> Tuple.mk tys
+  | Choice n, tys when List.length tys = n -> Ty.disj tys
   | Cons, [t1 ; t2] -> Lst.cons t1 t2
   | RecUpd lbl, [t1 ; t2] ->
     let right_record = Record.mk false [lbl, (false, t2)] in
