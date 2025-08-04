@@ -175,7 +175,7 @@ simple_term3:
 | a=simple_term3 b=simple_term4 { annot $startpos $endpos (App (a, b)) }
 | p=proj a=simple_term4 { annot $startpos $endpos (Projection (p, a)) }
 | a=simple_term4 s=infix_term b=simple_term4 { double_app $startpos $endpos s a b }
-| LT t=typ GT { annot $startpos $endpos (Abstract t) }
+| LT t=typ GT { annot $startpos $endpos (Magic t) }
 | t1=indexed i=INDEXED t2=simple_term4
 {
   let f = annot $startpos $endpos (Var ("["^i)) in

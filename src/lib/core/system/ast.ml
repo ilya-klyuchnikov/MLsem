@@ -40,7 +40,7 @@ type constructor =
 | Tag of Tag.t | Enum of Enum.t | Choice of int
 [@@deriving show]
 type e =
-| Abstract of GTy.t
+| Value of GTy.t
 | Var of Variable.t
 | Constructor of constructor * t list
 | Lambda of GTy.t * Variable.t * t
@@ -60,7 +60,7 @@ let map f =
   let rec aux (id,e) =
     let e =
       match e with
-      | Abstract t -> Abstract t
+      | Value t -> Value t
       | Var v -> Var v
       | Constructor (c,es) -> Constructor (c, List.map aux es)
       | Lambda (d, v, e) -> Lambda (d, v, aux e)
@@ -80,7 +80,7 @@ let map f =
 let fold f =
   let rec aux (id,e) =
     begin match e with
-    | Abstract _ | Var _ -> []
+    | Value _ | Var _ -> []
     | Lambda (_,_, e) | Projection (_, e) | TypeCast (e,_) | TypeCoerce (e,_,_) -> [e]
     | Ite (e,_,e1,e2) | ControlFlow (_, e, _, e1, e2) -> [e ; e1 ; e2]
     | LambdaRec lst -> lst |> List.map (fun (_,_,e) -> e)
@@ -95,7 +95,7 @@ let fold f =
 let fv' (_,e) accs =
   let acc = List.fold_left VarSet.union VarSet.empty accs in
   match e with
-  | Abstract _ | Constructor _ | Ite _ | ControlFlow _
+  | Value _ | Constructor _ | Ite _ | ControlFlow _
   | App _ | Projection _  | TypeCast _ | TypeCoerce _ -> acc
   | Var v -> VarSet.add v acc
   | Let (_, v, _, _) | Lambda (_, v, _) -> VarSet.remove v acc
@@ -116,7 +116,7 @@ let apply_subst s e =
   let aux (id,e) =
     let e = match e with
     (* Ite and TypeCast should not contain type variables *)
-    | Abstract t -> Abstract (GTy.substitute s t)
+    | Value t -> Value (GTy.substitute s t)
     | Lambda (ty,v,e) -> Lambda (GTy.substitute s ty,v,e)
     | LambdaRec lst -> LambdaRec (List.map (fun (ty,v,e) -> (GTy.substitute s ty, v, e)) lst)
     | Let (ts, v, e1, e2) -> Let (List.map (Subst.apply s) ts, v, e1, e2)

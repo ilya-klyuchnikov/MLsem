@@ -7,7 +7,7 @@ module Annot : sig
   and part = (Ty.t * t) list
   and a =
   | AAbstract of GTy.t
-  | AAx of Subst.t
+  | AVar of Subst.t
   | AConstruct of t list
   | ALet of t * part
   | AApp of t * t

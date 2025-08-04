@@ -125,8 +125,8 @@ let expr_to_ast t =
   in
   let rec aux_e e =
     match e with
-    | PAst.Abstract t -> Abstract (GTy.mk t)
-    | Const c -> Abstract (typeof_const c |> GTy.mk)
+    | PAst.Magic t -> Value (GTy.mk t)
+    | Const c -> Value (typeof_const c |> GTy.mk)
     | Var v -> Var v
     | Enum e -> Constructor (Enum e, [])
     | Tag (t, e) -> Constructor (Tag t, [aux e])
@@ -152,10 +152,10 @@ let expr_to_ast t =
       TypeCoerce (aux e, ty, c)
     | PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
     | Cond (e,t,e1,None) ->
-      ControlFlow (CfCond, aux e, t, aux e1, (Eid.unique (), Abstract (GTy.mk Ty.unit)))
+      ControlFlow (CfCond, aux e, t, aux e1, (Eid.unique (), Value (GTy.mk Ty.unit)))
     | Cond (e,t,e1,Some e2) -> ControlFlow (CfCond, aux e, t, aux e1, aux e2)
     | While (e,t,e1) ->
-      ControlFlow (CfWhile, aux e, t, aux e1, (Eid.unique (), Abstract (GTy.mk Ty.unit)))
+      ControlFlow (CfWhile, aux e, t, aux e1, (Eid.unique (), Value (GTy.mk Ty.unit)))
     | Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
   and aux (id, e) =
     (id, aux_e e)

@@ -10,7 +10,7 @@ module Annot = struct
   [@@deriving show]
   and a =
   | AAbstract of GTy.t
-  | AAx of Subst.t
+  | AVar of Subst.t
   | AConstruct of t list
   | ALet of t * part
   | AApp of t * t
@@ -30,7 +30,7 @@ module Annot = struct
     let rec aux t =
       let ann = match t.ann with
       | AAbstract t -> AAbstract (GTy.substitute s t)
-      | AAx s' -> AAx (Subst.compose_restr s s')
+      | AVar s' -> AVar (Subst.compose_restr s s')
       | AConstruct ts -> AConstruct (List.map aux ts)
       | ALet (t, ps) -> ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, aux t) ps)
       | AApp (t1, t2) -> AApp (aux t1, aux t2)

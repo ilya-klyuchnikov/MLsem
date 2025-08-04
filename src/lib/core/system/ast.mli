@@ -19,7 +19,7 @@ type constructor =
 | Tuple of int | Cons | RecUpd of string | RecDel of string
 | Tag of Tag.t | Enum of Enum.t | Choice of int
 type e =
-| Abstract of GTy.t
+| Value of GTy.t
 | Var of Variable.t
 | Constructor of constructor * t list
 | Lambda of GTy.t * Variable.t * t

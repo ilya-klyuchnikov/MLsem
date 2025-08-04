@@ -25,7 +25,7 @@ type ('a, 'typ, 'tag, 'v) pattern =
 | PatAssign of 'v * const
 
 and ('a, 'typ, 'enu, 'tag, 'v) ast =
-| Abstract of 'typ
+| Magic of 'typ
 | Const of const
 | Var of 'v
 | Enum of 'enu
@@ -83,9 +83,9 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
     in
     let rec aux vtenv env ((eid,pos),e) =
         let e = match e with
-        | Abstract t ->
+        | Magic t ->
             let (t, _) = type_expr_to_typ tenv vtenv t in
-            Abstract t
+            Magic t
         | Const c -> Const c
         | Var str -> Var (aux_var env str)
         | Enum str -> Enum (get_enum tenv str)

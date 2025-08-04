@@ -26,7 +26,7 @@ type ('a, 'typ, 'tag, 'v) pattern =
 | PatAssign of 'v * const
 
 and ('a, 'typ, 'enu, 'tag, 'v) ast =
-| Abstract of 'typ
+| Magic of 'typ
 | Const of const
 | Var of 'v
 | Enum of 'enu

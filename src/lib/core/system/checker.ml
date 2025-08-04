@@ -59,7 +59,7 @@ let untypeable id msg = raise (Untypeable { eid=id ; title=msg ; descr=None })
 
 let rec is_value (_,e) =
   match e with
-  | Lambda _ | Abstract _ -> true
+  | Lambda _ | Value _ -> true
   | Constructor (_, es) -> List.for_all is_value es
   | LambdaRec lst -> List.for_all (fun (_,_,e) -> is_value e) lst
   | TypeCast (e, _) | TypeCoerce (e, _, _) -> is_value e
@@ -74,8 +74,8 @@ let generalize ~e env s =
 let rec typeof' env annot (id,e) =
   let open Annot in
   match e, annot with
-  | Abstract _, AAbstract ty -> ty
-  | Var v, AAx s ->
+  | Value _, AAbstract ty -> ty
+  | Var v, AVar s ->
     if Env.mem v env then begin
       let (tvs, ty) = Env.find v env |> TyScheme.get in
       if TVarSet.subset (Subst.dom s) tvs then

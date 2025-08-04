@@ -68,9 +68,9 @@ let sufficient_refinements env e t =
       if Ty.leq (Enum.typ e) t then [REnv.empty] else []
     | Constructor _ -> assert false
     | TypeCoerce (_, s, _) when Ty.leq (GTy.lb s) t -> [REnv.empty]
-    | Abstract s when Ty.leq (GTy.lb s) t -> [REnv.empty]
+    | Value s when Ty.leq (GTy.lb s) t -> [REnv.empty]
     | ControlFlow _ when Ty.leq Ty.unit t -> [REnv.empty]
-    | Abstract _ | TypeCoerce _ | ControlFlow _ -> []
+    | Value _ | TypeCoerce _ | ControlFlow _ -> []
     | Projection (p, e) -> aux e (Checker.domain_of_proj p t)
     | TypeCast (e, _) -> aux e t
     | App ((_, Var v), e) when Env.mem v env ->
@@ -136,7 +136,7 @@ let refinement_envs env e =
     aux (Env.add v t env) e
   and aux env (_,e) : unit =
     match e with
-    | Abstract _ | Var _ -> ()
+    | Value _ | Var _ -> ()
     | Constructor (_, es) -> es |> List.iter (aux env)
     | Projection (_, e) | TypeCast (e, _) | TypeCoerce (e, _, _) -> aux env e
     | Lambda (d, v, e) -> aux_lambda env (d,v,e)
