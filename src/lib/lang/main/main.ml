@@ -10,6 +10,8 @@ exception IncompatibleType of Variable.t * TyScheme.t
 exception UnresolvedType of Variable.t * TyScheme.t
 exception Untypeable of Variable.t option * System.Checker.error
 
+module NameMap = PAst.NameMap
+
 let sigs_of_ty mono ty =
   let rec aux ty =
     match Arrow.dnf ty with
@@ -93,10 +95,10 @@ type 'a treat_result =
 exception AlreadyDefined of Variable.t
 
 let check_not_defined varm str =
-  if StrMap.mem str varm then raise (AlreadyDefined (StrMap.find str varm))
+  if NameMap.mem str varm then raise (AlreadyDefined (NameMap.find str varm))
 
 let sigs_of_def varm senv env str =
-  match StrMap.find_opt str varm with
+  match NameMap.find_opt str varm with
   | None ->
     let var = Variable.create_let (Some str) in
     var, None
@@ -118,7 +120,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       let lst = lst |> List.map (fun (name, e) ->
         let var, sigs = sigs_of_def !varm senv env name in
         Variable.attach_location var (Position.position annot) ;
-        varm := StrMap.add name var !varm ;
+        varm := NameMap.add name var !varm ;
         (var, e, sigs)
       )
       in
@@ -144,7 +146,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       Variable.attach_location v (Position.position annot) ;
       begin match tyo with
       | None ->
-        let varm = StrMap.add name v varm in
+        let varm = NameMap.add name v varm in
         let senv = VarMap.add v [] senv in
         let env = Env.add v (TyScheme.mk_mono GTy.dyn) env in
         (tenv,varm,senv,env), TDone
@@ -154,7 +156,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
         | None -> (tenv,varm,senv,env),
           TFailure (Some v, pos, "Invalid signature annotation.", None, 0.0)
         | Some (sigs, ty) ->
-          let varm = StrMap.add name v varm in
+          let varm = NameMap.add name v varm in
           let senv = VarMap.add v sigs senv in
           let env = Env.add v ty env in
           (tenv,varm,senv,env), TDone
@@ -237,12 +239,12 @@ let builtin_functions =
 let initial_varm =
   builtin_functions |> List.fold_left (fun varm (name, _) ->
     let var = Variable.create_gen (Some name) in
-    StrMap.add name var varm
+    NameMap.add name var varm
   ) PAst.empty_name_var_map
 
 let initial_env =
   builtin_functions |> List.fold_left (fun env (name, t) ->
-    let var = StrMap.find name initial_varm in
+    let var = NameMap.find name initial_varm in
     Env.add var t env
   ) Env.empty
 

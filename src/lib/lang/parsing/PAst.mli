@@ -54,7 +54,8 @@ and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 type expr = (Eid.t, Ty.t, Enum.t, Tag.t, Variable.t) t
 type parser_expr = (annotation, type_expr, string, string, varname) t
 
-type name_var_map = Variable.t StrMap.t
+module NameMap : Map.S with type key=string
+type name_var_map = Variable.t NameMap.t
 val empty_name_var_map : name_var_map
 
 val new_annot : Position.t -> annotation

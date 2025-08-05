@@ -53,8 +53,9 @@ and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 type expr = (Eid.t, Ty.t, Enum.t, Tag.t, Variable.t) t
 type parser_expr = (annotation, type_expr, string, string, varname) t
 
-type name_var_map = Variable.t StrMap.t
-let empty_name_var_map = StrMap.empty
+module NameMap = Map.Make(String)
+type name_var_map = Variable.t NameMap.t
+let empty_name_var_map = NameMap.empty
 
 let new_annot p =
     Position.with_pos p (Eid.unique_with_pos p)
@@ -78,8 +79,8 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         else raise (SymbolError ("typecases should use test types"))
     in
     let aux_var env str =
-        if StrMap.mem str env
-        then StrMap.find str env
+        if NameMap.mem str env
+        then NameMap.find str env
         else raise (SymbolError ("undefined symbol "^str))
     in
     let rec aux vtenv env ((eid,pos),e) =
@@ -99,13 +100,13 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             let da, vtenv = aux_a da vtenv in
             let var = Variable.create_lambda (Some str) in
             Variable.attach_location var pos ;
-            let env = StrMap.add str var env in
+            let env = NameMap.add str var env in
             Lambda (var, da, aux vtenv env e)
         | LambdaRec lst ->
             let aux (str,tyo,e) =
                 let var = Variable.create_lambda (Some str) in
                 Variable.attach_location var pos ;
-                let env = StrMap.add str var env in
+                let env = NameMap.add str var env in
                 let a, vtenv = aux_a tyo vtenv in
                 var, a, aux vtenv env e
             in 
@@ -117,7 +118,7 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         | Let (str, e1, e2) ->
             let var = Variable.create_let (Some str) in
             Variable.attach_location var pos ;
-            let env' = StrMap.add str var env in
+            let env' = NameMap.add str var env in
             Let (var, aux vtenv env e1, aux vtenv env' e2)
         | Tuple es ->
             Tuple (List.map (aux vtenv env) es)
@@ -148,14 +149,14 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         (eid,e)
     and aux_pat pos vtenv env (pat, e) =
         let merge_disj =
-            StrMap.union (fun str v1 v2 ->
+            NameMap.union (fun str v1 v2 ->
                 if Variable.equals v1 v2 then Some v1
                 else raise (SymbolError ("matched variables "^str^" are conflicting")))
         in
         let rec aux_p vtenv env pat =
             let find_or_def_var str =
-                if StrMap.mem str env
-                then StrMap.find str env
+                if NameMap.mem str env
+                then NameMap.find str env
                 else
                     let var = Variable.create_let (Some str) in
                     Variable.attach_location var pos ;
@@ -165,15 +166,15 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             | PatType t ->
                 let (t, vtenv) = type_expr_to_typ tenv vtenv t in
                 if is_test_type t
-                then (PatType t, vtenv, StrMap.empty)
+                then (PatType t, vtenv, NameMap.empty)
                 else raise (SymbolError ("typecases should use test types"))
             | PatVar str ->
                 if String.equal str dummy_pat_var_str
-                then (PatVar dummy_pat_var, vtenv, StrMap.empty)
+                then (PatVar dummy_pat_var, vtenv, NameMap.empty)
                 else
                     let var = find_or_def_var str in
-                    (PatVar var, vtenv, StrMap.singleton str var)
-            | PatLit c -> (PatLit c, vtenv, StrMap.empty)
+                    (PatVar var, vtenv, NameMap.singleton str var)
+            | PatLit c -> (PatLit c, vtenv, NameMap.empty)
             | PatTag (str, p) ->
                 let tag = get_tag tenv str in
                 let (p, vtenv, env) = aux_p vtenv env p in
@@ -186,7 +187,7 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
                 let (p1, vtenv, env1) = aux_p vtenv env p1 in
                 let env = merge_disj env env1 in 
                 let (p2, vtenv, env2) = aux_p vtenv env p2 in
-                if StrMap.equal (Variable.equals) env1 env2 |> not
+                if NameMap.equal (Variable.equals) env1 env2 |> not
                 then raise (SymbolError ("missing matched variables in pattern")) ;
                 (PatOr (p1, p2), vtenv, env1)
             | PatTuple ps ->
@@ -211,10 +212,10 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
                 if String.equal str dummy_pat_var_str
                 then raise (SymbolError "invalid variable name for a pattern assignement") ;
                 let var = find_or_def_var str in
-                (PatAssign (var, c), vtenv, StrMap.singleton str var)
+                (PatAssign (var, c), vtenv, NameMap.singleton str var)
         in
-        let (pat, vtenv, env') = aux_p vtenv StrMap.empty pat in
-        let env = StrMap.add_seq (StrMap.to_seq env') env in
+        let (pat, vtenv, env') = aux_p vtenv NameMap.empty pat in
+        let env = NameMap.add_seq (NameMap.to_seq env') env in
         (pat, aux vtenv env e)
     in
     aux vtenv name_var_map e

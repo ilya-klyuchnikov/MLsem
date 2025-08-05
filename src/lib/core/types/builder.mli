@@ -1,7 +1,5 @@
 open Base
 
-module StrMap : Map.S with type key = String.t
-
 exception TypeDefinitionError of string
 
 (* Construction of types *)
