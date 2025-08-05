@@ -4,7 +4,7 @@
   open System.Ast
   open System.Const
   open PAst
-  open Types.Builder
+  open Types.TyExpr
   open Types
 
   let annot sp ep e =

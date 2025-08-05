@@ -173,7 +173,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       end ;
       (tenv,varm,senv,env), TDone
     | PAst.Types lst ->
-      let tenv = define_types tenv empty_vtenv lst in
+      let tenv = define_aliases tenv empty_vtenv lst in
       (tenv,varm,senv,env), TDone
     | PAst.AbsType (name, vs) ->
       let tenv = define_abstract tenv name vs in

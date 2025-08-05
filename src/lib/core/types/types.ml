@@ -8,4 +8,6 @@ module TVOp = Tvar.TVOp
 
 module GTy = Gradual
 module TyScheme = Scheme
-module Builder = Builder
+module Builder' = Builder
+module TyExpr = Builder.TyExpr
+module Builder = Builder.Builder
