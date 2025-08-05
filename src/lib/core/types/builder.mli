@@ -33,41 +33,45 @@ module TyExpr : sig
         | TExt of 'ext
 end
 
-module type B = sig
-    type ext
+(** @canonical Types.Builder' *)
+module Builder' : sig
+    module type B = sig
+        type ext
 
-    exception TypeDefinitionError of string
+        exception TypeDefinitionError of string
 
-    type type_base = TyExpr.base
-    type type_regexp = ext TyExpr.regexp
-    type type_expr = ext TyExpr.t
+        type type_base = TyExpr.base
+        type type_regexp = ext TyExpr.regexp
+        type type_expr = ext TyExpr.t
 
-    type type_env
-    type var_type_env
-    val empty_tenv : type_env
-    val empty_vtenv : var_type_env
+        type type_env
+        type var_type_env
+        val empty_tenv : type_env
+        val empty_vtenv : var_type_env
 
-    val type_base_to_typ : type_base -> Ty.t
+        val type_base_to_typ : type_base -> Ty.t
 
-    val type_expr_to_typ : type_env -> var_type_env -> type_expr -> Ty.t * var_type_env
-    val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> Ty.t list * var_type_env
+        val type_expr_to_typ : type_env -> var_type_env -> type_expr -> Ty.t * var_type_env
+        val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> Ty.t list * var_type_env
 
-    val define_abstract : type_env -> string -> Abstract.variance list -> type_env
-    val define_aliases : type_env -> var_type_env -> (string * string list * type_expr) list -> type_env
-    val get_enum : type_env -> string -> Enum.t
-    val get_tag : type_env -> string -> Tag.t
+        val define_abstract : type_env -> string -> Abstract.variance list -> type_env
+        val define_aliases : type_env -> var_type_env -> (string * string list * type_expr) list -> type_env
+        val get_enum : type_env -> string -> Enum.t
+        val get_tag : type_env -> string -> Tag.t
 
-    val is_test_type : Ty.t -> bool
+        val is_test_type : Ty.t -> bool
+    end
+
+    module type Ext = sig
+        type t
+        val to_typ : (t TyExpr.t -> Ty.t) -> t -> Ty.t
+    end
+
+    module Make(E:Ext) : B with type ext = E.t
 end
 
-module type Ext = sig
-    type t
-    val to_typ : (t TyExpr.t -> Ty.t) -> t -> Ty.t
-end
-
-module Make(E:Ext) : B with type ext = E.t
-
+(** @canonical Types.empty *)
 type empty = |
 
 (** @canonical Types.Builder *)
-module Builder : B with type ext = empty
+module Builder : Builder'.B with type ext = empty
