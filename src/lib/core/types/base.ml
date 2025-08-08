@@ -15,9 +15,12 @@ module Ty = struct
       Sstt.Extensions.Lists.printer_params' ;
       Sstt.Extensions.Chars.printer_params'
     ] |> Sstt.Printer.merge_params
+  let pparams_ext = ref []
   let printer_params () =
     let pparams' = { Sstt.Printer.empty_params with aliases = !aliases } in
-    [ pparams ; pparams' ]@(!pparams_abs) |> Sstt.Printer.merge_params
+    [ pparams ; pparams' ]@(!pparams_abs)@(!pparams_ext) |> Sstt.Printer.merge_params
+
+  let add_printer_param p = pparams_ext := p::!pparams_ext
 
   let pp fmt ty = Sstt.Printer.print_ty (printer_params ()) fmt ty
 

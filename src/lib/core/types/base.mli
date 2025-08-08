@@ -4,6 +4,7 @@ module Ty : sig
     type t = Sstt.Ty.t
 
     val register : string -> t -> unit
+    val add_printer_param : Sstt.Printer.params -> unit
     val printer_params : unit -> Sstt.Printer.params
     val pp : Format.formatter -> t -> unit
 

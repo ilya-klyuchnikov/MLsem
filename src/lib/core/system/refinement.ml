@@ -32,37 +32,37 @@ let sufficient_refinements env e t =
     | Constructor (Tuple n, es) when List.length es = n ->
       Tuple.dnf n t
       |> List.filter (fun b -> Ty.leq (Tuple.mk b) t)
-      |> List.map (fun ts ->
+      |> List.concat_map (fun ts ->
         List.map2 (fun e t -> aux e t) es ts
-        |> carthesian_prod' |> List.map REnv.conj
-      ) |> List.flatten
+          |> carthesian_prod' |> List.map REnv.conj
+        )
     | Constructor (Choice n, es) when List.length es = n ->
       List.map (fun e -> aux e t) es
       |> carthesian_prod' |> List.map REnv.conj
     | Constructor (Cons, [e1;e2]) ->
       Lst.dnf t
       |> List.filter (fun (a,b) -> Ty.leq (Lst.cons a b) t)
-      |> List.map (fun (t1,t2) ->
-        combine (aux e1 t1) (aux e2 t2)
-      ) |> List.flatten
+      |> List.concat_map (fun (t1,t2) ->
+          combine (aux e1 t1) (aux e2 t2)
+        )
     | Constructor (RecUpd label, [e;e']) ->
       let t = Ty.cap t (Record.any_with label) in
       Record.dnf t
       |> List.map (fun (fields,o) -> Record.mk o fields)
       |> List.filter (fun ti -> Ty.leq ti t)
-      |> List.map (fun ti ->
-        let field_type = Record.proj ti label in
-        let ti = remove_field_info ti label in
-        combine (aux e ti) (aux e' field_type)
-      ) |> List.flatten
+      |> List.concat_map (fun ti ->
+          let field_type = Record.proj ti label in
+          let ti = remove_field_info ti label in
+          combine (aux e ti) (aux e' field_type)
+        )
     | Constructor (RecDel label, [e]) ->
       let t = Ty.cap t (Record.any_without label) in
       Record.dnf t
       |> List.map (fun (fields,o) -> Record.mk o fields)
       |> List.filter (fun ti -> Ty.leq ti t)
-      |> List.map (fun ti ->
-        aux e (remove_field_info ti label)
-      ) |> List.flatten
+      |> List.concat_map (fun ti ->
+          aux e (remove_field_info ti label)
+        )
     | Constructor (Tag tag, [e]) -> aux e (Tag.proj tag t)
     | Constructor (Enum e, []) ->
       if Ty.leq (Enum.typ e) t then [REnv.empty] else []
@@ -82,11 +82,10 @@ let sufficient_refinements env e t =
       | [arrows] ->
         let t1 = Arrow.of_dnf [arrows] in
         let res = tallying mono [ (t1, Arrow.mk (TVar.typ alpha) t) ] in
-        res |> List.map (fun sol ->
-          let targ = Subst.find sol alpha |> top_instance mono in
-          if is_undesirable mono targ then [] else aux e targ
-        )
-        |> List.flatten
+        res |> List.concat_map (fun sol ->
+            let targ = Subst.find sol alpha |> top_instance mono in
+            if is_undesirable mono targ then [] else aux e targ
+          )
       | _ -> []
       end
     | App _ -> []
@@ -186,7 +185,7 @@ module Partitioner = struct
     List.map (fun atom -> n, [atom])
   let isolate_tuple_conjuncts t =
     let (comps, _) = Tuple.decompose t in
-    let comps = comps |> List.map (fun cp -> isolate_tuple_comp cp) |> List.flatten in
+    let comps = comps |> List.concat_map (fun cp -> isolate_tuple_comp cp) in
     let comps = comps |> List.map (fun cp -> Tuple.recompose ([cp], false)) in
     comps
   let isolate_record_conjuncts t =
@@ -206,7 +205,7 @@ module Partitioner = struct
   let partition_for t v extra =
     let tys = t |> List.filter_map (fun renv ->
       if REnv.mem v renv then Some (REnv.find v renv) else None
-    ) |> List.map isolate_conjuncts |> List.flatten in
+    ) |> List.concat_map isolate_conjuncts in
     extra@tys |> partition
     (* |> (fun tys -> Format.printf "Partition for %a: %a@." Variable.pp v
       (Utils.pp_list Ty.pp) tys ; tys) *)

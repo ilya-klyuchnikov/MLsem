@@ -70,7 +70,7 @@ let abstract_factors cache v ty =
   | res -> (remaining::res) |> List.map (fun ty -> Subst.construct [v, ty])
 let abstract_factors cache sols (v,t) =
   let ss = abstract_factors cache v t in
-  sols |> List.map (fun sol -> List.map (fun s -> Subst.compose s sol) ss) |> List.flatten
+  sols |> List.concat_map (fun sol -> List.map (fun s -> Subst.compose s sol) ss)
 let abstract_factors cache tvars sol =
   (* Note: this simplification does nothing if parameters are fully annotated *)
   if !Config.no_abstract_inter then
@@ -102,7 +102,7 @@ let tallying_simpl cache env res cs =
     (TVarSet.destruct tvars) ; *)
   (* Format.printf "with env=%a@." Env.pp env ; *)
   tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
-  |> List.map (abstract_factors cache tvars) |> List.flatten
+  |> List.concat_map (abstract_factors cache tvars)
   |> List.map (minimize_new_tvars tvars)
   |> List.map (fun s -> s, Subst.apply s res)
   (* Simplify result if it does not impact the domains *)
