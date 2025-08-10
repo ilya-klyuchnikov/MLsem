@@ -120,7 +120,7 @@ let expr_to_ast t =
   in
   let lambda_annot x a =
     match a with
-    | None -> TVar.mk ~user:false (Variable.get_name x) |> TVar.typ |> GTy.mk
+    | None -> TVar.mk Infer (Variable.get_name x) |> TVar.typ |> GTy.mk
     | Some d -> GTy.mk d
   in
   let rec aux_e e =

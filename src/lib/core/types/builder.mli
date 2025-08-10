@@ -1,4 +1,5 @@
 open Base
+open Tvar
 
 (** @canonical Types.TyExpr *)
 module TyExpr : sig
@@ -14,7 +15,7 @@ module TyExpr : sig
         | Star of 'ext regexp | Plus of 'ext regexp | Option of 'ext regexp
 
     and 'ext t =
-        | TVar of string | TVarWeak of string
+        | TVar of TVar.kind * string
         | TBase of base
         | TCustom of string
         | TApp of  string * 'ext t list

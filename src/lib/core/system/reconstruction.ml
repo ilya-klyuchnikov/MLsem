@@ -79,8 +79,8 @@ let abstract_factors cache tvars sol =
   else
     [sol]
 
-let minimize_new_tvars tvars sol (v,t) =
-  let mono = TVarSet.union_many [TVar.user_vars () ;  TVarSet.construct [v] ; tvars] in
+let minimize_new_tvars mono sol (v,t) =
+  let mono = TVarSet.add v mono in
   let ss = tallying mono [(TVar.typ v, t) ; (t, TVar.typ v)] in
   let aux sol s =
     let aux sol (v,t) =
@@ -90,25 +90,29 @@ let minimize_new_tvars tvars sol (v,t) =
     List.fold_left aux sol (Subst.destruct s)
   in
   List.fold_left aux sol ss
-let minimize_new_tvars tvars sol =
-  List.fold_left (minimize_new_tvars tvars) sol (Subst.destruct sol)
+let minimize_new_tvars mono sol =
+  List.fold_left (minimize_new_tvars mono) sol (Subst.destruct sol)
 
-let tallying_simpl cache env res cs =
+let tallying_simpl ~limited cache env res cs =
   let tvars = Env.tvars env in
+  let mono = TVar.all_vars NoInfer in
+  let mono =
+    if limited then mono else TVarSet.union mono (TVar.all_vars LimitedInfer)
+  in
   let leq_sol (_,r1) (_,r2) = Ty.leq r1 r2 in
   (* Format.printf "Tallying:@." ;
   cs |> List.iter (fun (a,b) -> Format.printf "%a <= %a@." Ty.pp a Ty.pp b) ; *)
   (* Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
     (TVarSet.destruct tvars) ; *)
   (* Format.printf "with env=%a@." Env.pp env ; *)
-  tallying_with_prio (TVar.user_vars ()) (tvars |> TVarSet.destruct) cs
+  tallying_with_prio mono (tvars |> TVarSet.destruct) cs
   |> List.concat_map (abstract_factors cache tvars)
-  |> List.map (minimize_new_tvars tvars)
+  |> List.map (minimize_new_tvars (TVarSet.union mono tvars))
   |> List.map (fun s -> s, Subst.apply s res)
   (* Simplify result if it does not impact the domains *)
   |> List.map (fun (s,r) ->
-    let mono = Subst.restrict s tvars |> Subst.vars in
-    let mono = TVarSet.union_many [mono ; tvars ; TVar.user_vars ()] in
+    let mono' = Subst.restrict s tvars |> Subst.vars in
+    let mono = TVarSet.union_many [mono ; tvars ; mono'] in
     let clean = clean_subst ~pos:Ty.empty ~neg:Ty.any mono r in
     (Subst.compose clean s, Subst.apply clean r)
   )
@@ -157,7 +161,7 @@ let rec infer cache env renvs annot (id, e) =
   | Value ty, Infer -> retry_with (nc (Annot.AAbstract ty))
   | Var v, Infer when Env.mem v env ->
     let (tvs,_) = Env.find v env |> TyScheme.get in
-    let s = TVCache.get' cache.tvcache id tvs in
+    let s = TVCache.get' ~kind:(TVar.Infer) cache.tvcache id tvs in
     retry_with (nc (Annot.AVar s))
   | Var _, Infer -> Fail
   | Constructor (_, es), Infer -> retry_with (AConstruct (List.map (fun _ -> Infer) es))
@@ -168,7 +172,7 @@ let rec infer cache env renvs annot (id, e) =
     | AllOk (annots,tys) ->
       let doms = Checker.domains_of_construct c in
       let tys = List.map GTy.lb tys in
-      let ss = tallying_simpl cache env (Checker.construct c tys) (List.combine tys doms) in
+      let ss = tallying_simpl ~limited:true cache env (Checker.construct c tys) (List.combine tys doms) in
       log "untypeable constructor" (fun fmt ->
         Format.fprintf fmt "expected: %a\ngiven: %a"
           (Utils.pp_seq Ty.pp " ; ") doms
@@ -202,7 +206,7 @@ let rec infer cache env renvs annot (id, e) =
     | AllOk (annots,tys') ->
       let tys' = List.map GTy.lb tys' in
       let cs = List.combine tys' (List.map GTy.lb tys) in
-      let ss = tallying_simpl cache env (Tuple.mk tys') cs in
+      let ss = tallying_simpl ~limited:true cache env (Tuple.mk tys') cs in
       let ok_ann = nc (Annot.ALambdaRec (List.combine tys annots)) in
       log "untypeable recursive function" (fun fmt ->
         Format.fprintf fmt "cannot unify the body with self"
@@ -247,21 +251,33 @@ let rec infer cache env renvs annot (id, e) =
         end  
       end
     end
-  | App _, Infer -> retry_with (AApp (Infer, Infer))
-  | App (e1, e2), AApp (a1,a2) ->
+  | App _, Infer -> retry_with (AApp (Infer, Infer, true))
+  | App (e1, e2), AApp (a1,a2,do_approx) ->
     begin match infer_seq' cache env renvs [(a1,e1);(a2,e2)] with
     | OneFail -> Fail
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
-      Subst (ss,AApp(a1,a2),AApp(a1',a2'),r)
+      Subst (ss,AApp(a1,a2,do_approx),AApp(a1',a2',do_approx),r)
     | AllOk ([a1;a2],[t1;t2]) ->
       let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
       let t1, t2 = GTy.lb t1, GTy.lb t2 in
       let arrow = Arrow.mk t2 (TVar.typ tv) in
-      let ss = tallying_simpl cache env (TVar.typ tv) [(t1, arrow)] in
-      log "untypeable application" (fun fmt ->
-        Format.fprintf fmt "function: %a\nargument: %a" Ty.pp t1 Ty.pp t2
-        ) ;
-      Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
+      let has_limited_vars =
+        TVOp.vars_of_kind LimitedInfer t1 |> TVarSet.is_empty |> not ||
+        TVOp.vars_of_kind LimitedInfer t2 |> TVarSet.is_empty |> not
+      in
+      if do_approx && has_limited_vars then
+        let t1 = Ty.approx t1 in
+        let ss = tallying_simpl ~limited:true cache env (TVar.typ tv) [(t1, arrow)] in
+        log "untypeable application" (fun fmt ->
+          Format.fprintf fmt "function: %a\nargument: %a" Ty.pp t1 Ty.pp t2
+          ) ;
+        Subst (ss, AApp(A a1, A a2, false), Untyp, empty_cov)
+      else
+        let ss = tallying_simpl ~limited:false cache env (TVar.typ tv) [(t1, arrow)] in
+        log "untypeable application" (fun fmt ->
+          Format.fprintf fmt "function: %a\nargument: %a" Ty.pp t1 Ty.pp t2
+          ) ;
+        Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
     end
   | Projection _, Infer -> retry_with (AProj Infer)
@@ -271,7 +287,7 @@ let rec infer cache env renvs annot (id, e) =
       let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
       let ty = Checker.domain_of_proj p (TVar.typ tv) in
       let s = GTy.lb s in
-      let ss = tallying_simpl cache env (TVar.typ tv) [(s, ty)] in
+      let ss = tallying_simpl ~limited:true cache env (TVar.typ tv) [(s, ty)] in
       log "untypeable projection" (fun fmt ->
         Format.fprintf fmt "argument: %a" Ty.pp s
         ) ;
@@ -301,7 +317,7 @@ let rec infer cache env renvs annot (id, e) =
     begin match infer' cache env renvs annot' e' with
     | Ok (annot', s) ->
       let s = GTy.lb s in
-      let ss = tallying_simpl cache env s [(s,t)] in
+      let ss = tallying_simpl ~limited:true cache env s [(s,t)] in
       log "untypeable constraint" (fun fmt ->
         Format.fprintf fmt "expected: %a\ngiven: %a" Ty.pp t Ty.pp s
         ) ;
@@ -315,7 +331,7 @@ let rec infer cache env renvs annot (id, e) =
       let lbc, ubc = (GTy.lb s, GTy.lb t), (GTy.ub s, GTy.ub t) in
       let cs = match c with
         | Check -> [lbc;ubc] | CheckStatic -> [lbc] | NoCheck -> [] in
-      let ss = tallying_simpl cache env (GTy.lb t) cs in
+      let ss = tallying_simpl ~limited:true cache env (GTy.lb t) cs in
       log "untypeable coercion" (fun fmt ->
         if c = Check then
           Format.fprintf fmt "expected: %a\ngiven: %a" GTy.pp t GTy.pp s
@@ -362,9 +378,9 @@ let rec infer cache env renvs annot (id, e) =
     Format.printf "e:@.%a@.@.a:@.%a@.@." Ast.pp_e e IAnnot.pp a ;
     assert false
 and infer' cache env renvs annot e =
-  let mono = TVarSet.union (Env.tvars env) (TVar.user_vars ()) in
+  let tvars = Env.tvars env in
   let subst_disjoint s =
-    TVarSet.inter (Subst.dom s) mono |> TVarSet.is_empty
+    TVarSet.inter (Subst.dom s) tvars |> TVarSet.is_empty
   in
   match infer cache env renvs annot e with
   | Ok (a, ty) -> Ok (a, ty)
@@ -387,7 +403,7 @@ and infer_b' cache env renvs bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
   | IAnnot.BInfer ->
-    let ss = tallying_simpl cache env Ty.empty [(GTy.ub s,Ty.neg tau)] in
+    let ss = tallying_simpl ~limited:false cache env Ty.empty [(GTy.ub s,Ty.neg tau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType Infer, empty_cov)
   | IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
   | IAnnot.BType annot ->

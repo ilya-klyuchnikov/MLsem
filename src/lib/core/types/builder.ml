@@ -17,7 +17,7 @@ module TyExpr = struct
         | Star of 'ext regexp | Plus of 'ext regexp | Option of 'ext regexp
 
     and 'ext t =
-        | TVar of string | TVarWeak of string
+        | TVar of TVar.kind * string
         | TBase of base
         | TCustom of string
         | TApp of  string * 'ext t list
@@ -172,7 +172,7 @@ module Builder' = struct
                         begin match cached with
                         | None ->
                             begin try
-                                let v = TVar.mk None in
+                                let v = TVar.mk TVar.Temporary None in
                                 Hashtbl.replace henv name (def, params, (args, v)::lst);
                                 let local = List.combine params args |> List.to_seq |> StrMap.of_seq in
                                 let t = aux local def in
@@ -200,20 +200,12 @@ module Builder' = struct
                 and aux lcl t =
                     let open TyExpr in
                     match t with
-                    | TVar v ->
+                    | TVar (kind,v) ->
                         begin match StrMap.find_opt v lcl, Hashtbl.find_opt venv v with
                         | Some n, _ -> n
                         | None, Some t -> TVar.typ t
                         | None, None ->
-                            let t = TVar.mk ~user:true (Some v) in
-                            Hashtbl.add venv v t ;
-                            TVar.typ t
-                        end
-                    | TVarWeak v ->
-                        begin match Hashtbl.find_opt venv v with
-                        | Some t -> TVar.typ t
-                        | None ->
-                            let t = TVar.mk ~user:false (Some v) in
+                            let t = TVar.mk kind (Some v) in
                             Hashtbl.add venv v t ;
                             TVar.typ t
                         end
@@ -254,7 +246,7 @@ module Builder' = struct
                     re |> reg_to_sstt (aux lcl) |> Sstt.Extensions.Lists.build
                 in
                 let res = defs |> List.map (fun (name, params, _) ->
-                    let params = List.map (fun _ -> TVar.mk None) params in
+                    let params = List.map (fun _ -> TVar.mk Temporary None) params in
                     let args = params |> List.map TVar.typ in
                     let node = get_def args name |> Option.get in
                     name, params, node) in

@@ -3,15 +3,16 @@ open Base
 module type TVar = sig
     type set
     type t = Sstt.Var.t
+    type kind = NoInfer | LimitedInfer | Infer | Temporary
 
-    val user_vars : unit -> set
-    val from_user : t -> bool
-    val internal : t -> bool
+    val all_vars : kind -> set
+    val has_kind : kind -> t -> bool
+    val kind : t -> kind
     val equal : t -> t -> bool
     val compare : t -> t -> int
     val name : t -> string
 
-    val mk : ?user:bool -> string option -> t
+    val mk : kind -> string option -> t
     val typ : t -> Ty.t
 
     val pp : Format.formatter -> t -> unit
@@ -72,8 +73,7 @@ end
 module TVOp : sig
     val vars : Ty.t -> TVarSet.t
     val vars' : Ty.t list -> TVarSet.t
-    val vars_user : Ty.t -> TVarSet.t
-    val vars_internal : Ty.t -> TVarSet.t
+    val vars_of_kind : TVar.kind -> Ty.t -> TVarSet.t
     val top_vars : Ty.t -> TVarSet.t
     val polarity : TVar.t -> Ty.t -> [ `Both | `Neg | `Pos | `None ]
     val polarity' : TVar.t -> Ty.t list -> [ `Both | `Neg | `Pos | `None ]
@@ -81,7 +81,7 @@ module TVOp : sig
     val vars_with_polarity' : Ty.t list -> (TVar.t * [ `Both | `Neg | `Pos ]) list
     val check_var : Ty.t -> [ `Not_var | `Pos of TVar.t | `Neg of TVar.t ]
     val is_ground_typ : Ty.t -> bool
-    val refresh : TVarSet.t -> Subst.t
+    val refresh : kind:TVar.kind -> TVarSet.t -> Subst.t
     val shorten_names : TVarSet.t -> Subst.t
     val pp_typ_short : Format.formatter -> Ty.t -> unit
 

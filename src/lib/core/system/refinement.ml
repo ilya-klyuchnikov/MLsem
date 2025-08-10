@@ -74,7 +74,7 @@ let sufficient_refinements env e t =
     | Projection (p, e) -> aux e (Checker.domain_of_proj p t)
     | TypeCast (e, _) -> aux e t
     | App ((_, Var v), e) when Env.mem v env ->
-      let alpha = TVar.mk None in
+      let alpha = TVar.mk Infer None in
       let (mono, ty) = Env.find v env |> TyScheme.get_fresh in
       let mono = TVarSet.union mono (vars t) in
       begin match Arrow.dnf (GTy.lb ty) with

@@ -39,7 +39,7 @@ module IAnnot : sig
   | Untyp
   | AConstruct of t list
   | ALet of t * part
-  | AApp of t * t
+  | AApp of t * t * bool (* do approx? *)
   | AProj of t
   | ACast of t
   | ACoerce of GTy.t * t

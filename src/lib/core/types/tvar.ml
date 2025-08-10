@@ -1,20 +1,21 @@
 open Base
 
 module type TVar = sig
-  type set
-  type t = Sstt.Var.t
+    type set
+    type t = Sstt.Var.t
+    type kind = NoInfer | LimitedInfer | Infer | Temporary
 
-  val user_vars : unit -> set
-  val from_user : t -> bool
-  val internal : t -> bool
-  val equal : t -> t -> bool
-  val compare : t -> t -> int
-  val name : t -> string
+    val all_vars : kind -> set
+    val has_kind : kind -> t -> bool
+    val kind : t -> kind
+    val equal : t -> t -> bool
+    val compare : t -> t -> int
+    val name : t -> string
 
-  val mk : ?user:bool -> string option -> t
-  val typ : t -> Ty.t
+    val mk : kind -> string option -> t
+    val typ : t -> Ty.t
 
-  val pp : Format.formatter -> t -> unit
+    val pp : Format.formatter -> t -> unit
 end
 
 module type TVarSet = sig
@@ -43,17 +44,19 @@ module TVH = Hashtbl.Make(Sstt.Var)
 
 module TVar = struct
   type t = Sstt.Var.t
+  type kind = NoInfer | LimitedInfer | Infer | Temporary
 
   type vardata = {
-    user: bool
+    kind: kind
   }
 
   let data = TVH.create 100
-  let uservars = ref Sstt.VarSet.empty
-  let from_user t =
-    try (TVH.find data t).user with Not_found -> false
-  let internal t = from_user t |> not
-  let user_vars () = !uservars
+  let allvars = Hashtbl.create 100
+  let has_kind k t =
+    try (TVH.find data t).kind = k with Not_found -> false
+  let kind t = (TVH.find data t).kind
+  let all_vars k =
+    match Hashtbl.find_opt allvars k with None -> Sstt.VarSet.empty | Some vs -> vs
   let equal = Sstt.Var.equal
   let compare = Sstt.Var.compare
   let name = Sstt.Var.name
@@ -63,13 +66,18 @@ module TVar = struct
     (fun () ->
       last := !last + 1 ; !last)
 
-  let mk ?(user=false) name =
+  let mk kind name =
     let id = unique_id () in
-    let norm_name = (if user then "" else "_")^(string_of_int id) in
-    let name = match name with None -> norm_name | Some str -> str in
+    let norm_name = (match kind with
+      | NoInfer -> "'N"
+      | LimitedInfer -> "'L"
+      | Infer -> "'I"
+      | Temporary -> "'T"
+      )^(string_of_int id) in
+    let name = match name with None -> norm_name | Some str -> "'"^str in
     let var = Sstt.Var.mk name in
-    TVH.add data var {user} ;
-    if user then uservars := Sstt.VarSet.add var (!uservars) ;
+    TVH.add data var {kind} ;
+    Hashtbl.replace allvars kind (all_vars kind |> Sstt.VarSet.add var) ;
     var
   let typ = Sstt.Ty.mk_var
 
@@ -140,10 +148,8 @@ module TVOp = struct
     | [v] when Sstt.Ty.equiv t (Sstt.Ty.mk_var v |> Sstt.Ty.neg) -> `Neg v
     | _ -> `Not_var
 
-  let vars_user t =
-    TVarSet.filter TVar.from_user (vars t)
-  let vars_internal t =
-    TVarSet.filter TVar.internal (vars t)
+  let vars_of_kind kind t =
+    TVarSet.filter (TVar.has_kind kind) (vars t)
   let vpol = Sstt.Var.mk "__pol__" |> Sstt.Ty.mk_var
   let polarity v t =
     let vt = Sstt.Ty.mk_var v in
@@ -174,8 +180,8 @@ module TVOp = struct
   let vars_with_polarity t = vars_with_polarity' [t]
   let is_ground_typ t = vars t |> TVarSet.is_empty
 
-  let refresh vars =
-    let f v = (v, TVar.mk None |> TVar.typ) in
+  let refresh ~kind vars =
+    let f v = (v, TVar.mk kind None |> TVar.typ) in
     vars |> TVarSet.destruct |> List.map f |> Subst.construct
 
   let shorten_names vs =

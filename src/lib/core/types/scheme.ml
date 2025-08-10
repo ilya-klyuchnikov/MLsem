@@ -12,7 +12,7 @@ let mk_poly ty = mk_poly_except TVarSet.empty ty
 let get (tvs, ty) = (tvs, ty)
 let get_fresh (tvs, ty) =
   let mono = TVarSet.diff (Gradual.fv ty) tvs in
-  let s = TVOp.refresh tvs in
+  let s = TVOp.refresh ~kind:TVar.Infer tvs in
   mono, Gradual.substitute s ty
 let fv (tvs, ty) = TVarSet.diff (Gradual.fv ty) tvs
 

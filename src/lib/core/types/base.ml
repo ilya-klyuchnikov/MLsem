@@ -61,6 +61,18 @@ module Ty = struct
 
   let normalize = Sstt.Ty.factorize
   let simplify = Sstt.Transform.simplify
+  let approx t =
+    Sstt.Ty.def t |> Sstt.VDescr.map (fun d ->
+      let arr = Sstt.Descr.get_arrows d in
+      let dnf = Sstt.Arrows.dnf arr |> Sstt.Arrows.Dnf.simplify in
+      let dnf = dnf |> List.map (fun (ps,_,b) ->
+        let dom = List.map fst ps |> Sstt.Ty.disj in
+        let codom = List.map snd ps |> Sstt.Ty.disj in
+        ([(dom,codom)],[],b)
+        ) in
+      let arr = Sstt.Arrows.of_dnf dnf in
+      Sstt.Descr.set_component d (Sstt.Descr.Arrows arr)
+    ) |> Sstt.Ty.of_def
 end
 
 module Enum = struct
