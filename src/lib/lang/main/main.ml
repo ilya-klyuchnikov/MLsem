@@ -24,7 +24,7 @@ let sigs_of_ty mono ty =
     | _ -> [ty]
   in
   if TVOp.vars ty
-    |> TVarSet.filter (fun tv -> TVar.has_kind NoInfer tv |> not)
+    |> TVarSet.filter (fun tv -> TVar.has_kind KNoInfer tv |> not)
     |> TVarSet.is_empty then
     let sigs = aux ty in
     Some (sigs, GTy.mk ty |> TyScheme.mk_poly_except mono |> TyScheme.norm_and_simpl)
@@ -168,6 +168,7 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       | "value_restriction", Bool b -> System.Config.value_restriction := b
       | "type_narrowing", Bool b -> Config.type_narrowing := b
       | "allow_implicit_downcast", Bool b -> Config.allow_implicit_downcast := b
+      | "infer_overload", Bool b -> System.Config.infer_overload := b
       | "no_empty_param", Bool b -> System.Config.no_empty_param := b
       | "no_abstract_inter", Bool b -> System.Config.no_abstract_inter := b
       | _ -> failwith ("Invalid command "^str)

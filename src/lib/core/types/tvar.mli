@@ -3,7 +3,7 @@ open Base
 module type TVar = sig
     type set
     type t = Sstt.Var.t
-    type kind = NoInfer | LimitedInfer | Infer | Temporary
+    type kind = KNoInfer | KInfer | KTemporary
 
     val all_vars : kind -> set
     val has_kind : kind -> t -> bool

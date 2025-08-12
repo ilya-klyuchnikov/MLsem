@@ -3,7 +3,7 @@ open Base
 module type TVar = sig
     type set
     type t = Sstt.Var.t
-    type kind = NoInfer | LimitedInfer | Infer | Temporary
+    type kind = KNoInfer | KInfer | KTemporary
 
     val all_vars : kind -> set
     val has_kind : kind -> t -> bool
@@ -44,7 +44,7 @@ module TVH = Hashtbl.Make(Sstt.Var)
 
 module TVar = struct
   type t = Sstt.Var.t
-  type kind = NoInfer | LimitedInfer | Infer | Temporary
+  type kind = KNoInfer | KInfer | KTemporary
 
   type vardata = {
     kind: kind
@@ -69,10 +69,9 @@ module TVar = struct
   let mk kind name =
     let id = unique_id () in
     let norm_name = (match kind with
-      | NoInfer -> "'N"
-      | LimitedInfer -> "'L"
-      | Infer -> "'I"
-      | Temporary -> "'T"
+      | KNoInfer -> "'N"
+      | KInfer -> "'I"
+      | KTemporary -> "'T"
       )^(string_of_int id) in
     let name = match name with None -> norm_name | Some str -> "'"^str in
     let var = Sstt.Var.mk name in

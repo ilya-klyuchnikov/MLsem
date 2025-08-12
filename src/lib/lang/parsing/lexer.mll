@@ -35,8 +35,7 @@ let float_comma = decimal '.' decimal (['e' 'E'] ['-' '+']? decimal)?
 let float = (float_e | float_comma)
 
 let type_var = '\'' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
-let limited_weak_type_var = '\'' '_' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
-let weak_type_var = '\'' '_' '_' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
+let weak_type_var = '\'' '_' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
 
 let op_char =  '!' | '$' | '%' | '&' | '*' | '+' | '-' |
                '.' | '/' | ':' | ';' | '<' | '=' | '>' |
@@ -125,7 +124,6 @@ rule token = parse
 | constr_id as s { CID s }
 | param_constr_id as s { PCID (String.sub s 0 ((String.length s) - 1)) }
 | type_var as s { TVAR (String.sub s 1 ((String.length s) - 1)) }
-| limited_weak_type_var as s { TVAR_WEAK_LIMITED (String.sub s 1 ((String.length s) - 1)) }
 | weak_type_var as s { TVAR_WEAK (String.sub s 1 ((String.length s) - 1)) }
 | eof     { EOF }
 | _ { raise (LexerError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }

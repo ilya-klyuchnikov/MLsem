@@ -41,7 +41,6 @@ module Ty : sig
 
     val normalize : t -> t
     val simplify : t -> t
-    val approx : t -> t
 end
 
 (** @canonical Types.Enum *)

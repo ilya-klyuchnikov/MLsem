@@ -86,7 +86,7 @@
 %token TYPE WHERE ABSTRACT
 %token LBRACKET RBRACKET SEMICOLON
 %token<string> ID IID CID PCID
-%token<string> TVAR TVAR_WEAK TVAR_WEAK_LIMITED
+%token<string> TVAR TVAR_WEAK
 %token<float> LFLOAT
 %token<Z.t> LINT
 %token<bool> LBOOL
@@ -316,9 +316,8 @@ atomic_typ:
 | s=CID { TEnum s }
 | s=PCID t=typ RPAREN { TTag (s, t) }
 | s=PCID RPAREN { TTag (s, TBase TUnit) }
-| s=TVAR { TVar (NoInfer, s) }
-| s=TVAR_WEAK_LIMITED { TVar (LimitedInfer, s) }
-| s=TVAR_WEAK { TVar (Infer, s) }
+| s=TVAR { TVar (KNoInfer, s) }
+| s=TVAR_WEAK { TVar (KInfer, s) }
 | LPAREN RPAREN { TBase TUnit }
 | LPAREN t=typ RPAREN { t }
 | LBRACE fs=separated_list(SEMICOLON, typ_field) o=optional_open RBRACE { TRecord (o, fs) }

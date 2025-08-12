@@ -172,7 +172,7 @@ module Builder' = struct
                         begin match cached with
                         | None ->
                             begin try
-                                let v = TVar.mk TVar.Temporary None in
+                                let v = TVar.mk TVar.KTemporary None in
                                 Hashtbl.replace henv name (def, params, (args, v)::lst);
                                 let local = List.combine params args |> List.to_seq |> StrMap.of_seq in
                                 let t = aux local def in
@@ -246,7 +246,7 @@ module Builder' = struct
                     re |> reg_to_sstt (aux lcl) |> Sstt.Extensions.Lists.build
                 in
                 let res = defs |> List.map (fun (name, params, _) ->
-                    let params = List.map (fun _ -> TVar.mk Temporary None) params in
+                    let params = List.map (fun _ -> TVar.mk KTemporary None) params in
                     let args = params |> List.map TVar.typ in
                     let node = get_def args name |> Option.get in
                     name, params, node) in

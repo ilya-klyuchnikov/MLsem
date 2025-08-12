@@ -55,25 +55,24 @@ module TVCache = struct
   let empty () =
     { expr = Hashtbl.create 100 ; abs = Hashtbl.create 100 }
 
-  let get ?kind t eid tv =
+  let get t eid tv =
     match Hashtbl.find_opt t.expr (eid, tv) with
     | Some tv -> tv
     | None ->
-      let kind = match kind with None -> TVar.kind tv | Some k -> k in
-      let tv' = TVar.mk kind None in
+      let tv' = TVar.mk KInfer None in
       Hashtbl.replace t.expr (eid, tv) tv' ; tv'
 
-  let get' ?kind t eid tvs =
+  let get' t eid tvs =
     TVarSet.destruct tvs
-    |> List.map (fun tv -> tv, get ?kind t eid tv |> TVar.typ)
+    |> List.map (fun tv -> tv, get t eid tv |> TVar.typ)
     |> Subst.construct
 
   let get_abs_param t abs i tv =
     match Hashtbl.find_opt t.abs (abs, i, tv) with
     | Some tv -> tv
     | None ->
-      let tv' = TVar.mk (TVar.kind tv) None in
+      let tv' = TVar.mk KInfer None in
       Hashtbl.replace t.abs (abs, i, tv) tv' ; tv'
   
-  let res_tvar = TVar.mk Infer None
+  let res_tvar = TVar.mk KTemporary None
 end

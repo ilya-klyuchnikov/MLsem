@@ -68,7 +68,7 @@ module IAnnot = struct
   | Untyp
   | AConstruct of t list
   | ALet of t * part
-  | AApp of t * t * bool
+  | AApp of t * t
   | AProj of t
   | ACast of t
   | ACoerce of GTy.t * t
@@ -87,7 +87,7 @@ module IAnnot = struct
       | Untyp -> Untyp
       | AConstruct ts -> AConstruct (List.map aux ts)
       | ALet (t, ps) -> ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, aux t) ps)
-      | AApp (t1, t2, b) -> AApp (aux t1, aux t2, b)
+      | AApp (t1, t2) -> AApp (aux t1, aux t2)
       | AProj t -> AProj (aux t)
       | ACast t -> ACast (aux t)
       | ACoerce (ty, t) -> ACoerce (GTy.substitute s ty, aux t)

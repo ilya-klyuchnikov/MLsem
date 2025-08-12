@@ -13,8 +13,8 @@ end
 module TVCache : sig
     type t
     val empty : unit -> t
-    val get : ?kind:TVar.kind -> t -> Eid.t -> TVar.t -> TVar.t
-    val get' : ?kind:TVar.kind -> t -> Eid.t -> TVarSet.t -> Subst.t
+    val get : t -> Eid.t -> TVar.t -> TVar.t
+    val get' : t -> Eid.t -> TVarSet.t -> Subst.t
     val get_abs_param : t -> Abstract.t -> int -> TVar.t -> TVar.t
     val res_tvar : TVar.t
 end
