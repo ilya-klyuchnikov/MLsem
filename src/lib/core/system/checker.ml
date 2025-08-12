@@ -74,7 +74,7 @@ let generalize ~e env s =
 let rec typeof' env annot (id,e) =
   let open Annot in
   match e, annot with
-  | Value _, AAbstract ty -> ty
+  | Value _, AValue ty -> ty
   | Var v, AVar s ->
     if Env.mem v env then begin
       let (tvs, ty) = Env.find v env |> TyScheme.get in
