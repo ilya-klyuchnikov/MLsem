@@ -9,11 +9,11 @@ module Ty = struct
 
   let pparams =
     [
-      Sstt.Extensions.Bools.printer_params' ;
-      Sstt.Extensions.Floats.printer_params' ;
-      Sstt.Extensions.Strings.printer_params' ;
-      Sstt.Extensions.Lists.printer_params' ;
-      Sstt.Extensions.Chars.printer_params'
+      Sstt.Extensions.Bools.printer_params ;
+      Sstt.Extensions.Floats.printer_params ;
+      Sstt.Extensions.Strings.printer_params ;
+      Sstt.Extensions.Lists.printer_params ;
+      Sstt.Extensions.Chars.printer_params
     ] |> Sstt.Printer.merge_params
   let pparams_ext = ref []
   let printer_params () =
@@ -105,7 +105,7 @@ module Abstract = struct
     | Cav -> Sstt.Extensions.Abstracts.Contrav
     | Inv -> Sstt.Extensions.Abstracts.Inv
     in
-    let (tag,printer) = Sstt.Extensions.Abstracts.define' name (List.map aux vs) in
+    let (tag,printer) = Sstt.Extensions.Abstracts.define name (List.map aux vs) in
     pparams_abs := printer::!pparams_abs ;
     tag
   let params abs =
@@ -119,8 +119,8 @@ module Abstract = struct
   let any = Sstt.Extensions.Abstracts.mk_any
   let trans_tagcomp f c =
     match Sstt.Extensions.Abstracts.destruct_tagcomp c with
-    | None -> c
-    | Some (abs, dnf) ->
+    | exception _ -> c
+    | (abs, dnf) ->
       let dnf = f (abs, dnf) in
       let mk_line (ps,ns) =
           let ps = ps |> List.map (fun lst -> mk abs lst) |> Ty.conj in
