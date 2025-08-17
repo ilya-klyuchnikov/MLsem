@@ -72,6 +72,7 @@ module Abstract : sig
     val params : t -> variance list
     val any : t -> Ty.t
     val mk : t -> Ty.t list -> Ty.t
+    val dnf : t -> Ty.t -> (Ty.t list) list list
     val transform :
         (t * (Ty.t list list * Ty.t list list) list
           -> (Ty.t list list * Ty.t list list) list)

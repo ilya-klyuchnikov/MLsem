@@ -105,6 +105,10 @@ module Abstract = struct
     Sstt.Extensions.Abstracts.params_of abs |> List.map aux
   let mk = Sstt.Extensions.Abstracts.mk
   let any = Sstt.Extensions.Abstracts.mk_any
+  let dnf tag ty =
+    Sstt.Extensions.Abstracts.destruct tag ty
+    |> List.map fst
+
   let trans_tagcomp f c =
     let ty = Sstt.Tags.mk_comp c |> Sstt.Descr.mk_tags |> Sstt.Ty.mk_descr in
     let abs = Sstt.TagComp.tag c in
