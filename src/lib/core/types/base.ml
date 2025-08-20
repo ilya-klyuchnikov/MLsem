@@ -93,7 +93,8 @@ module Abstract = struct
     | Cav -> Sstt.Extensions.Abstracts.Contrav
     | Inv -> Sstt.Extensions.Abstracts.Inv
     in
-    let (tag,printer) = Sstt.Extensions.Abstracts.define name (List.map aux vs) in
+    let tag = Sstt.Extensions.Abstracts.define name (List.map aux vs) in
+    let printer = Sstt.Extensions.Abstracts.printer_params tag in
     pparams_abs := printer::!pparams_abs ;
     tag
   let params abs =
