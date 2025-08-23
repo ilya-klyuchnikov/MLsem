@@ -30,3 +30,8 @@ _opam/
 
 .vscode/
 
+# Benchmark files
+_bench/
+
+# Linux perf tool
+perf.data
