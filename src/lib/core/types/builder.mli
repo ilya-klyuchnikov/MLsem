@@ -55,7 +55,7 @@ module Builder' : sig
         val type_expr_to_typ : type_env -> var_type_env -> type_expr -> Ty.t * var_type_env
         val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> Ty.t list * var_type_env
 
-        val define_abstract : type_env -> string -> Abstract.variance list -> type_env
+        val define_abstract : type_env -> string -> int -> type_env
         val define_aliases : type_env -> var_type_env -> (string * string list * type_expr) list -> type_env
         val get_enum : type_env -> string -> Enum.t
         val get_tag : type_env -> string -> Tag.t

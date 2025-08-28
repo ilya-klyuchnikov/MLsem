@@ -39,28 +39,6 @@ val (<=) : int -> int -> bool
 val (>) : int -> int -> bool
 val (>=) : int -> int -> bool
 
-
-abstract type cav(-'a)
-abstract type cov(+'a)
-abstract type inv('a)
-
-let test_neg1 = <cav & ~cav(int)>
-let test_neg2 = < ~cav(int)>
-let test_neg3 = <cov & ~cov(int)>
-let test_neg4 = < ~cov(int)>
-let test_neg5 = <inv & ~inv(int)>
-let test_neg6 = < ~inv(int)>
-
-let cav1 = <cav(A) & cav(~A)>
-let cav2 = <cav(A|B) & cav(B|C)>
-let cav3 = <cav(A|B) & cav(B|C) & ~cav(any)>
-
-let cov1 = <cov(A) & cov(~A)>
-let cov2 = <cov(A|B) & cov(B|C)>
-let cov3 = <cov(A|B) & cov(B|C) & ~cov(empty)>
-
-let inv = <inv(A) & inv(B) & inv(A|B)>
-
 abstract type ref('a)
 val ref : 'a -> ref('a)
 val (<-) : ref('a) -> 'a -> ()

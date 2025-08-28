@@ -7,10 +7,9 @@ module Domain = struct
   [@@deriving show]
 
   let transform_abstract =
-    let aux (abs, dnf) =
-      let vs = Abstract.params abs in
+    let aux (_, dnf) =
       let has_no_empty lst =
-        List.for_all2 (fun v ty -> v <> Abstract.Inv || Ty.non_empty ty) vs lst
+        List.for_all Ty.non_empty lst
       in
       let has_no_empty (ps,_) =
         List.for_all has_no_empty ps
@@ -49,11 +48,9 @@ module Domain = struct
 end
 
 module TVCache = struct
-  type t = { expr: (Eid.t * TVar.t, TVar.t) Hashtbl.t ;
-             abs: (Abstract.t * int * TVar.t, TVar.t) Hashtbl.t }
+  type t = { expr: (Eid.t * TVar.t, TVar.t) Hashtbl.t }
 
-  let empty () =
-    { expr = Hashtbl.create 100 ; abs = Hashtbl.create 100 }
+  let empty () = { expr = Hashtbl.create 100 }
 
   let get t eid tv =
     match Hashtbl.find_opt t.expr (eid, tv) with
@@ -66,13 +63,6 @@ module TVCache = struct
     TVarSet.destruct tvs
     |> List.map (fun tv -> tv, get t eid tv |> TVar.typ)
     |> Subst.construct
-
-  let get_abs_param t abs i tv =
-    match Hashtbl.find_opt t.abs (abs, i, tv) with
-    | Some tv -> tv
-    | None ->
-      let tv' = TVar.mk KInfer None in
-      Hashtbl.replace t.abs (abs, i, tv) tv' ; tv'
   
   let res_tvar = TVar.mk KTemporary None
 end

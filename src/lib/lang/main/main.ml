@@ -178,8 +178,8 @@ let treat (tenv,varm,senv,env) (annot, elem) =
     | PAst.Types lst ->
       let tenv = define_aliases tenv empty_vtenv lst in
       (tenv,varm,senv,env), TDone
-    | PAst.AbsType (name, vs) ->
-      let tenv = define_abstract tenv name vs in
+    | PAst.AbsType (name, n) ->
+      let tenv = define_abstract tenv name n in
       (tenv,varm,senv,env), TDone
   with
   | PAst.SymbolError msg -> (tenv,varm,senv,env), TFailure (Some !v, pos, msg, None, 0.0)

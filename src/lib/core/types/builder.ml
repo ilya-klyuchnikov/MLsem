@@ -56,7 +56,7 @@ module Builder' = struct
         val type_expr_to_typ : type_env -> var_type_env -> type_expr -> Ty.t * var_type_env
         val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> Ty.t list * var_type_env
 
-        val define_abstract : type_env -> string -> Abstract.variance list -> type_env
+        val define_abstract : type_env -> string -> int -> type_env
         val define_aliases : type_env -> var_type_env -> (string * string list * type_expr) list -> type_env
         val get_enum : type_env -> string -> Enum.t
         val get_tag : type_env -> string -> Tag.t
@@ -283,10 +283,10 @@ module Builder' = struct
             in
             { tenv with aliases }
 
-        let define_abstract tenv name vs =
+        let define_abstract tenv name n =
             if StrMap.mem name tenv.abs
             then raise (TypeDefinitionError (Printf.sprintf "Abstract type %s already defined!" name))
-            else { tenv with abs = StrMap.add name (Abstract.define name vs) tenv.abs }
+            else { tenv with abs = StrMap.add name (Abstract.define name n) tenv.abs }
 
         let is_test_type t =
             let exception NotTestType in
@@ -301,10 +301,10 @@ module Builder' = struct
                                 Tags.destruct t |> snd |> List.iter (fun comp ->
                                     let tag = Sstt.TagComp.tag comp in
                                     let ty = Sstt.Descr.mk_tagcomp comp |> Sstt.Ty.mk_descr in
-                                    let any_ty = Sstt.Extensions.Abstracts.mk_any tag in
-                                    if Sstt.Extensions.Abstracts.is_abstract tag &&
-                                        (Ty.is_empty ty || Ty.leq any_ty ty) |> not
-                                    then raise NotTestType
+                                    if Sstt.Extensions.Abstracts.is_abstract tag then
+                                        let any_ty = Sstt.Extensions.Abstracts.mk_any tag in
+                                        if (Ty.is_empty ty || Ty.leq any_ty ty) |> not
+                                        then raise NotTestType
                                 )
                             | Arrows a ->
                                 let t = mk_arrows a |> Sstt.Ty.mk_descr in

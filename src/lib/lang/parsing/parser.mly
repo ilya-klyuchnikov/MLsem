@@ -6,7 +6,6 @@
   open System.Const
   open PAst
   open Types.TyExpr
-  open Types
 
   let annot sp ep e =
     (new_annot (Position.lex_join sp ep), e)
@@ -129,13 +128,8 @@ element:
 | HASHTAG cmd=ID EQUAL v=literal { annot $symbolstartpos $endpos (Command (cmd, v)) }
 
 %inline abs_params:
-  { [] }
-| LPAREN vs=separated_nonempty_list(COMMA, variance) RPAREN { vs }
-
-variance:
-  TVAR { Abstract.Inv }
-| PLUS TVAR { Abstract.Cov }
-| MINUS TVAR { Abstract.Cav }
+  { 0 }
+| LPAREN vs=separated_nonempty_list(COMMA, TVAR) RPAREN { List.length vs }
 
 (* ===== TERMS ===== *)
 

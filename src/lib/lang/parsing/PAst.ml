@@ -225,7 +225,7 @@ type parser_element =
 | Definitions of (string * parser_expr) list
 | SigDef of string * type_expr option
 | Types of (string * string list * type_expr) list
-| AbsType of string * Abstract.variance list
+| AbsType of string * int
 | Command of string * Const.t
 
 type parser_program = (annotation * parser_element) list

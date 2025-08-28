@@ -85,25 +85,14 @@ module Tag = struct
 end
 
 module Abstract = struct
-  type variance = Cov | Cav | Inv
   type t = Sstt.Tag.t
-  let define name vs =
-    let aux = function
-    | Cov -> Sstt.Extensions.Abstracts.Cov
-    | Cav -> Sstt.Extensions.Abstracts.Contrav
-    | Inv -> Sstt.Extensions.Abstracts.Inv
-    in
-    let tag = Sstt.Extensions.Abstracts.define name (List.map aux vs) in
+  let define name n =
+    let tag = Sstt.Extensions.Abstracts.define name n in
     let printer = Sstt.Extensions.Abstracts.printer_params tag in
     pparams_abs := printer::!pparams_abs ;
     tag
-  let params abs =
-    let aux = function
-    | Sstt.Extensions.Abstracts.Cov -> Cov
-    | Sstt.Extensions.Abstracts.Contrav -> Cav
-    | Sstt.Extensions.Abstracts.Inv -> Inv
-    in
-    Sstt.Extensions.Abstracts.params_of abs |> List.map aux
+  let arity abs =
+    Sstt.Extensions.Abstracts.arity abs
   let mk = Sstt.Extensions.Abstracts.mk
   let any = Sstt.Extensions.Abstracts.mk_any
   let dnf tag ty =
