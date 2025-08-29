@@ -86,7 +86,7 @@
     <var>prog</var> ::= <var>stmt</var>*
 
     <var>stmt</var> ::=  <kbd>type</kbd> <var>id</var> [<kbd>(</kbd><var>tvar</var>, ..., <var>tvar</var><kbd>)</kbd>] <kbd>=</kbd> <var>t</var> [<kbd>and</kbd> ...]
-           | <kbd>abstract</kbd> <kbd>type</kbd> <var>id</var> [<kbd>(</kbd>[<kbd>+</kbd>|<kbd>-</kbd>]<var>tvar</var>, ..., [<kbd>+</kbd>|<kbd>-</kbd>]<var>tvar</var><kbd>)</kbd>]
+           | <kbd>abstract</kbd> <kbd>type</kbd> <var>id</var> [<kbd>(</kbd><var>tvar</var>, ..., <var>tvar</var><kbd>)</kbd>]
            | <kbd>let</kbd> <var>gid</var> <var>param</var>* <kbd>=</kbd> <var>e</var> [<kbd>and</kbd> ...]
            | <kbd>val</kbd> <var>gid</var> [<kbd>:</kbd> <var>t</var>]
 
@@ -104,8 +104,7 @@
                 Several mutually recursive type definitions can be defined together using the <kbd>and</kbd> keyword.
             </li>
             <li>
-                a abstract type definition, composed of a type name, and an optional list of type variables (parameters)
-                that can be associated with a variance.
+                a abstract type definition, composed of a type name, and an optional list of type variables (parameters).
             </li>
             <li>a toplevel value definition which follows, roughly, OCaml's
                 syntactic convention. Function parameters can be either simple
