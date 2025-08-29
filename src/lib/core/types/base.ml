@@ -87,12 +87,12 @@ end
 module Abstract = struct
   type t = Sstt.Tag.t
   let define name n =
-    let tag = Sstt.Extensions.Abstracts.define name n in
+    let vs = List.init n (fun _ -> Sstt.Extensions.Abstracts.Inv) in
+    let tag = Sstt.Extensions.Abstracts.define name vs in
     let printer = Sstt.Extensions.Abstracts.printer_params tag in
     pparams_abs := printer::!pparams_abs ;
     tag
-  let arity abs =
-    Sstt.Extensions.Abstracts.arity abs
+  let arity = Sstt.Extensions.Abstracts.arity
   let mk = Sstt.Extensions.Abstracts.mk
   let any = Sstt.Extensions.Abstracts.mk_any
   let dnf tag ty =
