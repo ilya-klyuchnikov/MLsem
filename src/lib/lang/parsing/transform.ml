@@ -2,106 +2,8 @@ open Mlsem
 open Common
 open Types
 
-let rec type_of_pat pat =
-  let open PAst in
-  match pat with
-  | PatType t -> t
-  | PatLit c -> System.Const.typeof c
-  | PatVar _ -> Ty.any
-  | PatTag (tag, p) -> Tag.mk tag (type_of_pat p)
-  | PatAnd (p1, p2) ->
-    Ty.cap (type_of_pat p1) (type_of_pat p2)
-  | PatOr (p1, p2) ->
-    Ty.cup (type_of_pat p1) (type_of_pat p2)
-  | PatTuple ps -> Tuple.mk (List.map type_of_pat ps)
-  | PatCons (p1, p2) ->
-    Lst.cons (type_of_pat p1) (type_of_pat p2)
-  | PatRecord (fields, o) ->
-    Record.mk o (List.map (fun (str, p) -> (str, (false, type_of_pat p))) fields)
-  | PatAssign _ -> Ty.any
-
-let rec vars_of_pat pat =
-  let open PAst in
-  match pat with
-  | PatType _ | PatLit _ -> VarSet.empty
-  | PatVar x when Variable.equals x dummy_pat_var -> VarSet.empty
-  | PatVar x -> VarSet.singleton x
-  | PatTag (_, p) -> vars_of_pat p
-  | PatOr (p1, p2) ->
-    VarSet.inter (vars_of_pat p1) (vars_of_pat p2)
-  | PatTuple ps -> List.fold_left VarSet.union VarSet.empty (List.map vars_of_pat ps)
-  | PatAnd (p1, p2) | PatCons (p1, p2) -> VarSet.union (vars_of_pat p1) (vars_of_pat p2)
-  | PatRecord (fields, _) ->
-    List.fold_left
-      (fun acc (_, p) -> VarSet.union acc (vars_of_pat p))
-      VarSet.empty fields
-  | PatAssign (x,_) -> VarSet.singleton x
-
-let rec def_of_var_pat pat v e =
-  let open PAst in
-  assert (Variable.equals v dummy_pat_var |> not) ;
-  match pat with
-  | PatVar v' when Variable.equals v v' -> e
-  | PatVar _ -> assert false
-  | PatTag (tag, p) ->
-    def_of_var_pat p v (Eid.unique (), Projection (PiTag tag, e))
-  | PatAnd (p1, p2) ->
-    if vars_of_pat p1 |> VarSet.mem v
-    then def_of_var_pat p1 v e
-    else def_of_var_pat p2 v e
-  | PatTuple ps ->
-    let i = List.find_index (fun p -> vars_of_pat p |> VarSet.mem v) ps |> Option.get in
-    let n = List.length ps in
-    let p = List.nth ps i in
-    def_of_var_pat p v (Eid.unique (), Projection (Pi (n,i), e))
-  | PatCons (p1, p2) ->
-    if vars_of_pat p1 |> VarSet.mem v
-    then def_of_var_pat p1 v (Eid.unique (), Projection (Hd, e))
-    else def_of_var_pat p2 v (Eid.unique (), Projection (Tl, e))
-  | PatRecord (fields, _) ->
-    let (str, p) =
-      fields |> List.find (fun (_, p) -> vars_of_pat p |> VarSet.mem v)
-    in
-    def_of_var_pat p v (Eid.unique (), Projection (Field str, e))
-  | PatOr (p1, p2) ->
-    let case = Ite (e, type_of_pat p1,
-      def_of_var_pat p1 v e, def_of_var_pat p2 v e) in
-    (Eid.unique (), case)
-  | PatAssign (v', c) when Variable.equals v v' -> (Eid.unique (), Const c)
-  | PatAssign _ -> assert false
-  | PatType _ -> assert false
-  | PatLit _ -> assert false
-
-let encode_pattern_matching e pats =
-  let open PAst in
-  let x = Variable.create_gen None in
-  let ex = (Eid.unique (), Var x) in
-  let ts = pats |> List.map fst |> List.map type_of_pat in
-  let t = Ty.disj ts in
-  let body_of_pat pat e' =
-    let vars = vars_of_pat pat in
-    let add_def acc v =
-      let d = def_of_var_pat pat v ex in
-      (Eid.refresh (fst acc), Let (v, d, acc))
-    in
-    List.fold_left add_def e' (VarSet.elements vars)
-  in
-  let add_branch acc (t, e') =
-    let p1, p2 = Eid.loc (fst e'), Eid.loc (fst acc) in
-    (Eid.unique_with_pos (Position.join p1 p2), Ite (ex, t, e', acc))
-  in
-  let pats = pats |> List.map (fun (pat, e') ->
-    (type_of_pat pat, body_of_pat pat e')) |> List.rev in
-  let body = match pats with
-  | [] -> assert false
-  | (_, e')::pats -> List.fold_left add_branch e' pats
-  in
-  let def = (Eid.refresh (fst e), TypeCast (e, t)) in
-  let body = (Eid.refresh (fst body), Suggest (x, ts, body)) in
-  Let (x, def, body)
-
 let expr_to_ast t =
-  let open System.Ast in
+  let open Lang.Ast in
   let sugg = Hashtbl.create 100 in
   let get_sugg v =
     match Hashtbl.find_opt sugg v with Some lst -> lst | None -> []
@@ -117,17 +19,30 @@ let expr_to_ast t =
     Variable.get_location x |> Variable.attach_location x' ;
     add_suggs x' (get_sugg x) ;
     Eid.refresh (fst e),
-    let_binding x' (Eid.unique (), Var x) (substitute x x' e)
+    let_binding x' (Eid.unique (), Var x) (rename x x' e)
   in
   let lambda_annot x a =
     match a with
     | None -> TVar.mk KInfer (Variable.get_name x) |> TVar.typ |> GTy.mk
     | Some d -> GTy.mk d
   in
+  let rec aux_pat = function
+    | PAst.PatType ty -> PType ty
+    | PatVar v -> PVar v
+    | PatLit c -> PType (Lang.Const.typeof c)
+    | PatTag (t, pat) -> PConstructor (PCTag t, [aux_pat pat])
+    | PatTuple pats -> PConstructor (PCTuple (List.length pats), List.map aux_pat pats)
+    | PatCons (p1, p2) -> PConstructor (PCCons, [aux_pat p1; aux_pat p2])
+    | PatRecord (fields, opened) ->
+      PConstructor (PCRec (List.map fst fields, opened), fields |> List.map snd |> List.map aux_pat)
+    | PatAnd (p1, p2) -> PAnd (aux_pat p1, aux_pat p2)
+    | PatOr (p1, p2) -> POr (aux_pat p1, aux_pat p2)
+    | PatAssign (v, c) -> PAssign (v, Lang.Const.typeof c |> GTy.mk)
+  in
   let rec aux_e e =
     match e with
     | PAst.Magic t -> Value (GTy.mk t)
-    | Const c -> Value (System.Const.typeof c |> GTy.mk)
+    | Const c -> Value (Lang.Const.typeof c |> GTy.mk)
     | Var v -> Var v
     | Enum e -> Constructor (Enum e, [])
     | Tag (t, e) -> Constructor (Tag t, [aux e])
@@ -145,19 +60,21 @@ let expr_to_ast t =
     | Tuple es -> Constructor (Tuple (List.length es), List.map aux es)
     | Cons (e1, e2) -> Constructor (Cons, [aux e1 ; aux e2])
     | Projection (p, e) -> Projection (p, aux e)
+    | Record lst ->
+      Constructor (Rec (List.map (fun (str,_) -> str, false) lst, false), List.map snd lst |> List.map aux)
     | RecordUpdate (e, lbl, None) -> Constructor (RecDel lbl, [aux e])
     | RecordUpdate (e, lbl, Some e') -> Constructor (RecUpd lbl, [aux e ; aux e'])
     | TypeCast (e, ty) -> TypeCast (aux e, ty)
     | TypeCoerce (e, tyo, c) ->
       let ty = match tyo with None -> GTy.dyn | Some ty -> GTy.mk ty in
       TypeCoerce (aux e, ty, c)
-    | PatMatch (e, pats) -> encode_pattern_matching e pats |> aux_e
-    | Cond (e,t,e1,e2) ->
-      ControlFlow (CfCond, aux e, t, Some (aux e1), Option.map aux e2)
-    | While (e,t,e1) ->
-      ControlFlow (CfWhile, aux e, t, Some (aux e1), None)
-    | Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
+    | PatMatch (e, pats) -> PatMatch (aux e, List.map (fun (pat,e) -> (aux_pat pat,aux e)) pats)
+    | Cond (e,t,e1,e2) -> If (aux e, t, aux e1, Option.map aux e2)
+    | While (e,t,e1) -> While (aux e, t, aux e1)
+    | Seq (e1, e2) -> Seq (aux e1, aux e2)
+    | Return e -> Return (Some (aux e))
+    | Break | Continue -> Break
   and aux (id, e) =
     (id, aux_e e)
   in
-  aux t
+  aux t |> Lang.Transform.transform

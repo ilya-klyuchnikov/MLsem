@@ -3,7 +3,7 @@
   open Mlsem
   open Common
   open System.Ast
-  open System.Const
+  open Lang.Const
   open PAst
   open Types.TyExpr
 
@@ -75,7 +75,7 @@
 
 %token EOF
 %token FUN VAL LET IN FST SND HD TL HASHTAG SUGGEST
-%token IF IS THEN ELSE WHILE DO BEGIN
+%token IF IS THEN ELSE WHILE DO BEGIN PLACEHOLDER_VAR RETURN BREAK CONTINUE
 %token LPAREN RPAREN IRPAREN EQUAL COMMA CONS COLON COLON_OPT
 %token COERCE COERCE_STATIC COERCE_NOCHECK
 %token INTERROGATION_MARK EXCLAMATION_MARK
@@ -109,10 +109,10 @@
 
 program: e=element* EOF { e }
 
-unique_term: t=term EOF { t }
+unique_term: t=terms EOF { t }
 
 %inline tl_let:
-| id=generalized_identifier ais=parameter* EQUAL t=term
+| id=generalized_identifier ais=parameter* EQUAL t=terms
 {
   let t = abstraction $startpos $endpos ais t in
   (id, t)
@@ -149,6 +149,9 @@ term:
 | SUGGEST id=generalized_identifier IS tys=separated_nonempty_list(OR_KW, typ) IN t=terms
 { annot $startpos $endpos (Suggest (id, tys, t)) }
 | IF t=term ott=optional_test_type THEN t1=term ELSE t2=term { annot $startpos $endpos (Ite (t,ott,t1,t2)) }
+| RETURN t=term { annot $startpos $endpos (Return t) }
+| BREAK { annot $startpos $endpos Break }
+| CONTINUE { annot $startpos $endpos Continue }
 
 terms:
   a=term { a }
@@ -219,20 +222,18 @@ atomic_term:
 | LPAREN t=term COLON ty=typ RPAREN { annot $startpos $endpos (TypeCast (t,ty)) }
 | LPAREN t=term c=coerce ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,Some ty,c)) }
 | LPAREN t=term c=coerce HASHTAG RPAREN { annot $startpos $endpos (TypeCoerce (t,None,c)) }
-| LBRACE obr=optional_base_record fs=separated_list(SEMICOLON, field_term) RBRACE
-{ record_update $startpos $endpos obr fs }
+| LBRACE fs=separated_list(SEMICOLON, field_term) RBRACE { annot $startpos $endpos (Record fs) }
+| LBRACE br=atomic_term WITH fs=separated_list(SEMICOLON, field_term) RBRACE
+{ record_update $startpos $endpos br fs }
 | LBRACKET lst=separated_list(SEMICOLON, simple_term) RBRACKET
 { list_of_elts $startpos $endpos lst }
 
 %inline coerce:
   COERCE { Check } | COERCE_STATIC { CheckStatic } | COERCE_NOCHECK { NoCheck }
 
-%inline optional_base_record:
-  { annot $startpos $endpos (Const EmptyRecord) }
-| a=atomic_term WITH { a }
-
 %inline field_term:
   id=ID EQUAL t=simple_term { (id, t) }
+| id=ID { (id, annot $startpos $endpos (Var id)) }
 
 literal:
   f=lfloat { Float f }
@@ -387,6 +388,7 @@ simple_pattern_nocons:
 atomic_pattern:
   COLON t=atomic_typ { PatType t }
 | v=ID  { PatVar v }
+| PLACEHOLDER_VAR  { PatType (TBase TAny) }
 | c=literal { PatLit c }
 | e=CID { PatType (TEnum e) }
 | t=PCID p=pattern RPAREN { PatTag (t,p) }

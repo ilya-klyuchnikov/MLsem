@@ -202,6 +202,7 @@
             | <var>e</var> <kbd>;</kbd> <var>e</var>
             | <kbd>if</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>do</kbd> <var>e</var> [<kbd>else</kbd> <var>e</var>] <kbd>end</kbd>
             | <kbd>while</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>do</kbd> <var>e</var> <kbd>end</kbd>
+            | <kbd>return</kbd> <var>e</var> | <kbd>break</kbd> | <kbd>continue</kbd>
 
         <var id="literals">lit</var> ::= <s>[0-9]+</s>
             | <kbd>'</kbd><s><var>char</var></s><kbd>'</kbd>
@@ -236,6 +237,7 @@
             <li>a sequence</li>
             <li>an imperative conditional (branches return <kbd>()</kbd>)</li>
             <li>an imperative while loop (body return <kbd>()</kbd>)</li>
+            <li>a control flow escape operation (<kbd>return</kbd> for functions, <kbd>break</kbd> or <kbd>continue</kbd> for loops)</li>
         </ul>
         <h2 id="patterns">Patterns</h2>
         <code>

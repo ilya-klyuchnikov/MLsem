@@ -184,7 +184,6 @@ module Record = struct
 
   let any =
     Sstt.Records.any |> Sstt.Descr.mk_records |> Sstt.Ty.mk_descr
-  let empty_closed = mk false []
   let any_with l = mk true [l, (false, Ty.any)]
   let any_without l = mk true [l, (true, Ty.empty)]
 

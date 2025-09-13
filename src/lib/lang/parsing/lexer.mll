@@ -64,6 +64,7 @@ rule token = parse
 | "|"     { OR }
 | "\\"    { DIFF }
 | "~"     { NEG  }
+| "_"     { PLACEHOLDER_VAR }
 | ":"     { COLON }
 | ":?"    { COLON_OPT }
 | "::"    { CONS }
@@ -81,6 +82,9 @@ rule token = parse
 | "else"  { ELSE }
 | "while" { WHILE }
 | "do"    { DO }
+| "return"   { RETURN }
+| "break"    { BREAK }
+| "continue" { CONTINUE }
 | "match" { MATCH }
 | "with"  { WITH }
 | "begin" { BEGIN }

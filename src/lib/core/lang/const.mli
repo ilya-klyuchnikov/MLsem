@@ -2,7 +2,6 @@ open Types
 
 type t =
 | Unit | Nil
-| EmptyRecord
 | Bool of bool
 | Int of Z.t
 | Float of float

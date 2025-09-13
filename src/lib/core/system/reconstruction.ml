@@ -207,12 +207,12 @@ let rec infer cache env renvs annot (id, e) =
     | Fail -> Fail
     | Subst (ss,a,a',r) -> Subst (ss,AIte (a,a1,a2),AIte (a',a1,a2),r)
     | Ok (a0, s) ->
-      begin match infer_b' cache env renvs a1 e1 s tau with
+      begin match infer_b' ~overload:true cache env renvs a1 e1 s tau with
       | Fail -> Fail
       | Subst (ss, a1, a1',r) ->
         Subst (ss, AIte(A a0,a1,a2), AIte(A a0,a1',a2),r)
       | Ok (a1,_) ->
-        begin match infer_b' cache env renvs a2 e2 s (Ty.neg tau) with
+        begin match infer_b' ~overload:true cache env renvs a2 e2 s (Ty.neg tau) with
         | Fail -> Fail
         | Subst (ss, a2, a2',r) ->
           Subst (ss, AIte(A a0,to_i a1,a2), AIte(A a0,to_i a1,a2'),r)
@@ -220,24 +220,18 @@ let rec infer cache env renvs annot (id, e) =
         end  
       end
     end
-  | ControlFlow _, Infer -> retry_with (ACf (Infer, BInfer, BInfer))
-  | ControlFlow (_,e0,tau,e1,e2), ACf (a0,a1,a2) ->
-    begin match infer' cache env renvs a0 e0 with
+  | Conditional _, Infer -> retry_with (ACond (Infer, BInfer))
+  | Conditional (e,tau,e'), ACond (a,b) ->
+    begin match infer' cache env renvs a e with
     | Fail -> Fail
-    | Subst (ss,a,a',r) -> Subst (ss,ACf (a,a1,a2),ACf (a',a1,a2),r)
-    | Ok (a0, s) ->
-      begin match infer_cf_b' cache env renvs a1 e1 s tau with
+    | Subst (ss,a,a',r) -> Subst (ss,ACond (a,b),ACond (a',b),r)
+    | Ok (a, s) ->
+      begin match infer_b' ~overload:false cache env renvs b e' s tau with
       | Fail -> Fail
-      | Subst (ss, a1, a1',r) ->
-        Subst (ss, ACf(A a0,a1,a2), ACf(A a0,a1',a2),r)
-      | Ok (a1,_) ->
-        begin match infer_cf_b' cache env renvs a2 e2 s (Ty.neg tau) with
-        | Fail -> Fail
-        | Subst (ss, a2, a2',r) ->
-          Subst (ss, ACf(A a0,to_i a1,a2), ACf(A a0,to_i a1,a2'),r)
-        | Ok (a2,_) -> retry_with (nc (Annot.ACf(a0,a1,a2)))
-        end  
-      end
+      | Subst (ss, b, b',r) ->
+        Subst (ss, ACond(A a,b), ACond(A a,b'),r)
+      | Ok (b,_) -> retry_with (nc (Annot.ACond(a,b)))
+      end  
     end
   | App _, Infer -> retry_with (AApp (Infer, Infer))
   | App (e1, e2), AApp (a1,a2) ->
@@ -384,12 +378,17 @@ and infer' cache env renvs annot e =
     let annot = IAnnot.AInter (branches@default) in
     infer' cache env renvs annot e
   | Subst (ss, a1, a2, r) -> Subst (ss, a1, a2, r)
-and infer_b' cache env renvs bannot e s tau =
+and infer_b' ~overload cache env renvs bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
+  let retry_with bannot = infer_b' ~overload cache env renvs bannot e s tau in
   match bannot with
-  | IAnnot.BInfer ->
+  | IAnnot.BInfer when overload ->
     let ss = tallying_simpl ~infer:!Config.infer_overload env Ty.empty [(GTy.ub s,Ty.neg tau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType Infer, empty_cov)
+  | IAnnot.BInfer ->
+    if Ty.leq (GTy.ub s) (Ty.neg tau)
+    then retry_with (IAnnot.BSkip)
+    else retry_with (IAnnot.BType Infer)
   | IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
   | IAnnot.BType annot ->
     begin match infer' cache env renvs annot e with
@@ -397,23 +396,6 @@ and infer_b' cache env renvs bannot e s tau =
     | Subst (ss,a1,a2,r) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2,r)
     | Fail -> Fail
     end
-and infer_cf_b' cache env renvs bannot eo s tau =
-  let retry_with bannot = infer_cf_b' cache env renvs bannot eo s tau in
-  match eo, bannot with
-  | None, IAnnot.BInfer -> retry_with (IAnnot.BSkip)
-  | Some _, IAnnot.BInfer ->
-    if Ty.leq (GTy.ub s) (Ty.neg tau)
-    then retry_with (IAnnot.BSkip)
-    else retry_with (IAnnot.BType Infer)
-  | _, IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
-  | Some e, IAnnot.BType annot ->
-    begin match infer' cache env renvs annot e with
-    | Ok (a, ty) (* when Ty.leq ty Ty.unit *) -> Ok (Annot.BType a, ty)
-    (* | Ok _ -> Fail *)
-    | Subst (ss,a1,a2,r) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2,r)
-    | Fail -> Fail
-    end
-  | _, _ -> assert false
 and infer_part' cache env renvs e v (tvs, s) (si,annot) =
   let t = TyScheme.mk tvs (GTy.cap s (GTy.mk si)) in
   let env = Env.add v t env in

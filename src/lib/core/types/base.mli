@@ -104,7 +104,6 @@ end
 module Record : sig
     val mk : bool (* is_open *) -> (string * (bool * Ty.t)) list -> Ty.t
     val any : Ty.t
-    val empty_closed : Ty.t
     val any_with : string -> Ty.t
     val any_without : string -> Ty.t
     val dnf : Ty.t -> ((string * (bool * Ty.t)) list * bool) list

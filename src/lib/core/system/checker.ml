@@ -43,6 +43,15 @@ let domains_of_construct (c:Ast.constructor) ty =
     Lst.dnf ty
     |> List.filter (fun (a,b) -> Ty.leq (Lst.cons a b) ty)
     |> List.map (fun (t1,t2) -> [t1;t2])
+  | Rec (labels,opened) ->
+    Ty.cap ty (Record.mk opened (List.map (fun (lbl,o) -> (lbl, (o, Ty.any))) labels))
+    |> Record.dnf
+    |> List.filter_map (fun (bindings,opened) ->
+      let ty' = Record.mk opened bindings in
+      if Ty.leq ty' ty
+      then Some (List.map (fun (lbl,_) -> Record.proj ty' lbl) labels)
+      else None
+    )
   | RecUpd label ->
     Ty.cap ty (Record.any_with label)
     |> Record.dnf
@@ -67,6 +76,9 @@ let construct (c:Ast.constructor) tys =
   | Tuple n, tys when List.length tys = n -> Tuple.mk tys
   | Choice n, tys when List.length tys = n -> Ty.disj tys
   | Cons, [t1 ; t2] -> Lst.cons t1 t2
+  | Rec (labels, opened), tys when List.length labels = List.length tys ->
+    let bindings = List.map2 (fun (lbl,o) ty -> (lbl, (o,ty))) labels tys in
+    Record.mk opened bindings
   | RecUpd lbl, [t1 ; t2] ->
     let right_record = Record.mk false [lbl, (false, t2)] in
     Record.merge t1 right_record
@@ -83,16 +95,26 @@ exception Untypeable of error
 
 let untypeable id msg = raise (Untypeable { eid=id ; title=msg ; descr=None })
 
-let rec is_value (_,e) =
+let proj_is_gen p =
+  match p with
+  | Pi _ | Field _ | Hd | Tl | PiTag _ -> true
+  | PCustom c -> c.pgen
+let constr_is_gen c =
+  match c with
+  | Tuple _ | Cons | Rec _ | Tag _ | Enum _
+  | RecUpd _ | RecDel _ | Choice _ -> true
+  | CCustom c -> c.cgen
+let rec is_gen (_,e) =
   match e with
   | Lambda _ | Value _ -> true
-  | Constructor (_, es) -> List.for_all is_value es
-  | LambdaRec lst -> List.for_all (fun (_,_,e) -> is_value e) lst
-  | TypeCast (e, _) | TypeCoerce (e, _, _) -> is_value e
-  | _ -> false
+  | Var _ | Let _ | Ite _ | App _ | Conditional _ -> false
+  | Constructor (c, es) -> constr_is_gen c && List.for_all is_gen es
+  | Projection (p, e) -> proj_is_gen p && is_gen e
+  | LambdaRec lst -> List.for_all (fun (_,_,e) -> is_gen e) lst
+  | TypeCast (e, _) | TypeCoerce (e, _, _) -> is_gen e
 
 let generalize ~e env s =
-  if not (!Config.value_restriction) || is_value e then
+  if not (!Config.value_restriction) || is_gen e then
     TyScheme.mk_poly_except (Env.tvars env) s |> TyScheme.bot_instance
   else
     TyScheme.mk_mono s
@@ -139,11 +161,10 @@ let rec typeof' env annot (id,e) =
     let t1 = typeof_b env b1 e1 s tau in
     let t2 = typeof_b env b2 e2 s (Ty.neg tau) in
     GTy.cup t1 t2
-  | ControlFlow (_, e, tau, e1, e2), ACf (annot, b1, b2) ->
+  | Conditional (e, tau, e'), ACond (annot, b) ->
     let s = typeof env annot e in
-    typeof_cf_b env b1 e1 s tau ;
-    typeof_cf_b env b2 e2 s (Ty.neg tau) ;
-    GTy.mk Ty.unit
+    typeof_b env b e' s tau |> ignore ;
+    !Config.void_ty |> GTy.mk
   | App (e1, e2), AApp (annot1, annot2) ->
     let check ty1 ty2 =
       Ty.leq ty1 Arrow.any &&
@@ -207,10 +228,5 @@ and typeof_b env bannot (id,e) s tau =
     if Ty.disjoint (GTy.ub s) tau |> not
     then untypeable id "Branch is reachable and must be typed." ;
     GTy.empty
-and typeof_cf_b env bannot eo s tau =
-  match eo, bannot with
-  | None, BSkip -> ()
-  | Some e, bannot -> typeof_b env bannot e s tau |> ignore
-  | _, _ -> assert false
 and typeof_def env annot e =
   typeof env annot e |> generalize ~e env

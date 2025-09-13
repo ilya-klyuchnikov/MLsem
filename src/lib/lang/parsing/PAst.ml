@@ -3,7 +3,7 @@ open Common
 open Types.Builder
 open Types
 open System.Ast
-open System
+open Lang
 
 exception SymbolError of string
 exception LexicalError of Position.t * string
@@ -41,6 +41,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Tuple of ('a, 'typ, 'enu, 'tag, 'v) t list
 | Cons of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
 | Projection of projection * ('a, 'typ, 'enu, 'tag, 'v) t
+| Record of (string * ('a, 'typ, 'enu, 'tag, 'v) t) list
 | RecordUpdate of ('a, 'typ, 'enu, 'tag, 'v) t * string * ('a, 'typ, 'enu, 'tag, 'v) t option
 | TypeCast of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ
 | TypeCoerce of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ option * coerce
@@ -48,6 +49,8 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Cond of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t option
 | While of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t
 | Seq of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
+| Return of ('a, 'typ, 'enu, 'tag, 'v) t
+| Break | Continue
 
 and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 
@@ -60,10 +63,6 @@ let empty_name_var_map = NameMap.empty
 
 let new_annot p =
     Position.with_pos p (Eid.unique_with_pos p)
-
-let dummy_pat_var_str = "_"
-let dummy_pat_var =
-    Variable.create_gen (Some dummy_pat_var_str)
 
 let parser_expr_to_expr tenv vtenv name_var_map e =
     let aux_a tyo vtenv =
@@ -126,6 +125,8 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         | Cons (e1, e2) ->
             Cons (aux vtenv env e1, aux vtenv env e2)
         | Projection (p, e) -> Projection (p, aux vtenv env e)
+        | Record lst ->
+            Record (List.map (fun (str, e) -> str, aux vtenv env e) lst)
         | RecordUpdate (e1, l, e2) ->
             RecordUpdate (aux vtenv env e1, l, Option.map (aux vtenv env) e2)
         | TypeCast (e, ty) ->
@@ -146,6 +147,8 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             let (t, vtenv) = aux_cond tenv vtenv t in
             While (aux vtenv env e, t, aux vtenv env e')
         | Seq (e1, e2) -> Seq (aux vtenv env e1, aux vtenv env e2)
+        | Return eo -> Return (aux vtenv env eo)
+        | Break -> Break | Continue -> Continue
         in
         (eid,e)
     and aux_pat pos vtenv env (pat, e) =
@@ -170,11 +173,8 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
                 then (PatType t, vtenv, NameMap.empty)
                 else raise (SymbolError ("typecases should use test types"))
             | PatVar str ->
-                if String.equal str dummy_pat_var_str
-                then (PatVar dummy_pat_var, vtenv, NameMap.empty)
-                else
-                    let var = find_or_def_var str in
-                    (PatVar var, vtenv, NameMap.singleton str var)
+                let var = find_or_def_var str in
+                (PatVar var, vtenv, NameMap.singleton str var)
             | PatLit c -> (PatLit c, vtenv, NameMap.empty)
             | PatTag (str, p) ->
                 let tag = get_tag tenv str in
@@ -210,8 +210,6 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
                 ) ([], vtenv, env) fields in
                 (PatRecord (List.rev fields, o), vtenv, env)
             | PatAssign (str, c) ->
-                if String.equal str dummy_pat_var_str
-                then raise (SymbolError "invalid variable name for a pattern assignement") ;
                 let var = find_or_def_var str in
                 (PatAssign (var, c), vtenv, NameMap.singleton str var)
         in

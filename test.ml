@@ -14,7 +14,7 @@ let test_sig_overloaded x = x
 
 let test_annot (x:'a|bool) (y:'a|int) = (x,y)
 
-(* ========= TAGGED VALUES ======== *)
+(* ========= SIMPLE CONSTRUCTOR TESTS ======== *)
 
 let proj_a (A(v)) = v
 let proj_ab x =
@@ -31,6 +31,9 @@ let map_clist f (lst:clist('a)) =
   | Cons(v,tail) -> Cons(f v, map_clist f tail)
   | Nil -> Nil
   end
+
+let record_ab_open ({ a ; b ..}) = { a ; b }
+let record_ab ({ a ; b }) = { a ; b }
 
 (* ========= OPAQUE TYPES & IMPERATIVE PROGRAMMING ======== *)
 
@@ -654,3 +657,20 @@ let map_noannot2 f lst =
   | a::lst -> (f a)::(map_noannot2 f lst)
   end
 
+# infer_overload = true
+
+(* ========= CONTROL FLOW ========= *)
+
+let typeof_cf x =
+  if x is string do return "string" end ;
+  if x is bool do return "bool" end ;
+  if x is int do return "int" end ;
+  if x is char do return "char" end ;
+  if x is () do return "unit" end ;
+  "object"
+
+let break_return_cf x =
+  while x is ~false do
+    if x is 0 do break end ;
+    return x
+  end

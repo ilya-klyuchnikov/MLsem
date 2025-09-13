@@ -7,7 +7,7 @@ function getTokenizer() {
             'type', 'where', 'and', 'or', 'if', 'is', 'do', 'then',
             'else', 'match', 'with', 'end', 'begin', 'fun', 'let', 'in',
             'fst', 'snd', 'hd', 'tl', 'magic', 'true', 'false',
-            'abstract', 'suggest', 'while', 'val'
+            'abstract', 'suggest', 'while', 'val', 'return', 'break', 'continue'
         ],
 
         typeids: [

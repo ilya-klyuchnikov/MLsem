@@ -33,8 +33,8 @@ let sufficient_refinements env e t =
         List.map2 (fun e t -> aux e t) es ts |> combine')
     | TypeCoerce (_, s, _) when Ty.leq (GTy.lb s) t -> [REnv.empty]
     | Value s when Ty.leq (GTy.lb s) t -> [REnv.empty]
-    | ControlFlow _ when Ty.leq Ty.unit t -> [REnv.empty]
-    | Value _ | TypeCoerce _ | ControlFlow _ -> []
+    | Conditional _ when Ty.leq !Config.void_ty t -> [REnv.empty]
+    | Value _ | TypeCoerce _ | Conditional _ -> []
     | Projection (p, e) -> aux e (Checker.domain_of_proj p t)
     | TypeCast (e, _) -> aux e t
     | App ((_, Var v), e) when Env.mem v env ->
@@ -106,11 +106,9 @@ let refinement_envs env e =
     | LambdaRec lst -> lst |> List.iter (aux_lambda env)
     | Ite (e, tau, e1, e2) ->
       add_refinement env e tau ; add_refinement env e (Ty.neg tau) ;
-      aux env e1 ; aux env e2
-    | ControlFlow (_, e, tau, e1, e2) ->
-      if e1 <> None then add_refinement env e tau ;
-      if e2 <> None then add_refinement env e (Ty.neg tau) ;
-      Option.iter (aux env) e1 ; Option.iter (aux env) e2
+      aux env e ; aux env e1 ; aux env e2
+    | Conditional (e, tau, e') ->
+      add_refinement env e tau ; aux env e ; aux env e'
     | App (e1, e2) -> aux env e1 ; aux env e2
     | Let (_, v, e1, e2) ->
       aux env e1 ; aux (Env.add v (typeof env e1) env) e2 ;

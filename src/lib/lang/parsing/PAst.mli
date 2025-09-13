@@ -3,7 +3,7 @@ open Common
 open Types.Builder
 open Types
 open System.Ast
-open System
+open Lang
 
 exception SymbolError of string
 exception LexicalError of Position.t * string
@@ -42,6 +42,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Tuple of ('a, 'typ, 'enu, 'tag, 'v) t list
 | Cons of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
 | Projection of projection * ('a, 'typ, 'enu, 'tag, 'v) t
+| Record of (string * ('a, 'typ, 'enu, 'tag, 'v) t) list
 | RecordUpdate of ('a, 'typ, 'enu, 'tag, 'v) t * string * ('a, 'typ, 'enu, 'tag, 'v) t option
 | TypeCast of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ
 | TypeCoerce of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ option * coerce
@@ -49,6 +50,8 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Cond of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t option
 | While of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t
 | Seq of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
+| Return of ('a, 'typ, 'enu, 'tag, 'v) t
+| Break | Continue
 
 and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 
@@ -60,8 +63,6 @@ type name_var_map = Variable.t NameMap.t
 val empty_name_var_map : name_var_map
 
 val new_annot : Position.t -> annotation
-
-val dummy_pat_var : Variable.t
 
 val parser_expr_to_expr : type_env -> var_type_env -> name_var_map -> parser_expr -> expr
 
