@@ -32,7 +32,7 @@ type e =
 | Let of Ty.t list * Variable.t * t * t
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
-| VarAssign of Variable.t * t (* Will be untypeable if v is not mutable *)
+| VarAssign of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
 | Conditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
 | If of t * Ty.t * t * t option
 | While of t * Ty.t * t

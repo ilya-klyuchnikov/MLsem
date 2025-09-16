@@ -285,12 +285,13 @@ let transform t =
       SA.Let (tys, x, def, aux e2)
     | TypeCast (e, ty) -> SA.TypeCast (aux e, ty)
     | TypeCoerce (e, ty, c) -> SA.TypeCoerce (aux e, ty, c)
-    | VarAssign (v, e) -> SA.App (
+    | VarAssign (v, e) when MVariable.is_mutable v -> SA.App (
         (Eid.unique (), SA.Value (MVariable.ref_assign () |> GTy.mk)),
         (Eid.unique (), SA.Constructor (SA.Tuple 2,[
             (Eid.unique (), SA.Var v) ; aux e
         ]))
       )
+    | VarAssign _ -> invalid_arg "Cannot assign to an immutable variable."
     | Conditional (_,e,t,e1,(_,Void)) -> SA.Conditional (aux e, t, aux e1)
     | Conditional (_,e,t,(_,Void),e2) -> SA.Conditional (aux e, Ty.neg t, aux e2)
     | Conditional (b, e,t,e1,e2) ->
