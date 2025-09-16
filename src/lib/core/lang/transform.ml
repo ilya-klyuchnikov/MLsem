@@ -127,7 +127,7 @@ let rec eliminate_break e =
   let rec aux (id,e) cont =
     let cont' e = fill cont e in
     match e with
-    | Void | Value _ | Var _ | Constructor (_,[]) | Return None -> cont' (id,e)
+    | Void | Value _ | Var _ | Constructor (_,[]) -> cont' (id,e)
     | Let (tys, v, e1, e2) ->
       (id, Let (tys, v, hole, aux e2 cont)) |> aux e1
     | Projection (p, e) ->
@@ -165,7 +165,7 @@ let rec eliminate_break e =
       let e2 = Eid.unique (), Seq (e2, (Eid.unique (), Void)) in
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
-    | Return (Some e) -> (id, Return (Some hole)) |> cont' |> aux e
+    | Return e -> (id, Return hole) |> cont' |> aux e
     | Break -> id, Void
     | PatMatch _ | If _ | While _ -> assert false
     | Hole _ -> invalid_arg "Expression should not contain a hole."
@@ -234,8 +234,7 @@ let rec eliminate_return e =
       let e2 = Eid.unique (), Seq (e2, (Eid.unique (), Void)) in
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
-    | Return None -> id, Void
-    | Return (Some e) -> e
+    | Return e -> e
     | PatMatch _ | If _ | While _ -> assert false
     | Hole _ -> invalid_arg "Expression should not contain a hole."
   in

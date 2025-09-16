@@ -37,7 +37,7 @@ type e =
 | If of t * Ty.t * t * t option
 | While of t * Ty.t * t
 | Seq of t * t
-| Return of t option
+| Return of t
 | Break
 | Hole of int
 [@@deriving show]
@@ -106,7 +106,7 @@ let map_tl f (id,e) =
     | If (e, ty, e1, e2) -> If (f e, ty, f e1, Option.map f e2)
     | While (e, ty, e') -> While (f e, ty, f e')
     | Seq (e1, e2) -> Seq (f e1, f e2)
-    | Return e -> Return (Option.map f e)
+    | Return e -> Return (f e)
     | Break -> Break
     | Hole i -> Hole i
   in

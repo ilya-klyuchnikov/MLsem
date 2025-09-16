@@ -37,7 +37,7 @@ type e =
 | If of t * Ty.t * t * t option
 | While of t * Ty.t * t
 | Seq of t * t
-| Return of t option
+| Return of t
 | Break
 | Hole of int
 [@@deriving show]
