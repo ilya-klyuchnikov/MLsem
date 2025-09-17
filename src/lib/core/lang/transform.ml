@@ -113,7 +113,7 @@ let eliminate_if_while e =
 let has_break e =
   try
     let f = function
-    | (_, Lambda _) -> false
+    | (_, Lambda _) | (_, LambdaRec _) -> false
     | (_, Conditional (true, _, _, _, _)) -> false
     | (_, Break) -> raise Exit
     | _ -> true
@@ -154,7 +154,7 @@ let rec eliminate_break e =
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Lambda (tys, ty, x, e) -> (id, Lambda (tys, ty, x, eliminate_break e)) |> cont'
     | LambdaRec lst ->
-      (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_inner_break e) lst)) |> cont'
+      (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_break e) lst)) |> cont'
     | Conditional (true, e, tau, e1, e2) ->
       (id, Conditional (true, e, tau, eliminate_break e1, eliminate_break e2)) |> cont'
     | Conditional (false, e, tau, e1, e2) when not (has_break e1) && not (has_break e2) ->
@@ -175,6 +175,8 @@ let rec eliminate_break e =
 and eliminate_inner_break e =
   let f = function
   | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, eliminate_break e))
+  | (id,LambdaRec lst) ->
+    Some (id, LambdaRec (lst |> List.map (fun (ty,v,e) -> ty,v,eliminate_break e)))
   | (id,Conditional (true, e, t, e1, e2)) ->
     Some (id, Conditional (true, eliminate_inner_break e, t, eliminate_break e1, eliminate_break e2))
   | _ -> None
@@ -186,7 +188,7 @@ and eliminate_inner_break e =
 let has_return e =
   try
     let f = function
-    | (_, Lambda _) -> false
+    | (_, Lambda _) | (_, LambdaRec _) -> false
     | (_, Return _) -> raise Exit
     | _ -> true
     in
@@ -226,7 +228,7 @@ let rec eliminate_return e =
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Lambda (tys, ty, x, e) -> (id, Lambda (tys, ty, x, eliminate_return e)) |> cont'
     | LambdaRec lst ->
-      (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_inner_return e) lst)) |> cont'
+      (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_return e) lst)) |> cont'
     | Conditional (b, e, tau, e1, e2) when not (has_return e1) && not (has_return e2) ->
       (* Do not duplicate the continuation if unnecessary *)
       let e1, e2 = eliminate_inner_return e1, eliminate_inner_return e2 in
@@ -244,6 +246,8 @@ let rec eliminate_return e =
 and eliminate_inner_return e =
   let f = function
   | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, eliminate_return e))
+  | (id,LambdaRec lst) ->
+    Some (id, LambdaRec (lst |> List.map (fun (ty,v,e) -> ty,v,eliminate_return e)))
   | _ -> None
   in
   map' f e

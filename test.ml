@@ -707,3 +707,11 @@ let mut_narrowing_ok =
     if yv > 100 do y := Nil end
   end ;
   y
+
+let mut_and_return (_) =
+    if mx is 0 do
+        mx := 69
+    else
+        mx := 0 ; return false
+    end ;
+    mx
