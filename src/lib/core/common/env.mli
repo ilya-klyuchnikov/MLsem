@@ -29,10 +29,10 @@ module type Env = sig
     val pp_filtered : string list -> Format.formatter -> t -> unit
 end
 
-(** @canonical Mlsem.Common.Env *)
+(** @canonical Common.Env *)
 module Env : Env with type ty:=TyScheme.t
 
-(** @canonical Mlsem.Common.REnv *)
+(** @canonical Common.REnv *)
 module REnv : sig
   include Env with type ty:=Ty.t
   val find' : Variable.t -> t -> Ty.t
@@ -44,7 +44,7 @@ module REnv : sig
   val neg_approx : t -> t option
 end
 
-(** @canonical Mlsem.Common.REnvSet *)
+(** @canonical Common.REnvSet *)
 module REnvSet : sig
   type t
   val empty : t

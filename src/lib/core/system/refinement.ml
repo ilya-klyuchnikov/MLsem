@@ -2,7 +2,7 @@ open Common
 open Ast
 open Types
 open TVOp
-open Utils
+open Mlsem_utils
 
 let rec is_undesirable_arrow s =
   Ty.leq s Arrow.any &&
@@ -14,11 +14,11 @@ let is_undesirable mono s =
   is_undesirable_arrow s
 
 let combine rs1 rs2 =
-  carthesian_prod rs1 rs2
+  Utils.carthesian_prod rs1 rs2
   |> List.map (fun (r1, r2) -> REnv.cap r1 r2)
 
 let combine' rss =
-  carthesian_prod' rss |> List.map REnv.conj
+  Utils.carthesian_prod' rss |> List.map REnv.conj
 
 let sufficient_refinements env e t =
   let rec aux (_,e) t =

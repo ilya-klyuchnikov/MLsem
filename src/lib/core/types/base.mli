@@ -1,5 +1,5 @@
 
-(** @canonical Mlsem.Types.Ty *)
+(** @canonical Types.Ty *)
 module Ty : sig
     type t = Sstt.Ty.t
 
@@ -43,7 +43,7 @@ module Ty : sig
     val simplify : t -> t
 end
 
-(** @canonical Mlsem.Types.Enum *)
+(** @canonical Types.Enum *)
 module Enum : sig
     type t
     val pp : Format.formatter -> t -> unit
@@ -53,7 +53,7 @@ module Enum : sig
     val typ : t -> Ty.t
 end
 
-(** @canonical Mlsem.Types.Tag *)
+(** @canonical Types.Tag *)
 module Tag : sig
     type t
     val pp : Format.formatter -> t -> unit
@@ -64,7 +64,7 @@ module Tag : sig
     val proj : t -> Ty.t -> Ty.t
 end
 
-(** @canonical Mlsem.Types.Abstract *)
+(** @canonical Types.Abstract *)
 module Abstract : sig
     type t
     val define : string -> int -> t
@@ -78,7 +78,7 @@ module Abstract : sig
         -> Ty.t -> Ty.t
 end
 
-(** @canonical Mlsem.Types.Tuple *)
+(** @canonical Types.Tuple *)
 module Tuple : sig
     val any : Ty.t
     val any_n : int -> Ty.t
@@ -90,7 +90,7 @@ module Tuple : sig
     val recompose : (int * Ty.t list list) list * bool -> Ty.t
 end
 
-(** @canonical Mlsem.Types.Lst *)
+(** @canonical Types.Lst *)
 module Lst : sig
     val nil : Ty.t
     val any : Ty.t
@@ -100,7 +100,7 @@ module Lst : sig
     val proj : Ty.t -> Ty.t * Ty.t
 end
 
-(** @canonical Mlsem.Types.Record *)
+(** @canonical Types.Record *)
 module Record : sig
     val mk : bool (* is_open *) -> (string * (bool * Ty.t)) list -> Ty.t
     val any : Ty.t
@@ -116,7 +116,7 @@ module Record : sig
     val to_label : string -> Sstt.Label.t
 end
 
-(** @canonical Mlsem.Types.Arrow *)
+(** @canonical Types.Arrow *)
 module Arrow : sig
     val mk : Ty.t -> Ty.t -> Ty.t
     val any : Ty.t

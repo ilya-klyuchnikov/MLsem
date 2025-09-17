@@ -2,7 +2,7 @@
  (name native)
  (public_name mlsem)
  (package mlsem-bin)
- (libraries mlsem_lang unix)
+ (libraries mlsem_app unix)
  (modes
   (best exe))
  (modules native))
@@ -10,7 +10,7 @@
 (library
  (name web)
  (wrapped false)
- (libraries mlsem_lang yojson)
+ (libraries mlsem_app yojson)
  (preprocess
   (pps js_of_ocaml-ppx))
  (modules web))

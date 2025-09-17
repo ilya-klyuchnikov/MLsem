@@ -1,4 +1,5 @@
 open Tvar
+open Mlsem_utils
 
 type t = TVarSet.t * GTy.t
 let mk tvs ty =

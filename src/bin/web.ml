@@ -1,6 +1,6 @@
 open Mlsem
 open Common
-open Mlsem_lang.Main
+open Mlsem_app.Main
 open Js_of_ocaml
 open Yojson.Basic
 

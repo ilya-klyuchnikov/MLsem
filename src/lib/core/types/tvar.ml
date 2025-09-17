@@ -1,4 +1,5 @@
 open Base
+open Mlsem_utils
 
 module type TVar = sig
     type set

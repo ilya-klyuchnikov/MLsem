@@ -1,7 +1,7 @@
 open Base
 open Tvar
 
-(** @canonical Mlsem.Types.TyExpr *)
+(** @canonical Types.TyExpr *)
 module TyExpr : sig
     type base =
         | TInt of Z.t option * Z.t option | TCharInt of char * char | TSString of string
@@ -34,7 +34,7 @@ module TyExpr : sig
         | TExt of 'ext
 end
 
-(** @canonical Mlsem.Types.Builder' *)
+(** @canonical Types.Builder' *)
 module Builder' : sig
     module type B = sig
         type ext
@@ -71,8 +71,8 @@ module Builder' : sig
     module Make(E:Ext) : B with type ext = E.t
 end
 
-(** @canonical Mlsem.Types.empty *)
+(** @canonical Types.empty *)
 type empty = |
 
-(** @canonical Mlsem.Types.Builder *)
+(** @canonical Types.Builder *)
 module Builder : Builder'.B with type ext = empty

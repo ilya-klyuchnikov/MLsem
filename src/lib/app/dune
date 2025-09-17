@@ -1,6 +1,6 @@
 (library
- (name mlsem_lang)
- (public_name mlsem-lang)
+ (name mlsem_app)
+ (public_name mlsem-app)
  (libraries mlsem mlsem_utils)
  (preprocess
   (pps ppx_deriving.show ppx_deriving.ord ppx_deriving.eq)))

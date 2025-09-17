@@ -4,6 +4,7 @@ open Types
 open TVOp
 open Ast
 open Caching
+open Mlsem_utils
 
 type ('a,'b) result =
 | Ok of 'a * GTy.t

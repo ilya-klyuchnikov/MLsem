@@ -1,6 +1,6 @@
 (library
  (name lang)
- (public_name mlsem.lang)
+ (public_name mlsem-lang)
  (libraries types common system mlsem_utils)
  (preprocess
   (pps ppx_deriving.show ppx_deriving.eq))

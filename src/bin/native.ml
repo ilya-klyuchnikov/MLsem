@@ -1,6 +1,7 @@
 open Mlsem
 open Common
-open Mlsem_lang.Main
+open Mlsem_app.Main
+open Mlsem_utils
 
 let severity_to_str s =
     match s with
