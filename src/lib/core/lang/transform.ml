@@ -295,13 +295,15 @@ let transform t =
         SA.Var v
     | Constructor (c, es) -> SA.Constructor (c, List.map aux es)
     | Lambda (tys, ty, x, e) ->
-      let x' = MVariable.create_let (MVariable.kind x) (Variable.get_name x) in
-      Variable.get_location x |> Variable.attach_location x' ;
+      let x1 = MVariable.create_let Immut (Variable.get_name x) in
+      let x2 = MVariable.create_let (MVariable.kind x) (Variable.get_name x) in
+      Variable.get_location x |> Variable.attach_location x1 ;
+      Variable.get_location x |> Variable.attach_location x2 ;
       let body =
         Eid.refresh (fst e),
-        Let (tys, x', (Eid.unique (), Var x), rename_fv x x' e)
+        Let (tys, x2, (Eid.unique (), Var x1), rename_fv x x2 e)
       in
-      SA.Lambda (ty, x, aux body)
+      SA.Lambda (ty, x1, aux body)
     | LambdaRec lst ->
       let aux (ty,x,e) = (ty, x, aux e) in
       SA.LambdaRec (List.map aux lst)

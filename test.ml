@@ -689,6 +689,9 @@ let mut_valid =
 val mut my
 let mut my = 42
 
+let mut_param (mut a) =
+    a := 42 ; a
+
 let mut_narrowing_fail =
   let mut y = 42 in
   while y is ~Nil do
