@@ -677,17 +677,14 @@ let break_return_cf x =
 
 (* ========= MUTABLE VARS ========= *)
 
-let mut x : int = 42
-
+let mut mx : int = 42
 let mut_invalid =
-  x := true ; x
-
+  mx := true ; mx
 let mut_valid =
-  x := 69 ; x
+  mx := 69 ; mx
 
-val mut y
-
-let mut y = 42
+val mut my
+let mut my = 42
 
 let mut_narrowing_fail =
   let mut y = 42 in

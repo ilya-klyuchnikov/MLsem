@@ -158,11 +158,12 @@ let treat (tenv,varm,senv,env) (annot, elem) =
       check_not_defined varm name ;
       begin match tyo with
       | None ->
-        let v = Variable.create_let (Some name) in
+        let kind = if mut then MVariable.Mut else MVariable.Immut in
+        let v = MVariable.create_let kind (Some name) in
         Variable.attach_location v (Position.position annot) ;
         let varm = NameMap.add name v varm in
         let senv = VarMap.add v [] senv in
-        let env = Env.add v (TyScheme.mk_mono GTy.dyn) env in
+        let env = MVariable.add_to_env v (TyScheme.mk_mono GTy.dyn) env in
         (tenv,varm,senv,env), TDone
       | Some ty ->
         let (ty, _) = type_expr_to_typ tenv empty_vtenv ty in

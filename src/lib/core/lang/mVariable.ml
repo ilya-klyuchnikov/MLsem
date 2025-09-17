@@ -50,7 +50,7 @@ let mk_ref ty = Abstract.mk ref_abs [ty]
 let add_to_env v ty env =
   match Hashtbl.find_opt all v with
   | None -> Env.add v ty env
-  | Some None -> invalid_arg "Top-level mutable variables must be annotated."
+  | Some None -> Env.add v (GTy.dyn |> TyScheme.mk_poly) env
   | Some (Some ty') ->
     if TVOp.vars ty' |> TVarSet.is_empty |> not
     then invalid_arg "Top-level mutable variables must not contain type variables." ;
