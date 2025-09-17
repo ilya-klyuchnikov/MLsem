@@ -66,7 +66,7 @@ let subst_if_ann v a ty =
 
 let ref_uninit v =
   let a = TVar.mk TVar.KInfer None in
-  Arrow.mk (!Mlsem_system.Config.void_ty) (TVar.typ a |> mk_ref)
+  Arrow.mk Ty.unit (TVar.typ a |> mk_ref)
   |> subst_if_ann v a
 
 let ref_cons v =

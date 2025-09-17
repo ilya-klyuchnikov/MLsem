@@ -162,12 +162,12 @@ let rec eliminate_break e =
       let e1, e2 = eliminate_inner_break e1, eliminate_inner_break e2 in
       (id, Conditional (false, hole, tau, e1, e2)) |> cont' |> aux e
     | Conditional (false, e, tau, e1, e2) ->
-      let e1 = Eid.unique (), Seq (e1, (Eid.unique (), Void)) in
-      let e2 = Eid.unique (), Seq (e2, (Eid.unique (), Void)) in
+      let e1 = Eid.unique (), Constructor (Voidify, [e1]) in
+      let e2 = Eid.unique (), Constructor (Voidify, [e2]) in
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
     | Return e -> (id, Return hole) |> cont' |> aux e
-    | Break -> id, Void
+    | Break -> id, Value (GTy.mk Ty.empty)
     | PatMatch _ | If _ | While _ -> assert false
     | Hole _ -> invalid_arg "Expression should not contain a hole."
   in
@@ -234,8 +234,8 @@ let rec eliminate_return e =
       let e1, e2 = eliminate_inner_return e1, eliminate_inner_return e2 in
       (id, Conditional (b, hole, tau, e1, e2)) |> cont' |> aux e
     | Conditional (_, e, tau, e1, e2) ->
-      let e1 = Eid.unique (), Seq (e1, (Eid.unique (), Void)) in
-      let e2 = Eid.unique (), Seq (e2, (Eid.unique (), Void)) in
+      let e1 = Eid.unique (), Constructor (Voidify, [e1]) in
+      let e2 = Eid.unique (), Constructor (Voidify, [e2]) in
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
     | Return e -> e
@@ -311,7 +311,7 @@ let transform t =
     | Declare (x, e) when MVariable.is_mutable x ->
       let def = Eid.unique (), SA.App (
           (Eid.unique (), SA.Value (MVariable.ref_uninit x |> GTy.mk)),
-          (Eid.unique (), SA.Value (!Mlsem_system.Config.void_ty |> GTy.mk))) in
+          (Eid.unique (), SA.Value (Ty.unit |> GTy.mk))) in
       SA.Let ([], x, def, aux e)
     | Declare _ -> invalid_arg "Cannot declare an immutable variable."
     | Let (tys, x, e1, e2) ->
