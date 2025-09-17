@@ -74,6 +74,7 @@ rule token = parse
 | ","     { COMMA }
 | "."     { POINT }
 | "="     { EQUAL }
+| ":="    { ASSIGN }
 | "?"     { INTERROGATION_MARK }
 | "!"     { EXCLAMATION_MARK }
 | "if"    { IF }

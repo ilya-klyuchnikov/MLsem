@@ -56,6 +56,7 @@ let expr_to_ast t =
     | TypeCoerce (e, tyo, c) ->
       let ty = match tyo with None -> GTy.dyn | Some ty -> GTy.mk ty in
       TypeCoerce (aux e, ty, c)
+    | VarAssign (v, e) -> VarAssign (v, aux e)
     | PatMatch (e, pats) -> PatMatch (aux e, List.map (fun (pat,e) -> (aux_pat pat,aux e)) pats)
     | Cond (e,t,e1,e2) -> If (aux e, t, aux e1, Option.map aux e2)
     | While (e,t,e1) -> While (aux e, t, aux e1)

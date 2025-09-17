@@ -47,6 +47,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | RecordUpdate of ('a, 'typ, 'enu, 'tag, 'v) t * string * ('a, 'typ, 'enu, 'tag, 'v) t option
 | TypeCast of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ
 | TypeCoerce of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ option * coerce
+| VarAssign of 'v * ('a, 'typ, 'enu, 'tag, 'v) t
 | PatMatch of ('a, 'typ, 'enu, 'tag, 'v) t * (('a, 'typ, 'tag, 'v) pattern * ('a, 'typ, 'enu, 'tag, 'v) t) list
 | Cond of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t option
 | While of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t
@@ -149,6 +150,8 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
             TypeCoerce (aux vtenv env e, Some ty, c)
         | TypeCoerce (e, None, c) -> TypeCoerce (aux vtenv env e, None, c)
+        | VarAssign (str, e) ->
+            VarAssign (aux_var env str, aux vtenv env e)
         | PatMatch (e, pats) ->
             PatMatch (aux vtenv env e, List.map (aux_pat pos vtenv env) pats)
         | Cond (e, t, e1, e2) ->

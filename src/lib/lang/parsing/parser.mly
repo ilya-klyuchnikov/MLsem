@@ -76,7 +76,7 @@
 %token EOF
 %token FUN VAL LET MUT IN FST SND HD TL HASHTAG SUGGEST
 %token IF IS THEN ELSE WHILE DO BEGIN PLACEHOLDER_VAR RETURN BREAK CONTINUE
-%token LPAREN RPAREN IRPAREN EQUAL COMMA CONS COLON COLON_OPT
+%token LPAREN RPAREN IRPAREN EQUAL COMMA CONS COLON COLON_OPT ASSIGN
 %token COERCE COERCE_STATIC COERCE_NOCHECK
 %token INTERROGATION_MARK EXCLAMATION_MARK
 %token ARROW AND OR NEG DIFF
@@ -179,6 +179,7 @@ simple_term: (* Cannot end with a semi-colon *)
 | WHILE t=term ott=optional_test_type DO t1=terms END { annot $startpos $endpos (While (t,ott,t1)) }
 | MATCH t=term WITH pats=patterns END { annot $startpos $endpos (PatMatch (t,pats)) }
 | hd=simple_term2 COMMA tl=separated_nonempty_list(COMMA, simple_term2) { annot $startpos $endpos (Tuple (hd::tl)) }
+| id=ID ASSIGN t=simple_term { annot $startpos $endpos (VarAssign (id, t)) }
 
 simple_term2:
   a=simple_term3 { a }
