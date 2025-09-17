@@ -64,6 +64,11 @@ let subst_if_ann v a ty =
   | Some None -> ty
   | Some (Some ty') -> Subst.apply (Subst.construct [a,ty']) ty
 
+let ref_uninit v =
+  let a = TVar.mk TVar.KInfer None in
+  Arrow.mk (!System.Config.void_ty) (TVar.typ a |> mk_ref)
+  |> subst_if_ann v a
+
 let ref_cons v =
   let a = TVar.mk TVar.KInfer None in
   Arrow.mk (TVar.typ a) (TVar.typ a |> mk_ref)

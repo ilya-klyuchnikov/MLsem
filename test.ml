@@ -675,6 +675,9 @@ let break_return_cf x =
     return x
   end
 
+let weird_return x =
+  42, (if x then return 69 else 69)
+
 (* ========= MUTABLE VARS ========= *)
 
 let mut mx : int = 42

@@ -9,7 +9,7 @@ type projection =
 | PCustom of pcustom
 type constructor =
 | Tuple of int | Cons | Rec of (string * bool) list * bool | Tag of Tag.t | Enum of Enum.t 
-| RecUpd of string | RecDel of string | Choice of int
+| RecUpd of string | RecDel of string | Choice of int | Voidify
 | CCustom of ccustom
 type e =
 | Value of GTy.t

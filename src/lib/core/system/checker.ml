@@ -39,6 +39,8 @@ let domains_of_construct (c:Ast.constructor) ty =
     Tuple.dnf n ty
     |> List.filter (fun b -> Ty.leq (Tuple.mk b) ty)
   | Choice n -> [List.init n (fun _ -> ty)]
+  | Voidify when Ty.leq (!Config.void_ty) ty -> [ [Ty.any] ]
+  | Voidify -> []
   | Cons ->
     Lst.dnf ty
     |> List.filter (fun (a,b) -> Ty.leq (Lst.cons a b) ty)
@@ -75,6 +77,7 @@ let construct (c:Ast.constructor) tys =
   match c, tys with
   | Tuple n, tys when List.length tys = n -> Tuple.mk tys
   | Choice n, tys when List.length tys = n -> Ty.disj tys
+  | Voidify, [_] -> !Config.void_ty
   | Cons, [t1 ; t2] -> Lst.cons t1 t2
   | Rec (labels, opened), tys when List.length labels = List.length tys ->
     let bindings = List.map2 (fun (lbl,o) ty -> (lbl, (o,ty))) labels tys in
@@ -103,6 +106,7 @@ let constr_is_gen c =
   match c with
   | Tuple _ | Cons | Rec _ | Tag _ | Enum _
   | RecUpd _ | RecDel _ | Choice _ -> true
+  | Voidify -> false
   | CCustom c -> c.cgen
 let rec is_gen (_,e) =
   match e with

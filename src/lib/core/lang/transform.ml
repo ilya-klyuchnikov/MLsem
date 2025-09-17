@@ -128,6 +128,7 @@ let rec eliminate_break e =
     let cont' e = fill cont e in
     match e with
     | Void | Value _ | Var _ | Constructor (_,[]) -> cont' (id,e)
+    | Declare (v, e) -> (id, Declare (v, aux e cont))
     | Let (tys, v, e1, e2) ->
       (id, Let (tys, v, hole, aux e2 cont)) |> aux e1
     | Projection (p, e) ->
@@ -199,6 +200,7 @@ let rec eliminate_return e =
     let cont' e = fill cont e in
     match e with
     | Void | Value _ | Var _ | Constructor (_,[]) | Break -> cont' (id,e)
+    | Declare (v, e) -> (id, Declare (v, aux e cont))
     | Let (tys, v, e1, e2) ->
       (id, Let (tys, v, hole, aux e2 cont)) |> aux e1
     | Projection (p, e) ->
@@ -246,9 +248,36 @@ and eliminate_inner_return e =
   in
   map' f e
 
+(* Unify remaining returns *)
+
+let rec unify_returns e =
+  if has_return e
+  then
+    let v = MVariable.create_let MVariable.Mut (Some "res") in
+    let body = Eid.unique (), VarAssign (v, treat_returns v e) in
+    let body = Eid.unique (), Constructor (Voidify, [body]) in
+    let body = Eid.unique (), Seq (body, (Eid.unique (), Var v)) in
+    Eid.unique (), Declare (v, body)
+  else unify_inner_returns e
+and unify_inner_returns e =
+  let f = function
+  | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, unify_returns e))
+  | _ -> None
+  in
+  map' f e
+and treat_returns v e =
+  let f = function
+  | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, e))
+  | (id, Return e) ->
+    let e = treat_returns v e in
+    let ret = Eid.unique (), Return ((Eid.unique (), Var v)) in
+    Some (id, Seq ((Eid.unique (), VarAssign (v, e)), ret))
+  | _ -> None
+  in
+  map' f e
+
 (* Main *)
 
-(* TODO: Fallback for return statements *)
 let transform t =
   let rec aux (id, e) =
     let e = match e with
@@ -275,6 +304,12 @@ let transform t =
     | Ite (e,t,e1,e2) -> SA.Ite (aux e, t, aux e1, aux e2)
     | App (e1,e2) -> SA.App (aux e1, aux e2)
     | Projection (p, e) -> SA.Projection (p, aux e)
+    | Declare (x, e) when MVariable.is_mutable x ->
+      let def = Eid.unique (), SA.App (
+          (Eid.unique (), SA.Value (MVariable.ref_uninit x |> GTy.mk)),
+          (Eid.unique (), SA.Value (!System.Config.void_ty |> GTy.mk))) in
+      SA.Let ([], x, def, aux e)
+    | Declare _ -> invalid_arg "Cannot declare an immutable variable."
     | Let (tys, x, e1, e2) ->
       let tys, def = if MVariable.is_mutable x
         then [], (Eid.unique (), SA.App (
@@ -302,9 +337,8 @@ let transform t =
       ) in
       Let ([], x, aux e, aux body)
     | Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
-    | Break -> SA.Value (GTy.mk Ty.empty) (* Fallback for breaks *)
+    | Break | Return _ -> SA.Value (GTy.mk Ty.empty) (* Fallback for breaks and unified returns *)
     | PatMatch _ | If _ | While _ -> assert false
-    | Return _ -> invalid_arg "Expression has return statements that cannot be eliminated."
     | Hole _ -> invalid_arg "Expression should not contain a hole."
     in
     (id, e)
@@ -317,4 +351,5 @@ let transform t =
   |> eliminate_if_while
   |> eliminate_break
   |> eliminate_return
+  |> unify_returns
   |> transform

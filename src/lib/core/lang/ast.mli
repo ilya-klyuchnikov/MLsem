@@ -29,6 +29,7 @@ type e =
 | PatMatch of t * (pattern * t) list
 | App of t * t
 | Projection of SA.projection * t
+| Declare of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
 | Let of Ty.t list * Variable.t * t * t
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
