@@ -88,7 +88,8 @@
     <var>stmt</var> ::=  <kbd>type</kbd> <var>id</var> [<kbd>(</kbd><var>tvar</var>, ..., <var>tvar</var><kbd>)</kbd>] <kbd>=</kbd> <var>t</var> [<kbd>and</kbd> ...]
            | <kbd>abstract</kbd> <kbd>type</kbd> <var>id</var> [<kbd>(</kbd><var>tvar</var>, ..., <var>tvar</var><kbd>)</kbd>]
            | <kbd>let</kbd> <var>gid</var> <var>param</var>* <kbd>=</kbd> <var>e</var> [<kbd>and</kbd> ...]
-           | <kbd>val</kbd> <var>gid</var> [<kbd>:</kbd> <var>t</var>]
+           | <kbd>let</kbd> <kbd>mut</kbd> <var>id</var> [<kbd>:</kbd> <var>t</var>] <kbd>=</kbd> <var>e</var> [<kbd>and</kbd> ...]
+           | <kbd>val</kbd> [<kbd>mut</kbd>] <var>gid</var> [<kbd>:</kbd> <var>t</var>]
 
     <var>param</var> ::= <var>pat</var>
            | <kbd>(</kbd> <var>pat</var> <kbd>:</kbd> <var>t</var> <kbd>)</kbd>
@@ -106,12 +107,12 @@
             <li>
                 a abstract type definition, composed of a type name, and an optional list of type variables (parameters).
             </li>
-            <li>a toplevel value definition which follows, roughly, OCaml's
+            <li>a toplevel mutable or immutable variable definition which follows, roughly, OCaml's
                 syntactic convention. Function parameters can be either simple
                 identifiers or <a href="#patterns">patterns</a> and optionally
                 feature a <a href="#type">type</a> constraint.
             </li>
-            <li>a type signature, composed of a simple identifier and the associated type.
+            <li>a type signature for a mutable or immutable variable, composed of a simple identifier and the associated type.
                 If no type is given, the identifier will be given the dynamic type (gradual typing).
             </li>
         </ul>
@@ -187,19 +188,19 @@
             | <var>gid</var>
             | <var>cid</var> [<kbd>(</kbd><var>e</var><kbd>)</kbd>]
             | <kbd>(</kbd><var>e</var> <kbd>:</kbd> <var>t</var><kbd>)</kbd>
-            | <kbd>(</kbd><var>e</var> <kbd>:&gt;</kbd> <var>t</var><kbd>)</kbd>
-            | <kbd>(</kbd><var>e</var> <kbd>:&gt;&gt;</kbd> <var>t</var><kbd>)</kbd>
-            | <kbd>(</kbd><var>e</var> <kbd>:&gt;&gt;&gt;</kbd> <var>t</var><kbd>)</kbd>
+            | <kbd>(</kbd><var>e</var> <kbd>:&gt;</kbd> <var>t</var><kbd>)</kbd> | <kbd>(</kbd><var>e</var> <kbd>:&gt;&gt;</kbd> <var>t</var><kbd>)</kbd> | <kbd>(</kbd><var>e</var> <kbd>:&gt;&gt;&gt;</kbd> <var>t</var><kbd>)</kbd>
             | <kbd>{</kbd> [<var>e</var> <kbd>with</kbd>] <var>id</var><kbd>=</kbd><var>e</var><kbd>;</kbd>...<kbd>;</kbd><var>id</var><kbd>=</kbd><var>e</var> <kbd>}</kbd>
             | <kbd>[</kbd> <var>e</var><kbd>;</kbd> ... <kbd>;</kbd><var>e</var> <kbd>]</kbd>
             | <var>e</var> <kbd>,</kbd>...<kbd>,</kbd> <var>e</var>
-            | <kbd>fun</kbd> <var>param</var> ... <var>param</var> <kbd>-></kbd> <var>e</var>
-            | <kbd>let</kbd> <var>gid</var> <kbd>=</kbd> <var>e</var> <kbd>in</kbd> <var>e</var>
+            | <kbd>fun</kbd> <var>param</var>+ <kbd>-></kbd> <var>e</var>
+            | <kbd>let</kbd> <var>gid</var> <var>param</var>* <kbd>=</kbd> <var>e</var> <kbd>in</kbd> <var>e</var>
+            | <kbd>let</kbd> <kbd>mut</kbd> <var>id</var> [<kbd>:</kbd> <var>t</var>] <kbd>=</kbd> <var>e</var> <kbd>in</kbd> <var>e</var>
             | <kbd>let (</kbd><var>pat</var><kbd>) =</kbd> <var>e</var> <kbd>in</kbd> <var>e</var>
             | <kbd>if</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>then</kbd> <var>e</var> <kbd>else</kbd> <var>e</var>
             | <kbd>fst</kbd> <var>e</var> | <kbd>snd</kbd> <var>e</var> | <kbd>hd</kbd> <var>e</var> | <kbd>tl</kbd> <var>e</var>
             | <kbd>match</kbd> <var>e</var> <kbd>with</kbd> [<kbd>|</kbd>] <var>pat</var> <kbd>-></kbd> <var>e</var> <kbd>|</kbd> ... <kbd>|</kbd> <var>pat</var> <kbd>-></kbd> <var>e</var> <kbd>end</kbd>
             | <var>e</var> <kbd>;</kbd> <var>e</var>
+            | <var>id</var> <kbd>:=</kbd> <var>e</var>
             | <kbd>if</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>do</kbd> <var>e</var> [<kbd>else</kbd> <var>e</var>] <kbd>end</kbd>
             | <kbd>while</kbd> <var>e</var> [<kbd>is</kbd> <var>t</var>] <kbd>do</kbd> <var>e</var> <kbd>end</kbd>
             | <kbd>return</kbd> <var>e</var> | <kbd>break</kbd> | <kbd>continue</kbd>
@@ -235,6 +236,7 @@
             <li>a pattern matching construct.
             <a href="#patterns">Patterns</a> follow a first match policy.</li>
             <li>a sequence</li>
+            <li>an assignment to a mutable variable</li>
             <li>an imperative conditional (branches return <kbd>()</kbd>)</li>
             <li>an imperative while loop (body return <kbd>()</kbd>)</li>
             <li>a control flow escape operation (<kbd>return</kbd> for functions, <kbd>break</kbd> or <kbd>continue</kbd> for loops)</li>
@@ -242,7 +244,8 @@
         <h2 id="patterns">Patterns</h2>
         <code>
         <var>pat</var> ::= <kbd>:</kbd><var>simple_type</var>
-            | <var>id</var>
+            | <var>id</var><!--
+            | <kbd>(</kbd><kbd>mut</kbd> <var>id</var> [<kbd>:</kbd> <var>t</var>]<kbd>)</kbd> -->
             | <var>lit</var>
             | <var>cid</var> [<kbd>(</kbd><var>pat</var><kbd>)</kbd>]
             | <var>pat</var><kbd>,</kbd>...<kbd>,</kbd><var>pat</var> | <var>pat</var><kbd>|</kbd><var>pat</var> | <var>pat</var><kbd>&</kbd><var>pat</var>

@@ -674,3 +674,37 @@ let break_return_cf x =
     if x is 0 do break end ;
     return x
   end
+
+(* ========= MUTABLE VARS ========= *)
+
+let mut x : int = 42
+
+let mut_invalid =
+  x := true ; x
+
+let mut_valid =
+  x := 69 ; x
+
+val mut y
+
+let mut y = 42
+
+let mut_narrowing_fail =
+  let mut y = 42 in
+  while y is ~Nil do
+    y := succ y ;
+    (* ... *)
+    if y > 100 do y := Nil end
+  end ;
+  y
+
+(* TODO *)
+let mut_narrowing_ok =
+  let mut y = 42 in
+  let yv = y in
+  while yv is ~Nil do
+    y := succ yv ;
+    (* ... *)
+    if y > 100 do y := Nil end
+  end ;
+  y

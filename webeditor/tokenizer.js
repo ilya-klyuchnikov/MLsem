@@ -5,7 +5,7 @@ function getTokenizer() {
     
         keywords: [
             'type', 'where', 'and', 'or', 'if', 'is', 'do', 'then',
-            'else', 'match', 'with', 'end', 'begin', 'fun', 'let', 'in',
+            'else', 'match', 'with', 'end', 'begin', 'fun', 'let', 'mut', 'in',
             'fst', 'snd', 'hd', 'tl', 'magic', 'true', 'false',
             'abstract', 'suggest', 'while', 'val', 'return', 'break', 'continue'
         ],
@@ -18,7 +18,7 @@ function getTokenizer() {
         operators: [
             '||', '->', '&', '|', '\\', '~', ':',
             '=', '=?', '?', ';', '*', '--', '::',
-            '..', '-', '+', '/'
+            '..', '-', '+', '/', ':='
         ],
 
         delimiters: /[;,\.]/,
