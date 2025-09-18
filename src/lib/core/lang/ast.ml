@@ -34,7 +34,7 @@ type e =
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
 | VarAssign of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
-| Conditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
+| VoidConditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
 | If of t * Ty.t * t * t option
 | While of t * Ty.t * t
 | Seq of t * t
@@ -104,7 +104,7 @@ let map_tl f (id,e) =
     | TypeCast (e, ty) -> TypeCast (f e, ty)
     | TypeCoerce (e, ty, b) -> TypeCoerce (f e, ty, b)
     | VarAssign (v, e) -> VarAssign (v, f e)
-    | Conditional (b, e, ty, e1, e2) -> Conditional (b, f e, ty, f e1, f e2)
+    | VoidConditional (b, e, ty, e1, e2) -> VoidConditional (b, f e, ty, f e1, f e2)
     | If (e, ty, e1, e2) -> If (f e, ty, f e1, Option.map f e2)
     | While (e, ty, e') -> While (f e, ty, f e')
     | Seq (e1, e2) -> Seq (f e1, f e2)

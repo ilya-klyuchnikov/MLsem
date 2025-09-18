@@ -20,8 +20,6 @@ let rec iter_ann f (id,e) a =
     | Ite (e, _, e1, e2), AIte (a, b1, b2) ->
       (e,a)::([(e1,b1);(e2,b2)] |> List.filter_map (fun (e,b) ->
         match b with Annot.BSkip -> None | BType a -> Some (e,a)))
-    | Conditional (e, _, e'), ACond (a, b) ->
-      (e,a)::(match b with Annot.BSkip -> [] | BType a' -> [e',a'])
     | LambdaRec lst, ALambdaRec anns when List.length lst = List.length anns ->
       List.combine lst anns |> List.map (fun ((_,_,e), (_, a)) -> (e,a))
     | _, AInter anns -> anns |> List.map (fun a -> ((id,e), a))

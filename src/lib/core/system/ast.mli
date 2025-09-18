@@ -23,7 +23,6 @@ type e =
 | Let of (Ty.t list) * Variable.t * t * t
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * coerce
-| Conditional of t * Ty.t * t
 and t = Eid.t * e
 
 val map : (t -> t) -> t -> t

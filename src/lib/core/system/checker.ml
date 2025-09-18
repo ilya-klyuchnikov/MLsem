@@ -111,7 +111,7 @@ let constr_is_gen c =
 let rec is_gen (_,e) =
   match e with
   | Lambda _ | Value _ -> true
-  | Var _ | Let _ | Ite _ | App _ | Conditional _ -> false
+  | Var _ | Let _ | Ite _ | App _ -> false
   | Constructor (c, es) -> constr_is_gen c && List.for_all is_gen es
   | Projection (p, e) -> proj_is_gen p && is_gen e
   | LambdaRec lst -> List.for_all (fun (_,_,e) -> is_gen e) lst
@@ -165,10 +165,6 @@ let rec typeof' env annot (id,e) =
     let t1 = typeof_b env b1 e1 s tau in
     let t2 = typeof_b env b2 e2 s (Ty.neg tau) in
     GTy.cup t1 t2
-  | Conditional (e, tau, e'), ACond (annot, b) ->
-    let s = typeof env annot e in
-    typeof_b env b e' s tau |> ignore ;
-    !Config.void_ty |> GTy.mk
   | App (e1, e2), AApp (annot1, annot2) ->
     let check ty1 ty2 =
       Ty.leq ty1 Arrow.any &&

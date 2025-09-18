@@ -100,9 +100,9 @@ let eliminate_pattern_matching e =
 let eliminate_if_while e =
   let aux (id,e) =
     let e = match e with
-    | If (e,t,e1,None) -> Conditional (false, e, t, e1, (Eid.unique (), Void))
-    | If (e,t,e1,Some e2) -> Conditional (false, e, t, e1, e2)
-    | While (e,t,e1) -> Conditional (true, e, t, e1, (Eid.unique (), Void))
+    | If (e,t,e1,None) -> VoidConditional (false, e, t, e1, (Eid.unique (), Void))
+    | If (e,t,e1,Some e2) -> VoidConditional (false, e, t, e1, e2)
+    | While (e,t,e1) -> VoidConditional (true, e, t, e1, (Eid.unique (), Void))
     | e -> e
     in (id, e)
   in
@@ -114,7 +114,7 @@ let has_break e =
   try
     let f = function
     | (_, Lambda _) | (_, LambdaRec _) -> false
-    | (_, Conditional (true, _, _, _, _)) -> false
+    | (_, VoidConditional (true, _, _, _, _)) -> false
     | (_, Break) -> raise Exit
     | _ -> true
     in
@@ -155,13 +155,13 @@ let rec eliminate_break e =
     | Lambda (tys, ty, x, e) -> (id, Lambda (tys, ty, x, eliminate_break e)) |> cont'
     | LambdaRec lst ->
       (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_break e) lst)) |> cont'
-    | Conditional (true, e, tau, e1, e2) ->
-      (id, Conditional (true, e, tau, eliminate_break e1, eliminate_break e2)) |> cont'
-    | Conditional (false, e, tau, e1, e2) when not (has_break e1) && not (has_break e2) ->
+    | VoidConditional (true, e, tau, e1, e2) ->
+      (id, VoidConditional (false, e, tau, eliminate_break e1, eliminate_break e2)) |> cont'
+    | VoidConditional (false, e, tau, e1, e2) when not (has_break e1) && not (has_break e2) ->
       (* Do not duplicate the continuation if unnecessary *)
       let e1, e2 = eliminate_inner_break e1, eliminate_inner_break e2 in
-      (id, Conditional (false, hole, tau, e1, e2)) |> cont' |> aux e
-    | Conditional (false, e, tau, e1, e2) ->
+      (id, VoidConditional (false, hole, tau, e1, e2)) |> cont' |> aux e
+    | VoidConditional (false, e, tau, e1, e2) ->
       let e1 = Eid.unique (), Constructor (Voidify, [e1]) in
       let e2 = Eid.unique (), Constructor (Voidify, [e2]) in
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
@@ -177,8 +177,8 @@ and eliminate_inner_break e =
   | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, eliminate_break e))
   | (id,LambdaRec lst) ->
     Some (id, LambdaRec (lst |> List.map (fun (ty,v,e) -> ty,v,eliminate_break e)))
-  | (id,Conditional (true, e, t, e1, e2)) ->
-    Some (id, Conditional (true, eliminate_inner_break e, t, eliminate_break e1, eliminate_break e2))
+  | (id,VoidConditional (true, e, t, e1, e2)) ->
+    Some (id, VoidConditional (true, eliminate_inner_break e, t, eliminate_break e1, eliminate_break e2))
   | _ -> None
   in
   map' f e
@@ -229,17 +229,17 @@ let rec eliminate_return e =
     | Lambda (tys, ty, x, e) -> (id, Lambda (tys, ty, x, eliminate_return e)) |> cont'
     | LambdaRec lst ->
       (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_return e) lst)) |> cont'
-    | Conditional (b, e, tau, e1, e2) when not (has_return e1) && not (has_return e2) ->
+    | VoidConditional (false, e, tau, e1, e2) when not (has_return e1) && not (has_return e2) ->
       (* Do not duplicate the continuation if unnecessary *)
       let e1, e2 = eliminate_inner_return e1, eliminate_inner_return e2 in
-      (id, Conditional (b, hole, tau, e1, e2)) |> cont' |> aux e
-    | Conditional (_, e, tau, e1, e2) ->
+      (id, VoidConditional (false, hole, tau, e1, e2)) |> cont' |> aux e
+    | VoidConditional (false, e, tau, e1, e2) ->
       let e1 = Eid.unique (), Constructor (Voidify, [e1]) in
       let e2 = Eid.unique (), Constructor (Voidify, [e2]) in
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
     | Return e -> e
-    | PatMatch _ | If _ | While _ -> assert false
+    | PatMatch _ | If _ | While _ | VoidConditional (true, _, _, _, _) -> assert false
     | Hole _ -> invalid_arg "Expression should not contain a hole."
   in
   aux e hole
@@ -333,15 +333,9 @@ let transform t =
         ]))
       )
     | VarAssign _ -> invalid_arg "Cannot assign to an immutable variable."
-    | Conditional (_,e,t,e1,(_,Void)) -> SA.Conditional (aux e, t, aux e1)
-    | Conditional (_,e,t,(_,Void),e2) -> SA.Conditional (aux e, Ty.neg t, aux e2)
-    | Conditional (b, e,t,e1,e2) ->
-      let x = Variable.create_gen None in
-      let body = Eid.unique (), Seq (
-        (Eid.unique (), Conditional (b,(Eid.unique (), Var x),t,e1,(Eid.unique (), Void))),
-        (Eid.unique (), Conditional (b,(Eid.unique (), Var x),t,(Eid.unique (), Void),e2))
-      ) in
-      Let ([], x, aux e, aux body)
+    | VoidConditional (_,e,t,e1,e2) ->
+      let e = Eid.unique (), SA.Ite (aux e, t, aux e1, aux e2) in
+      SA.Constructor (SA.Voidify, [e])
     | Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
     | Break | Return _ -> SA.Value (GTy.mk Ty.empty) (* Fallback for breaks and unified returns *)
     | PatMatch _ | If _ | While _ -> assert false

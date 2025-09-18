@@ -32,7 +32,7 @@ type e =
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
 | VarAssign of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
-| Conditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
+| VoidConditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
 | If of t * Ty.t * t * t option
 | While of t * Ty.t * t
 | Seq of t * t

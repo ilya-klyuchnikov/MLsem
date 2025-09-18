@@ -18,7 +18,6 @@ module Annot = struct
   | ACast of t
   | ACoerce of GTy.t * t
   | AIte of t * branch * branch
-  | ACond of t * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
   | AInter of inter
@@ -38,7 +37,6 @@ module Annot = struct
       | ACast t -> ACast (aux t)
       | ACoerce (ty, t) -> ACoerce (GTy.substitute s ty, aux t)
       | AIte (t,b1,b2) -> AIte (aux t, aux_b b1, aux_b b2)
-      | ACond (t,b) -> ACond (aux t, aux_b b)
       | ALambda (ty, t) -> ALambda (GTy.substitute s ty, aux t)
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (GTy.substitute s ty, aux t)) lst)
       | AInter ts -> AInter (List.map aux ts)
@@ -73,7 +71,6 @@ module IAnnot = struct
   | ACast of t
   | ACoerce of GTy.t * t
   | AIte of t * branch * branch
-  | ACond of t * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
   | AInter of inter
@@ -92,7 +89,6 @@ module IAnnot = struct
       | ACast t -> ACast (aux t)
       | ACoerce (ty, t) -> ACoerce (GTy.substitute s ty, aux t)
       | AIte (t,b1,b2) -> AIte (aux t, aux_b b1, aux_b b2)
-      | ACond (t,b) -> ACond (aux t, aux_b b)
       | ALambda (ty, t) -> ALambda (GTy.substitute s ty, aux t)
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (GTy.substitute s ty, aux t)) lst)
       | AInter bs -> AInter (List.map aux_ib bs)

@@ -33,8 +33,7 @@ let sufficient_refinements env e t =
         List.map2 (fun e t -> aux e t) es ts |> combine')
     | TypeCoerce (_, s, _) when Ty.leq (GTy.lb s) t -> [REnv.empty]
     | Value s when Ty.leq (GTy.lb s) t -> [REnv.empty]
-    | Conditional _ when Ty.leq !Config.void_ty t -> [REnv.empty]
-    | Value _ | TypeCoerce _ | Conditional _ -> []
+    | Value _ | TypeCoerce _ -> []
     | Projection (p, e) -> aux e (Checker.domain_of_proj p t)
     | TypeCast (e, _) -> aux e t
     | App ((_, Var v), e) when Env.mem v env ->
@@ -89,6 +88,14 @@ let rec typeof env (_,e) =
   | TypeCoerce (_, ty, _) -> TyScheme.mk_mono ty
   | _ -> TyScheme.mk_mono GTy.any
 
+let has_constraints e =
+  let aux (_,e) =
+    match e with
+    | Value _ | Var _ | Let _ | Ite _ | Lambda _ | LambdaRec _ -> ()
+    | TypeCast _ | TypeCoerce _ | Projection _ | Constructor _ | App _ -> raise Exit
+  in
+  try iter aux e ; false with Exit -> true
+
 let refinement_envs env e =
   let res = ref REnvSet.empty in
   let add_refinement env e t =
@@ -105,10 +112,9 @@ let refinement_envs env e =
     | Lambda (d, v, e) -> aux_lambda env (d,v,e)
     | LambdaRec lst -> lst |> List.iter (aux_lambda env)
     | Ite (e, tau, e1, e2) ->
-      add_refinement env e tau ; add_refinement env e (Ty.neg tau) ;
+      if has_constraints e1 then add_refinement env e tau ;
+      if has_constraints e2 then add_refinement env e (Ty.neg tau) ;
       aux env e ; aux env e1 ; aux env e2
-    | Conditional (e, tau, e') ->
-      add_refinement env e tau ; aux env e ; aux env e'
     | App (e1, e2) -> aux env e1 ; aux env e2
     | Let (_, v, e1, e2) ->
       aux env e1 ; aux (Env.add v (typeof env e1) env) e2 ;

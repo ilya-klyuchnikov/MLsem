@@ -208,31 +208,18 @@ let rec infer cache env renvs annot (id, e) =
     | Fail -> Fail
     | Subst (ss,a,a',r) -> Subst (ss,AIte (a,a1,a2),AIte (a',a1,a2),r)
     | Ok (a0, s) ->
-      begin match infer_b' ~overload:true cache env renvs a1 e1 s tau with
+      begin match infer_b' cache env renvs a1 e1 s tau with
       | Fail -> Fail
       | Subst (ss, a1, a1',r) ->
         Subst (ss, AIte(A a0,a1,a2), AIte(A a0,a1',a2),r)
       | Ok (a1,_) ->
-        begin match infer_b' ~overload:true cache env renvs a2 e2 s (Ty.neg tau) with
+        begin match infer_b' cache env renvs a2 e2 s (Ty.neg tau) with
         | Fail -> Fail
         | Subst (ss, a2, a2',r) ->
           Subst (ss, AIte(A a0,to_i a1,a2), AIte(A a0,to_i a1,a2'),r)
         | Ok (a2,_) -> retry_with (nc (Annot.AIte(a0,a1,a2)))
         end  
       end
-    end
-  | Conditional _, Infer -> retry_with (ACond (Infer, BInfer))
-  | Conditional (e,tau,e'), ACond (a,b) ->
-    begin match infer' cache env renvs a e with
-    | Fail -> Fail
-    | Subst (ss,a,a',r) -> Subst (ss,ACond (a,b),ACond (a',b),r)
-    | Ok (a, s) ->
-      begin match infer_b' ~overload:false cache env renvs b e' s tau with
-      | Fail -> Fail
-      | Subst (ss, b, b',r) ->
-        Subst (ss, ACond(A a,b), ACond(A a,b'),r)
-      | Ok (b,_) -> retry_with (nc (Annot.ACond(a,b)))
-      end  
     end
   | App _, Infer -> retry_with (AApp (Infer, Infer))
   | App (e1, e2), AApp (a1,a2) ->
@@ -379,17 +366,12 @@ and infer' cache env renvs annot e =
     let annot = IAnnot.AInter (branches@default) in
     infer' cache env renvs annot e
   | Subst (ss, a1, a2, r) -> Subst (ss, a1, a2, r)
-and infer_b' ~overload cache env renvs bannot e s tau =
+and infer_b' cache env renvs bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
-  let retry_with bannot = infer_b' ~overload cache env renvs bannot e s tau in
   match bannot with
-  | IAnnot.BInfer when overload ->
+  | IAnnot.BInfer ->
     let ss = tallying_simpl ~infer:!Config.infer_overload env Ty.empty [(GTy.ub s,Ty.neg tau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType Infer, empty_cov)
-  | IAnnot.BInfer ->
-    if Ty.leq (GTy.ub s) (Ty.neg tau)
-    then retry_with (IAnnot.BSkip)
-    else retry_with (IAnnot.BType Infer)
   | IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
   | IAnnot.BType annot ->
     begin match infer' cache env renvs annot e with

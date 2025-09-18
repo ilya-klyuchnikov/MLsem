@@ -15,7 +15,6 @@ module Annot : sig
   | ACast of t
   | ACoerce of GTy.t * t
   | AIte of t * branch * branch
-  | ACond of t * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
   | AInter of inter
@@ -44,7 +43,6 @@ module IAnnot : sig
   | ACast of t
   | ACoerce of GTy.t * t
   | AIte of t * branch * branch
-  | ACond of t * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
   | AInter of inter
