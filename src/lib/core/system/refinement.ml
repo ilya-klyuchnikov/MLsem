@@ -104,8 +104,8 @@ let refinement_envs env e =
     | Lambda (d, v, e) -> aux_lambda env (d,v,e)
     | LambdaRec lst -> lst |> List.iter (aux_lambda env)
     | Ite (e, tau, e1, e2) ->
-      if VarSet.inter (fv e1) (fv e) |> VarSet.is_empty |> not then add_refinement env e tau ;
-      if VarSet.inter (fv e2) (fv e) |> VarSet.is_empty |> not then add_refinement env e (Ty.neg tau) ;
+      if fv e1 |> VarSet.is_empty |> not then add_refinement env e tau ;
+      if fv e2 |> VarSet.is_empty |> not then add_refinement env e (Ty.neg tau) ;
       aux env e ; aux env e1 ; aux env e2
     | App (e1, e2) -> aux env e1 ; aux env e2
     | Let (_, v, e1, e2) ->
