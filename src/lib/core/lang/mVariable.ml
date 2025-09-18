@@ -81,5 +81,5 @@ let ref_get v =
 
 let ref_assign v =
   let a = TVar.mk TVar.KInfer None in
-  Arrow.mk (Tuple.mk [TVar.typ a |> mk_ref ; TVar.typ a]) (!Mlsem_system.Config.void_ty)
+  Arrow.mk (Tuple.mk [TVar.typ a |> mk_ref ; TVar.typ a]) (!Config.void_ty)
   |> subst_if_ann v a
