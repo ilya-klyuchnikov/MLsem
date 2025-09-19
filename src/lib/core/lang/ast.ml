@@ -20,6 +20,7 @@ type pattern =
 [@@deriving show]
 type e =
 | Void
+| Isolate of t (* Prevent control flow encodings (CPS-like transformations) *)
 | Value of GTy.t
 | Var of Variable.t
 | Constructor of SA.constructor * t list
@@ -29,7 +30,7 @@ type e =
 | PatMatch of t * (pattern * t) list
 | App of t * t
 | Projection of SA.projection * t
-| Declare of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
+| Declare of Ty.t list * Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
 | Let of Ty.t list * Variable.t * t * t
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
@@ -37,9 +38,10 @@ type e =
 | VoidConditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
 | If of t * Ty.t * t * t option
 | While of t * Ty.t * t
+| Try of t list
 | Seq of t * t
 | Return of t
-| Break
+| Break | Exc
 | Hole of int
 [@@deriving show]
 and t = Eid.t * e
@@ -88,6 +90,7 @@ let map_tl f (id,e) =
   let e =
     match e with
     | Void -> Void
+    | Isolate e -> Isolate (f e)
     | Value t -> Value t
     | Var v -> Var v
     | Constructor (c,es) -> Constructor (c, List.map f es)
@@ -99,7 +102,7 @@ let map_tl f (id,e) =
       PatMatch (f e, List.map (fun (pat, e) -> pat, f e) pats)
     | App (e1, e2) -> App (f e1, f e2)
     | Projection (p, e) -> Projection (p, f e)
-    | Declare (v, e) -> Declare (v, f e)
+    | Declare (tys, v, e) -> Declare (tys, v, f e)
     | Let (tys, v, e1, e2) -> Let (tys, v, f e1, f e2)
     | TypeCast (e, ty) -> TypeCast (f e, ty)
     | TypeCoerce (e, ty, b) -> TypeCoerce (f e, ty, b)
@@ -107,9 +110,10 @@ let map_tl f (id,e) =
     | VoidConditional (b, e, ty, e1, e2) -> VoidConditional (b, f e, ty, f e1, f e2)
     | If (e, ty, e1, e2) -> If (f e, ty, f e1, Option.map f e2)
     | While (e, ty, e') -> While (f e, ty, f e')
+    | Try es -> Try (List.map f es)
     | Seq (e1, e2) -> Seq (f e1, f e2)
     | Return e -> Return (f e)
-    | Break -> Break
+    | Break -> Break | Exc -> Exc
     | Hole i -> Hole i
   in
   (id,e)
@@ -142,7 +146,7 @@ let fill_hole n elt e =
 let bv e =
   let bv = ref VarSet.empty in
   let aux (_,e) = match e with
-  | Lambda (_, _, v, _) | Let (_, v, _, _) | Declare (v, _) -> bv := VarSet.add v !bv
+  | Lambda (_, _, v, _) | Let (_, v, _, _) | Declare (_, v, _) -> bv := VarSet.add v !bv
   | LambdaRec lst -> lst |> List.iter (fun (_, v, _) -> bv := VarSet.add v !bv)
   | PatMatch (_,pats) ->
     bv := List.fold_left (fun acc (pat,_) -> VarSet.union acc (bv_pat pat)) !bv pats

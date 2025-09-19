@@ -118,6 +118,8 @@ let has_break e =
     let f = function
     | (_, Lambda _) | (_, LambdaRec _) -> false
     | (_, VoidConditional (true, _, _, _, _)) -> false
+    | (_, App _) | (_, Constructor (_, _::_::_)) -> false
+    | (_, Isolate _) -> false
     | (_, Break) -> raise Exit
     | _ -> true
     in
@@ -130,8 +132,9 @@ let rec eliminate_break e =
   let rec aux (id,e) cont =
     let cont' e = fill cont e in
     match e with
-    | Void | Value _ | Var _ | Constructor (_,[]) -> cont' (id,e)
-    | Declare (v, e) -> (id, Declare (v, aux e cont))
+    | Void | Value _ | Var _ | Constructor (_,[]) | Exc -> cont' (id,e)
+    | Isolate e -> (id, Isolate (eliminate_inner_break e)) |> cont'
+    | Declare (tys, v, e) -> (id, Declare (tys, v, aux e cont))
     | Let (tys, v, e1, e2) ->
       (id, Let (tys, v, hole, aux e2 cont)) |> aux e1
     | Projection (p, e) ->
@@ -146,6 +149,10 @@ let rec eliminate_break e =
       (id, Constructor (c, [hole])) |> cont' |> aux e
     | Constructor (c, es) ->
       (id, Constructor (c, List.map eliminate_inner_break es)) |> cont'
+    | Try es when not (List.exists has_break es) ->
+      (* Do not duplicate the continuation if unnecessary *)
+      (id, Try (List.map eliminate_inner_break es)) |> cont'
+    | Try (es) -> (id, Try (es |> List.map (fun e -> aux e cont)))
     | App (e1, e2) ->
       let e1, e2 = eliminate_inner_break e1, eliminate_inner_break e2 in
       (id, App (e1, e2)) |> cont'
@@ -190,6 +197,8 @@ let has_return e =
   try
     let f = function
     | (_, Lambda _) | (_, LambdaRec _) -> false
+    | (_, App _) | (_, Constructor (_, _::_::_)) -> false
+    | (_, Isolate _) -> false
     | (_, Return _) -> raise Exit
     | _ -> true
     in
@@ -202,8 +211,9 @@ let rec eliminate_return e =
   let rec aux (id,e) cont =
     let cont' e = fill cont e in
     match e with
-    | Void | Value _ | Var _ | Constructor (_,[]) | Break -> cont' (id,e)
-    | Declare (v, e) -> (id, Declare (v, aux e cont))
+    | Void | Value _ | Var _ | Constructor (_,[]) | Break | Exc -> cont' (id,e)
+    | Isolate e -> (id, Isolate (eliminate_inner_return e)) |> cont'
+    | Declare (tys, v, e) -> (id, Declare (tys, v, aux e cont))
     | Let (tys, v, e1, e2) ->
       (id, Let (tys, v, hole, aux e2 cont)) |> aux e1
     | Projection (p, e) ->
@@ -218,6 +228,10 @@ let rec eliminate_return e =
       (id, Constructor (c, [hole])) |> cont' |> aux e
     | Constructor (c, es) ->
       (id, Constructor (c, List.map eliminate_inner_return es)) |> cont'
+    | Try es when not (List.exists has_return es) ->
+      (* Do not duplicate the continuation if unnecessary *)
+      (id, Try (List.map eliminate_inner_return es)) |> cont'
+    | Try (es) -> (id, Try (es |> List.map (fun e -> aux e cont)))
     | App (e1, e2) ->
       let e1, e2 = eliminate_inner_return e1, eliminate_inner_return e2 in
       (id, App (e1, e2)) |> cont'
@@ -253,13 +267,23 @@ and eliminate_inner_return e =
 
 (* Unify remaining returns *)
 
+let has_return e =
+  try
+    let f = function
+    | (_, Lambda _) | (_, LambdaRec _) -> false
+    | (_, Return _) -> raise Exit
+    | _ -> true
+    in
+    iter' f e ; false
+  with Exit -> true
+
 let rec unify_returns e =
   if has_return e
   then
     let v = MVariable.create_let MVariable.Mut (Some "res") in
     let body = Eid.unique (), VarAssign (v, treat_returns v e) in
     let body = Eid.unique (), Seq (voidify body, (Eid.unique (), Var v)) in
-    Eid.unique (), Declare (v, body)
+    Eid.unique (), Declare ([], v, body)
   else unify_inner_returns e
 and unify_inner_returns e =
   let f = function
@@ -284,6 +308,7 @@ let transform t =
   let rec aux (id, e) =
     let e = match e with
     | Void -> SA.Value (GTy.mk !Config.void_ty)
+    | Isolate e -> aux e |> snd
     | Value t -> SA.Value t
     | Var v ->
       if MVariable.is_mutable v then
@@ -306,9 +331,10 @@ let transform t =
       let aux (ty,x,e) = (ty, x, aux e) in
       SA.LambdaRec (List.map aux lst)
     | Ite (e,t,e1,e2) -> SA.Ite (aux e, t, aux e1, aux e2)
+    | Try es -> SA.Constructor (SA.Choice (List.length es), List.map aux es)
     | App (e1,e2) -> SA.App (aux e1, aux e2)
     | Projection (p, e) -> SA.Projection (p, aux e)
-    | Declare (x, e) when MVariable.is_mutable x ->
+    | Declare (_, x, e) when MVariable.is_mutable x ->
       let def = Eid.unique (), SA.App (
           (Eid.unique (), SA.Value (MVariable.ref_uninit x |> GTy.mk)),
           (Eid.unique (), SA.Value (Ty.unit |> GTy.mk))) in
@@ -335,7 +361,7 @@ let transform t =
       let e1, e2 = voidify e1 |> aux, voidify e2 |> aux in
       SA.Ite (aux e, t, e1, e2)
     | Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
-    | Break | Return _ -> SA.Value (GTy.mk Ty.empty) (* Fallback for breaks and unified returns *)
+    | Break | Return _ | Exc -> SA.Value (GTy.mk Ty.empty) (* Fallback for breaks, exc, and unified returns *)
     | PatMatch _ | If _ | While _ -> assert false
     | Hole _ -> invalid_arg "Expression should not contain a hole."
     in

@@ -18,6 +18,7 @@ type pattern =
 | PAssign of Variable.t * GTy.t
 type e =
 | Void
+| Isolate of t (* Prevent control flow encodings (CPS-like transformations) *)
 | Value of GTy.t
 | Var of Variable.t
 | Constructor of SA.constructor * t list
@@ -27,7 +28,7 @@ type e =
 | PatMatch of t * (pattern * t) list
 | App of t * t
 | Projection of SA.projection * t
-| Declare of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
+| Declare of Ty.t list * Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
 | Let of Ty.t list * Variable.t * t * t
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
@@ -35,9 +36,10 @@ type e =
 | VoidConditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
 | If of t * Ty.t * t * t option
 | While of t * Ty.t * t
+| Try of t list
 | Seq of t * t
 | Return of t
-| Break
+| Break | Exc
 | Hole of int
 and t = Eid.t * e
 
