@@ -2,6 +2,8 @@ open Mlsem_common
 open Mlsem_types
 module SA = Mlsem_system.Ast
 
+type blockid = BFun | BLoop | BOther of int
+[@@deriving show]
 type pattern_constructor =
 | PCTuple of int
 | PCCons
@@ -19,7 +21,8 @@ type pattern =
 | PAssign of Variable.t * GTy.t
 [@@deriving show]
 type e =
-| Void | Voidify of t
+| Hole of int
+| Exc | Void | Voidify of t
 | Isolate of t (* Prevent control flow encodings (CPS-like transformations) *)
 | Value of GTy.t
 | Var of Variable.t
@@ -35,14 +38,15 @@ type e =
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
 | VarAssign of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
-| VoidConditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
-| If of t * Ty.t * t * t option
-| While of t * Ty.t * t
 | Try of t list
 | Seq of t * t
+| Block of blockid * t
+| Ret of blockid * t option
+(* Imperative control flow *)
+| If of t * Ty.t * t * t option
+| While of t * Ty.t * t
 | Return of t
-| Break | Exc
-| Hole of int
+| Break
 [@@deriving show]
 and t = Eid.t * e
 [@@deriving show]
@@ -89,6 +93,8 @@ let bv_pat pat =
 let map_tl f (id,e) =
   let e =
     match e with
+    | Hole i -> Hole i
+    | Exc -> Exc
     | Void -> Void
     | Voidify e -> Voidify (f e)
     | Isolate e -> Isolate (f e)
@@ -108,14 +114,14 @@ let map_tl f (id,e) =
     | TypeCast (e, ty) -> TypeCast (f e, ty)
     | TypeCoerce (e, ty, b) -> TypeCoerce (f e, ty, b)
     | VarAssign (v, e) -> VarAssign (v, f e)
-    | VoidConditional (b, e, ty, e1, e2) -> VoidConditional (b, f e, ty, f e1, f e2)
-    | If (e, ty, e1, e2) -> If (f e, ty, f e1, Option.map f e2)
-    | While (e, ty, e') -> While (f e, ty, f e')
     | Try es -> Try (List.map f es)
     | Seq (e1, e2) -> Seq (f e1, f e2)
+    | Block (bid, e) -> Block (bid, f e)
+    | Ret (bid, eo) -> Ret (bid, Option.map f eo)
+    | If (e, ty, e1, e2) -> If (f e, ty, f e1, Option.map f e2)
+    | While (e, ty, e') -> While (f e, ty, f e')
     | Return e -> Return (f e)
-    | Break -> Break | Exc -> Exc
-    | Hole i -> Hole i
+    | Break -> Break
   in
   (id,e)
 

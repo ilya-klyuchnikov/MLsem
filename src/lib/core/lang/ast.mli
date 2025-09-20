@@ -2,6 +2,7 @@ open Mlsem_common
 open Mlsem_types
 module SA = Mlsem_system.Ast
 
+type blockid = BFun | BLoop | BOther of int
 type pattern_constructor =
 | PCTuple of int
 | PCCons
@@ -17,7 +18,8 @@ type pattern =
 | POr of pattern * pattern
 | PAssign of Variable.t * GTy.t
 type e =
-| Void | Voidify of t
+| Hole of int
+| Exc | Void | Voidify of t
 | Isolate of t (* Prevent control flow encodings (CPS-like transformations) *)
 | Value of GTy.t
 | Var of Variable.t
@@ -33,14 +35,15 @@ type e =
 | TypeCast of t * Ty.t
 | TypeCoerce of t * GTy.t * SA.coerce
 | VarAssign of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
-| VoidConditional of bool (* allow break *) * t * Ty.t * t * t (* Conditional void blocks *)
-| If of t * Ty.t * t * t option
-| While of t * Ty.t * t
 | Try of t list
 | Seq of t * t
+| Block of blockid * t
+| Ret of blockid * t option
+(* Imperative control flow *)
+| If of t * Ty.t * t * t option
+| While of t * Ty.t * t
 | Return of t
-| Break | Exc
-| Hole of int
+| Break
 and t = Eid.t * e
 
 val map_pat : (pattern -> pattern) -> pattern -> pattern
@@ -57,6 +60,7 @@ val fv : t -> VarSet.t
 val vars : t -> VarSet.t
 val rename_fv : Variable.t -> Variable.t -> t -> t
 
+val pp_blockid : Format.formatter -> blockid -> unit
 val pp_pattern_constructor : Format.formatter -> pattern_constructor -> unit
 val pp_pattern : Format.formatter -> pattern -> unit
 val pp_e : Format.formatter -> e -> unit

@@ -95,43 +95,52 @@ let eliminate_pattern_matching e =
   in
   map aux e
 
-(* If and While *)
+(* Imperative constructs *)
 
-let eliminate_if_while e =
+let eliminate_if_while_break_return e =
   let aux (id,e) =
     let e = match e with
-    | If (e,t,e1,None) -> VoidConditional (false, e, t, e1, (Eid.unique (), Void))
-    | If (e,t,e1,Some e2) -> VoidConditional (false, e, t, e1, e2)
-    | While (e,t,e1) -> VoidConditional (true, e, t, e1, (Eid.unique (), Void))
+    | Lambda (tys, ty, v, e) ->
+      let block = Eid.unique (), Block (BFun, e) in
+      Lambda (tys, ty, v, block)
+    | If (e,t,e1,None) ->
+      Ite (e, t, (Eid.unique (), Voidify e1), (Eid.unique (), Void))
+    | If (e,t,e1,Some e2) ->
+      Ite (e, t, (Eid.unique (), Voidify e1), (Eid.unique (), Voidify e2))
+    | While (e,t,e1) ->
+      let block = Eid.unique (), Block (BLoop, e1) in
+      Ite (e, t, (Eid.unique (), Voidify block), (Eid.unique (), Void))
+    | Break -> Ret (BLoop, None)
+    | Return e -> Ret (BFun, Some e)
     | e -> e
     in (id, e)
   in
   map aux e
 
-(* Break *)
+(* Eliminate blocks *)
 
-let has_break e =
+let has_eliminable_ret bid e =
   try
     let f = function
     | (_, Lambda _) | (_, LambdaRec _) -> false
-    | (_, VoidConditional (true, _, _, _, _)) -> false
-    | (_, App _) | (_, Constructor (_, _::_::_)) -> false
-    | (_, Isolate _) -> false
-    | (_, Break) -> raise Exit
+    | (_, Isolate _) | (_, App _) | (_, Constructor (_, _::_::_)) -> false
+    | (_, Block _) -> assert false
+    | (_, Ret (bid', _)) when bid=bid' -> raise Exit
     | _ -> true
     in
     iter' f e ; false
   with Exit -> true
 
-let rec eliminate_break e =
+let rec try_elim_ret bid e =
   let hole = Eid.dummy, Hole 0 in
   let fill e elt = fill_hole 0 elt e in
   let rec aux (id,e) cont =
     let cont' e = fill cont e in
     match e with
-    | Void | Value _ | Var _ | Constructor (_,[]) | Exc -> cont' (id,e)
+    | Void | Value _ | Var _ | Constructor (_,[]) | Exc
+    | Isolate _ | App _ | Constructor (_, _::_::_)
+    | Lambda _ | LambdaRec _ -> cont' (id,e)
     | Voidify e -> (id, Voidify hole) |> cont' |> aux e
-    | Isolate e -> (id, Isolate (eliminate_inner_break e)) |> cont'
     | Declare (tys, v, e) -> (id, Declare (tys, v, aux e cont))
     | Let (tys, v, e1, e2) ->
       (id, Let (tys, v, hole, aux e2 cont)) |> aux e1
@@ -145,163 +154,76 @@ let rec eliminate_break e =
       (id, VarAssign (v, hole)) |> cont' |> aux e
     | Constructor (c, [e]) ->
       (id, Constructor (c, [hole])) |> cont' |> aux e
-    | Constructor (c, es) ->
-      (id, Constructor (c, List.map eliminate_inner_break es)) |> cont'
-    | Try es when not (List.exists has_break es) ->
+    | Try es when not (List.exists (has_eliminable_ret bid) es) ->
       (* Do not duplicate the continuation if unnecessary *)
-      (id, Try (List.map eliminate_inner_break es)) |> cont'
+      (id, Try es) |> cont'
     | Try (es) -> (id, Try (es |> List.map (fun e -> aux e cont)))
-    | App (e1, e2) ->
-      let e1, e2 = eliminate_inner_break e1, eliminate_inner_break e2 in
-      (id, App (e1, e2)) |> cont'
-    | Ite (e, tau, e1, e2) when not (has_break e1) && not (has_break e2) ->
+    | Ite (e, tau, e1, e2) when not ((has_eliminable_ret bid) e1) && not ((has_eliminable_ret bid) e2) ->
       (* Do not duplicate the continuation if unnecessary *)
-      let e1, e2 = eliminate_inner_break e1, eliminate_inner_break e2 in
       (id, Ite (hole, tau, e1, e2)) |> cont' |> aux e
     | Ite (e, tau, e1, e2) ->
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
-    | Lambda (tys, ty, x, e) -> (id, Lambda (tys, ty, x, eliminate_break e)) |> cont'
-    | LambdaRec lst ->
-      (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_break e) lst)) |> cont'
-    | VoidConditional (true, e, tau, e1, e2) ->
-      (id, VoidConditional (false, e, tau, eliminate_break e1, eliminate_break e2)) |> cont'
-    | VoidConditional (false, e, tau, e1, e2) when not (has_break e1) && not (has_break e2) ->
-      (* Do not duplicate the continuation if unnecessary *)
-      let e1, e2 = eliminate_inner_break e1, eliminate_inner_break e2 in
-      (id, VoidConditional (false, hole, tau, e1, e2)) |> cont' |> aux e
-    | VoidConditional (false, e, tau, e1, e2) ->
-      let e1, e2 = (Eid.unique (), Voidify e1), (Eid.unique (), Voidify e2) in
-      (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
-    | Return e -> (id, Return hole) |> cont' |> aux e
-    | Break -> id, Value (GTy.mk Ty.empty)
-    | PatMatch _ | If _ | While _ -> assert false
+    | Block _ -> assert false
+    | Ret (bid', None) when bid'=bid -> id, Exc
+    | Ret (bid', Some e) when bid'=bid -> try_elim_ret bid e
+    | Ret (bid', None) -> (id, Ret (bid', None)) |> cont'
+    | Ret (bid', Some e) -> (id, Ret (bid', Some hole)) |> cont' |> aux e
+    | PatMatch _ | If _ | While _  | Break | Return _ -> assert false
     | Hole _ -> invalid_arg "Expression should not contain a hole."
   in
   aux e hole
-and eliminate_inner_break e =
-  let f = function
-  | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, eliminate_break e))
-  | (id,LambdaRec lst) ->
-    Some (id, LambdaRec (lst |> List.map (fun (ty,v,e) -> ty,v,eliminate_break e)))
-  | (id,VoidConditional (true, e, t, e1, e2)) ->
-    Some (id, VoidConditional (true, eliminate_inner_break e, t, eliminate_break e1, eliminate_break e2))
-  | _ -> None
-  in
-  map' f e
 
-(* Return *)
-
-let has_return e =
+let has_ret ~count_noarg bid e =
   try
     let f = function
     | (_, Lambda _) | (_, LambdaRec _) -> false
-    | (_, App _) | (_, Constructor (_, _::_::_)) -> false
-    | (_, Isolate _) -> false
-    | (_, Return _) -> raise Exit
+    | (_, Block _) -> assert false
+    | (_, Ret (bid',None)) when count_noarg && bid'=bid -> raise Exit
+    | (_, Ret (bid',Some _)) when bid'=bid -> raise Exit
     | _ -> true
     in
     iter' f e ; false
   with Exit -> true
 
-let rec eliminate_return e =
-  let hole = Eid.dummy, Hole 0 in
-  let fill e elt = fill_hole 0 elt e in
-  let rec aux (id,e) cont =
-    let cont' e = fill cont e in
-    match e with
-    | Void | Value _ | Var _ | Constructor (_,[]) | Break | Exc -> cont' (id,e)
-    | Voidify e -> (id, Voidify hole) |> cont' |> aux e
-    | Isolate e -> (id, Isolate (eliminate_inner_return e)) |> cont'
-    | Declare (tys, v, e) -> (id, Declare (tys, v, aux e cont))
-    | Let (tys, v, e1, e2) ->
-      (id, Let (tys, v, hole, aux e2 cont)) |> aux e1
-    | Projection (p, e) ->
-      (id, Projection (p, hole)) |> cont' |> aux e
-    | TypeCast (e, tau) ->
-      (id, TypeCast (hole, tau)) |> cont' |> aux e
-    | TypeCoerce (e, ty, c) ->
-      (id, TypeCoerce (hole, ty, c)) |> cont' |> aux e
-    | VarAssign (v, e) ->
-      (id, VarAssign (v, hole)) |> cont' |> aux e
-    | Constructor (c, [e]) ->
-      (id, Constructor (c, [hole])) |> cont' |> aux e
-    | Constructor (c, es) ->
-      (id, Constructor (c, List.map eliminate_inner_return es)) |> cont'
-    | Try es when not (List.exists has_return es) ->
-      (* Do not duplicate the continuation if unnecessary *)
-      (id, Try (List.map eliminate_inner_return es)) |> cont'
-    | Try (es) -> (id, Try (es |> List.map (fun e -> aux e cont)))
-    | App (e1, e2) ->
-      let e1, e2 = eliminate_inner_return e1, eliminate_inner_return e2 in
-      (id, App (e1, e2)) |> cont'
-    | Ite (e, tau, e1, e2) when not (has_return e1) && not (has_return e2) ->
-      (* Do not duplicate the continuation if unnecessary *)
-      let e1, e2 = eliminate_inner_return e1, eliminate_inner_return e2 in
-      (id, Ite (hole, tau, e1, e2)) |> cont' |> aux e
-    | Ite (e, tau, e1, e2) ->
-      (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
-    | Lambda (tys, ty, x, e) -> (id, Lambda (tys, ty, x, eliminate_return e)) |> cont'
-    | LambdaRec lst ->
-      (id, LambdaRec (List.map (fun (ty,v,e) -> ty,v,eliminate_return e) lst)) |> cont'
-    | VoidConditional (false, e, tau, e1, e2) when not (has_return e1) && not (has_return e2) ->
-      (* Do not duplicate the continuation if unnecessary *)
-      let e1, e2 = eliminate_inner_return e1, eliminate_inner_return e2 in
-      (id, VoidConditional (false, hole, tau, e1, e2)) |> cont' |> aux e
-    | VoidConditional (false, e, tau, e1, e2) ->
-      let e1, e2 = (Eid.unique (), Voidify e1), (Eid.unique (), Voidify e2) in
-      (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
-    | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
-    | Return e -> e
-    | PatMatch _ | If _ | While _ | VoidConditional (true, _, _, _, _) -> assert false
-    | Hole _ -> invalid_arg "Expression should not contain a hole."
-  in
-  aux e hole
-and eliminate_inner_return e =
-  let f = function
-  | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, eliminate_return e))
-  | (id,LambdaRec lst) ->
-    Some (id, LambdaRec (lst |> List.map (fun (ty,v,e) -> ty,v,eliminate_return e)))
-  | _ -> None
-  in
-  map' f e
-
-(* Unify remaining returns *)
-
-let has_return e =
-  try
-    let f = function
-    | (_, Lambda _) | (_, LambdaRec _) -> false
-    | (_, Return _) -> raise Exit
-    | _ -> true
-    in
-    iter' f e ; false
-  with Exit -> true
-
-let rec unify_returns e =
-  if has_return e
+let rec elim_ret_args bid e =
+  if has_ret ~count_noarg:false bid e
   then
     let v = MVariable.create_let MVariable.Mut (Some "res") in
-    let body = Eid.unique (), VarAssign (v, treat_returns v e) in
+    let body = Eid.unique (), VarAssign (v, treat_rets bid v e) in
     let body = Eid.unique (), Seq ((Eid.unique (), Voidify body), (Eid.unique (), Var v)) in
     Eid.unique (), Declare ([], v, body)
-  else unify_inner_returns e
-and unify_inner_returns e =
-  let f = function
-  | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, unify_returns e))
-  | _ -> None
-  in
-  map' f e
-and treat_returns v e =
+  else e
+and treat_rets bid v e =
   let f = function
   | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, e))
-  | (id, Return e) ->
-    let e = treat_returns v e in
-    let ret = Eid.unique (), Return ((Eid.unique (), Var v)) in
-    Some (id, Seq ((Eid.unique (), VarAssign (v, e)), ret))
+  | (id,LambdaRec lst) -> Some (id, LambdaRec lst)
+  | (_, Block _) -> assert false
+  | (id, Ret (bid', Some e)) when bid'=bid ->
+    let e = treat_rets bid v e in
+    Some (id, Seq ((Eid.unique (), VarAssign (v, e)), (Eid.unique (), Ret (bid, None))))
   | _ -> None
   in
   map' f e
+
+let elim_all_ret_noarg bid e =
+  let f = function
+  | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, e))
+  | (id,LambdaRec lst) -> Some (id, LambdaRec lst)
+  | (_, Block _) -> assert false
+  | (id, Ret (bid', None)) when bid'=bid -> Some (id, Exc)
+  | _ -> None
+  in
+  map' f e
+
+let eliminate_blocks e =
+  let aux (id,e) =
+    match e with
+    | Block (bid, e) ->
+      try_elim_ret bid e |> elim_ret_args bid |> elim_all_ret_noarg bid
+    | e -> id, e
+  in
+  map aux e
 
 (* Main *)
 
@@ -327,12 +249,10 @@ let transform t =
     | TypeCast (e, ty) -> MAst.TypeCast (aux e, ty)
     | TypeCoerce (e, ty, c) -> MAst.TypeCoerce (aux e, ty, c)
     | VarAssign (v, e) -> MAst.VarAssign (v, aux e)
-    | VoidConditional (_,e,t,e1,e2) ->
-      let e1, e2 = (Eid.unique (), Voidify e1) |> aux, (Eid.unique (), Voidify e2) |> aux in
-      MAst.Ite (aux e, t, e1, e2)
     | Seq (e1, e2) -> MAst.Seq (aux e1, aux e2)
-    | Break | Return _ | Exc -> Exc (* Fallback for breaks, exc, and unified returns *)
-    | PatMatch _ | If _ | While _ -> assert false
+    | Exc -> Exc
+    | PatMatch _ | If _ | While _ | Break | Return _ | Block _ -> assert false
+    | Ret _ -> invalid_arg "Expression contains an orphan ret expression."
     | Hole _ -> invalid_arg "Expression should not contain a hole."
     in
     (id, e)
@@ -342,10 +262,8 @@ let transform t =
 let eliminate_cf t =
   t
   |> eliminate_pattern_matching
-  |> eliminate_if_while
-  |> eliminate_break
-  |> eliminate_return
-  |> unify_returns
+  |> eliminate_if_while_break_return
+  |> eliminate_blocks
   |> transform
 
 let transform t =
