@@ -137,7 +137,7 @@ let rec try_elim_ret bid e =
   let rec aux (id,e) cont =
     let cont' e = fill cont e in
     match e with
-    | Void | Value _ | Var _ | Exc | Isolate _
+    | Hole _ | Void | Value _ | Var _ | Exc | Isolate _
     | App _ | Constructor _ | Lambda _ | LambdaRec _ -> cont' (id,e)
     | Voidify e -> (id, Voidify hole) |> cont' |> aux e
     | Declare (v, e) -> (id, Declare (v, aux e cont))
@@ -167,7 +167,6 @@ let rec try_elim_ret bid e =
     | Ret (bid', None) -> (id, Ret (bid', None)) |> cont'
     | Ret (bid', Some e) -> (id, Ret (bid', Some hole)) |> cont' |> aux e
     | PatMatch _ | If _ | While _  | Break | Return _ -> assert false
-    | Hole _ -> invalid_arg "Expression should not contain a hole."
   in
   aux e hole
 
@@ -227,6 +226,7 @@ let eliminate_blocks e =
 let transform t =
   let rec aux (id, e) =
     let e = match e with
+    | Hole n -> MAst.Hole n
     | Void -> MAst.Void
     | Voidify e -> MAst.Voidify (aux e)
     | Isolate e -> aux e |> snd
@@ -250,7 +250,6 @@ let transform t =
     | Exc -> Exc
     | PatMatch _ | If _ | While _ | Break | Return _ | Block _ -> assert false
     | Ret _ -> invalid_arg "Expression contains an orphan ret expression."
-    | Hole _ -> invalid_arg "Expression should not contain a hole."
     in
     (id, e)
   in

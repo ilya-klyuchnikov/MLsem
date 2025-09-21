@@ -31,7 +31,7 @@ let optimize_cf e =
   in
   let rec aux env (id, e) =
     let map, e = match e with
-    | Exc | Void | Value _ -> env, e
+    | Hole _ | Exc | Void | Value _ -> env, e
     | Voidify e -> let (map, (_,e)) = aux env e in map, e
     | Var v when VarMap.mem v env.map -> env, Var (VarMap.find v env.map)
     | Var v -> env, Var v

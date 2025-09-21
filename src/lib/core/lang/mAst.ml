@@ -3,6 +3,7 @@ open Mlsem_types
 module SA = Mlsem_system.Ast
 
 type e =
+| Hole of int
 | Exc | Void | Voidify of t
 | Value of GTy.t
 | Var of Variable.t
@@ -26,6 +27,7 @@ and t = Eid.t * e
 let map_tl f (id,e) =
   let e =
     match e with
+    | Hole n -> Hole n
     | Exc -> Exc | Void -> Void
     | Voidify e -> Voidify (f e)
     | Value t -> Value t
@@ -68,6 +70,9 @@ let iter f e =
 let iter' f e =
   let aux e = if f e then None else Some e in
   map' aux e |> ignore
+
+let fill_hole n elt e =
+  map (function (_, Hole i) when i=n -> elt | e -> e) e
 
 let bv e =
   let bv = ref VarSet.empty in
@@ -159,6 +164,7 @@ let to_system_ast t =
     | VarAssign _ -> invalid_arg "Cannot assign to an immutable variable."
     | Seq (e1, e2) -> Let ([], Variable.create_gen None, aux e1, aux e2)
     | Try es -> SA.Constructor (SA.Choice (List.length es), List.map aux es)
+    | Hole _ -> invalid_arg "Expression should not contain a hole."
     in
     (id, e)
   in
