@@ -12,6 +12,8 @@ let written_vars e =
 type env = { captured:VarSet.t ; map:Variable.t VarMap.t }
 
 let optimize_cf e =
+  let hole = Eid.dummy, Hole 0 in
+  let fill e elt = fill_hole 0 elt e in
   let restrict_env ~capture env vs =
     { map = List.fold_right VarMap.remove (VarSet.elements vs) env.map ;
       captured = if capture then VarSet.union env.captured vs else env.captured }
@@ -30,79 +32,81 @@ let optimize_cf e =
     List.fold_left merge_envs env envs
   in
   let rec aux env (id, e) =
-    let env, e = match e with
-    | Hole _ | Exc | Void | Value _ -> env, e
+    match e with
+    | Hole _ | Exc | Void | Value _ -> env, hole, (id, e)
     | Voidify e ->
-      let env, e = aux env e in
-      env, Voidify e
-    | Var v when VarMap.mem v env.map -> env, Var (VarMap.find v env.map)
-    | Var v -> env, Var v
+      (* It would be unsound to move an expr of type empty outside *)
+      let env, e = aux' env e in
+      env, hole, (id, Voidify e)
+    | Var v when VarMap.mem v env.map -> env, hole, (id, Var (VarMap.find v env.map))
+    | Var v -> env, hole, (id, Var v)
     | Constructor (c, es) ->
       let wv = List.map written_vars es |> List.fold_left VarSet.union VarSet.empty in
       let env = restrict_env ~capture:false env wv in
-      let envs, es = List.map (aux env) es |> List.split in
-      merge_envs' env envs, Constructor (c, es)
+      let envs, es = List.map (aux' env) es |> List.split in
+      merge_envs' env envs, hole, (id, Constructor (c, es))
     | Lambda (tys, ty, v, e) ->
       let v, e =
         if MVariable.is_mutable v then
           let v' = MVariable.create_lambda MVariable.Immut (Variable.get_name v) in
-          let _, e = aux { env with map=VarMap.singleton v v' } e in
+          let _, e = aux' { env with map=VarMap.singleton v v' } e in
           let e = Eid.unique (), Let ([], v, (Eid.unique (), Var v'), e) in
           v', e
         else
-          v, aux { env with map=VarMap.empty } e |> snd
+          v, aux' { env with map=VarMap.empty } e |> snd
       in
       let env = restrict_env ~capture:true env (written_vars e) in
-      env, Lambda (tys, ty, v, e)
+      env, hole, (id, Lambda (tys, ty, v, e))
     | LambdaRec lst ->
-      let envs, es = List.map (fun (_,_,e) -> aux env e) lst |> List.split in
-      merge_envs' env envs, LambdaRec (List.map2 (fun e (d,v,_) -> d,v,e) es lst)
+      let envs, es = List.map (fun (_,_,e) -> aux' env e) lst |> List.split in
+      merge_envs' env envs, hole, (id, LambdaRec (List.map2 (fun e (d,v,_) -> d,v,e) es lst))
     | Ite (e, ty, e1, e2) ->
-      let env, e = aux env e in
-      let (env1, e1), (env2, e2) = aux env e1, aux env e2 in
-      merge_envs env1 env2, Ite (e, ty, e1, e2)
+      let env, ctx, e = aux env e in
+      let (env1, e1), (env2, e2) = aux' env e1, aux' env e2 in
+      merge_envs env1 env2, ctx, (id, Ite (e, ty, e1, e2))
     | App (e1, e2) ->
-      let (env1, e1), (env2, e2) = aux env e1, aux env e2 in
-      merge_envs env1 env2, App (e1, e2)
+      let (env1, e1), (env2, e2) = aux' env e1, aux' env e2 in
+      merge_envs env1 env2, hole, (id, App (e1, e2))
     | Projection (p, e) ->
-      let env, e = aux env e in
-      env, Projection (p, e)
+      let env, ctx, e = aux env e in
+      env, ctx, (id, Projection (p, e))
     | Declare (v, e) ->
-      let env, e = aux env e in
-      env, Declare (v, e)
+      let env, ctx, e = aux env e in
+      env, (id, Declare (v, ctx)), e
     | Let (tys, v, e1, e2) when MVariable.is_mutable v ->
       let v' = MVariable.create_lambda MVariable.Immut (Variable.get_name v) in
-      let env, e1 = aux env e1 in
-      let env, e2 = aux { env with map=VarMap.singleton v v' } e2 in
-      let e2 = Eid.unique (), Let ([], v, (Eid.unique (), Var v'), e2) in
-      env, Let (tys, v', e1, e2)
+      let env, ctx1, e1 = aux env e1 in
+      let ctx1 = fill ctx1 (Eid.unique (), Let (tys, v', e1, hole)) in
+      let ctx1 = fill ctx1 (Eid.unique (), Let ([], v, (Eid.unique (), Var v'), hole)) in
+      let env, ctx2, e2 = aux { env with map=VarMap.singleton v v' } e2 in
+      env, fill ctx1 ctx2, e2
     | Let (tys, v, e1, e2) ->
-      let env, e1 = aux env e1 in
-      let env, e2 = aux env e2 in
-      env, Let (tys, v, e1, e2)
+      let env, ctx1, e1 = aux env e1 in
+      let env, ctx2, e2 = aux env e2 in
+      env, fill ctx1 (id, Let (tys, v, e1, ctx2)), e2
     | TypeCast (e, ty) ->
-      let env, e = aux env e in
-      env, TypeCast (e, ty)
+      let env, ctx, e = aux env e in
+      env, ctx, (id, TypeCast (e, ty))
     | TypeCoerce (e, ty, c) ->
-      let env, e = aux env e in
-      env, TypeCoerce (e, ty, c)
+      let env, ctx, e = aux env e in
+      env, ctx, (id, TypeCoerce (e, ty, c))
     | VarAssign (v, e) ->
       let v' = MVariable.create_lambda MVariable.Immut (Variable.get_name v) in
-      let env, e = aux env e in
+      let env, ctx, e = aux env e in
       let env = { env with map=VarMap.singleton v v' } in
-      let e' = failwith "TODO" in
-      let e' = Eid.unique (), Let ([], v, (Eid.unique (), Var v'), e') in
-      env, Let ([], v', e, e')
+      let ctx = fill ctx (Eid.unique (), Let ([], v', e, hole)) in
+      env, ctx, (id, VarAssign (v, (Eid.unique (), Var v')))
     | Seq (e1, e2) ->
-      let env, e1 = aux env e1 in
-      let env, e2 = aux env e2 in
-      env, Seq (e1, e2)
+      let env, ctx1, e1 = aux env e1 in
+      let env, ctx2, e2 = aux env e2 in
+      env, fill ctx1 (id, Seq (e1, ctx2)), e2
     | Try es ->
       let wv = List.map written_vars es |> List.fold_left VarSet.union VarSet.empty in
       let env = restrict_env ~capture:false env wv in
-      let envs, es = List.map (aux env) es |> List.split in
-      merge_envs' env envs, Try es
-    in
-    env, (id, e)
+      let envs, es = List.map (aux' env) es |> List.split in
+      merge_envs' env envs, hole, (id, Try es)
+  and aux' env e =
+    let env', ctx, e = aux env e in
+    merge_envs env env', fill ctx e
   in
   aux { captured=VarSet.empty ; map=VarMap.empty } e
