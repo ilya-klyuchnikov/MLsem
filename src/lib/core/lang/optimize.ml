@@ -30,9 +30,11 @@ let optimize_cf e =
     List.fold_left merge_envs env envs
   in
   let rec aux env (id, e) =
-    let map, e = match e with
+    let env, e = match e with
     | Hole _ | Exc | Void | Value _ -> env, e
-    | Voidify e -> let (map, (_,e)) = aux env e in map, e
+    | Voidify e ->
+      let env, e = aux env e in
+      env, Voidify e
     | Var v when VarMap.mem v env.map -> env, Var (VarMap.find v env.map)
     | Var v -> env, Var v
     | Constructor (c, es) ->
@@ -101,6 +103,6 @@ let optimize_cf e =
       let envs, es = List.map (aux env) es |> List.split in
       merge_envs' env envs, Try es
     in
-    map, (id, e)
+    env, (id, e)
   in
   aux { captured=VarSet.empty ; map=VarMap.empty } e
