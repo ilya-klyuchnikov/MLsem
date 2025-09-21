@@ -33,7 +33,7 @@ let optimize_cf e =
       let v, e =
         if MVariable.is_mutable v then
           let v' = MVariable.create_lambda MVariable.Immut (Variable.get_name v) in
-          let (_, e) = aux { env with map=VarMap.singleton v v' } e in
+          let _, e = aux { env with map=VarMap.singleton v v' } e in
           let e = Eid.unique (), Let ([], v, (Eid.unique (), Var v'), e) in
           v', e
         else
@@ -59,6 +59,16 @@ let optimize_cf e =
     | Declare (v, e) ->
       let env, e = aux env e in
       env, Declare (v, e)
+    | Let (tys, v, e1, e2) when MVariable.is_mutable v ->
+      let v' = MVariable.create_lambda MVariable.Immut (Variable.get_name v) in
+      let env, e1 = aux { env with map=VarMap.singleton v v' } e1 in
+      let env, e2 = aux env e2 in
+      let e2 = Eid.unique (), Let ([], v, (Eid.unique (), Var v'), e2) in
+      env, Let (tys, v', e1, e2)
+    | Let (tys, v, e1, e2) ->
+      let env, e1 = aux env e1 in
+      let env, e2 = aux env e2 in
+      env, Let (tys, v, e1, e2)
     | _ -> failwith "TODO"
     in
     map, (id, e)
