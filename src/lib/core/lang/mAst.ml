@@ -128,6 +128,8 @@ let to_system_ast t =
       SA.Lambda (ty, x1, aux body)
     | LambdaRec lst ->
       let aux (ty,x,e) = (ty, x, aux e) in
+      if lst |> List.exists (fun (_,v,_) -> MVariable.is_mutable v)
+      then invalid_arg "Variables of LambdaRec cannot be mutable." ;
       SA.LambdaRec (List.map aux lst)
     | Ite (e,t,e1,e2) -> SA.Ite (aux e, t, aux e1, aux e2)
     | App (e1,e2) -> SA.App (aux e1, aux e2)
