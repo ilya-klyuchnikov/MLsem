@@ -704,6 +704,13 @@ let mut_narrowing =
   end ;
   y
 
+let mut_seq =
+  let mut y = false in
+  while <bool> do y := false end ;
+  y := 42 ;
+  while <bool> do y := 42 end ;
+  y
+
 let mut_and_return (_) =
     if mx is 0 do
         mx := 69

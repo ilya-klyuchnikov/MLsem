@@ -1,30 +1,6 @@
 open MAst
 open Mlsem_common
 
-let clean_unused_defs e =
-  let f (id,e) =
-    match e with
-    | Declare (v, e) when VarSet.mem v (fv e) |> not -> e
-    | Let (_, v, (_, Var _), e2) when VarSet.mem v (fv e2) |> not -> e2
-    | e -> (id,e)
-  in
-  map f e
-
-(* TODO: turn assign into let mut of a new var if possible by scoping
-   (start from the end) *)
-let split_mut_defs e =
-  let rec aux uv (* vars that may be used after that point *) (id, e) =
-    match e with
-   | Hole _ | Exc | Void | Value _ | Var _ -> (id, e)
-   | Constructor (c, es) ->
-    let uv = List.fold_left VarSet.union uv (List.map fv es) in
-    let es = List.map (aux uv) es in
-    id, Constructor (c, es)
-   | _-> failwith "TODO"
-  in
-  aux (fv e (* global vars *)) e
-  [@@ocaml.warning "-32"]
-
 let written_vars e =
   let wv = ref VarSet.empty in
   let aux (_,e) = match e with
@@ -32,6 +8,14 @@ let written_vars e =
   | _ -> ()
   in
   iter aux e ; !wv
+
+let read_vars e =
+  let rv = ref VarSet.empty in
+  let aux (_,e) = match e with
+  | Var v -> rv := VarSet.add v !rv
+  | _ -> ()
+  in
+  iter aux e ; !rv
 
 type env = { captured:VarSet.t ; map:Variable.t VarMap.t }
 
@@ -57,7 +41,8 @@ let optimize_cf e =
   in
   let rec aux env (id, e) =
     match e with
-    | Hole _ | Exc | Void | Value _ -> env, hole, (id, e)
+    | Hole _ -> failwith "Unsupported hole."
+    | Exc | Void | Value _ -> env, hole, (id, e)
     | Voidify e ->
       (* It would be unsound to move an expr of type empty outside *)
       let env, e = aux' env e in
@@ -135,5 +120,33 @@ let optimize_cf e =
   in
   aux' { captured=VarSet.empty ; map=VarMap.empty } e |> snd
 
+(* === Cleaning === *)
+
+let clean_unused_assigns e =
+  let f rv (id, e) =
+    match e with
+    | VarAssign (v, e) when VarSet.mem v rv |> not -> id, Voidify e
+    | e -> id, e
+  in
+  map (f (read_vars e)) e
+
+let clean_unused_defs e =
+  let f (id,e) =
+    match e with
+    | Declare (v, e) when VarSet.mem v (fv e) |> not -> e
+    | Let (_, v, e1, e2) when VarSet.mem v (fv e2) |> not -> id, Seq (e1, e2)
+    | e -> id, e
+  in
+  map f e
+
+let clean_nop e =
+  let f (id, e) =
+    match e with
+    | Voidify e when VarSet.is_empty (fv e) -> id, Void
+    | Seq (e1, e2) when VarSet.is_empty (fv e1) -> e2
+    | e -> id, e
+  in
+  map f e
+
 let optimize_cf e =
-  e |> optimize_cf |> clean_unused_defs
+  e |> optimize_cf |> clean_unused_assigns |> clean_unused_defs |> clean_nop
