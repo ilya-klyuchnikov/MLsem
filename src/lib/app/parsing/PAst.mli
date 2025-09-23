@@ -35,7 +35,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Enum of 'enu
 | Tag of 'tag * ('a, 'typ, 'enu, 'tag, 'v) t
 | Suggest of 'v * 'typ list * ('a, 'typ, 'enu, 'tag, 'v) t
-| Lambda of ('typ,'v) vdef * 'typ lambda_annot * ('a, 'typ, 'enu, 'tag, 'v) t
+| Lambda of 'v * 'typ lambda_annot * ('a, 'typ, 'enu, 'tag, 'v) t
 | LambdaRec of ('v * 'typ lambda_annot * ('a, 'typ, 'enu, 'tag, 'v) t) list
 | Ite of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
 | App of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
@@ -59,6 +59,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 
 type expr = (Eid.t, Ty.t, Enum.t, Tag.t, Variable.t) t
 type parser_expr = (annotation, type_expr, string, string, varname) t
+type parser_pat = (annotation, type_expr, string, varname) pattern
 
 module NameMap : Map.S with type key=string
 type name_var_map = Variable.t NameMap.t

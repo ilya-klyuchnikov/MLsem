@@ -81,15 +81,7 @@ let optimize_cf e =
       let envs, es = List.map (aux' env) es |> List.split in
       merge_envs' env envs, hole, (id, Constructor (c, es))
     | Lambda (tys, ty, v, e) ->
-      let v, e =
-        if MVariable.is_mutable v then
-          let v' = MVariable.create_lambda MVariable.Immut (Variable.get_name v) in
-          let _, e = aux' (add_immut (reset_env env) v v') e in
-          let e = Eid.unique (), Let ([], v, (Eid.unique (), Var v'), e) in
-          v', e
-        else
-          v, aux' (reset_env env) e |> snd
-      in
+      let e = aux' (reset_env env) e |> snd in
       let env = add_captured env (written_vars e) in
       env, hole, (id, Lambda (tys, ty, v, e))
     | LambdaRec lst ->

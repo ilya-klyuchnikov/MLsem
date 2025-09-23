@@ -692,9 +692,6 @@ let read_mut = my
 let read_mut_cast = (my :>> bool)
 let write_mut = my := false
 
-let mut_param (mut a) =
-    a := 42 ; a
-
 let mut_narrowing =
   let mut y = 42 in
   while y is ~Nil do

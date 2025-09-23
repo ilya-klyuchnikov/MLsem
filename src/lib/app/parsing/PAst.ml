@@ -34,7 +34,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Enum of 'enu
 | Tag of 'tag * ('a, 'typ, 'enu, 'tag, 'v) t
 | Suggest of 'v * 'typ list * ('a, 'typ, 'enu, 'tag, 'v) t
-| Lambda of ('typ,'v) vdef * 'typ lambda_annot * ('a, 'typ, 'enu, 'tag, 'v) t
+| Lambda of 'v * 'typ lambda_annot * ('a, 'typ, 'enu, 'tag, 'v) t
 | LambdaRec of ('v * 'typ lambda_annot * ('a, 'typ, 'enu, 'tag, 'v) t) list
 | Ite of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
 | App of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
@@ -58,6 +58,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 
 type expr = (Eid.t, Ty.t, Enum.t, Tag.t, Variable.t) t
 type parser_expr = (annotation, type_expr, string, string, varname) t
+type parser_pat = (annotation, type_expr, string, varname) pattern
 
 module NameMap = Map.Make(String)
 type name_var_map = Variable.t NameMap.t
@@ -105,13 +106,12 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             let tys, vtenv = type_exprs_to_typs tenv vtenv tys in
             let var = aux_var env str in
             Suggest (var, tys, aux vtenv env e)
-        | Lambda ((kind,str),da,e) ->
-            let mkind, kind, vtenv = aux_vkind tenv vtenv kind in
+        | Lambda (str,da,e) ->
             let da, vtenv = aux_a da vtenv in
-            let var = MVariable.create_lambda mkind (Some str) in
+            let var = MVariable.create_lambda Immut (Some str) in
             Variable.attach_location var pos ;
             let env = NameMap.add str var env in
-            Lambda ((kind, var), da, aux vtenv env e)
+            Lambda (var, da, aux vtenv env e)
         | LambdaRec lst ->
             let aux (str,tyo,e) =
                 let var = Variable.create_lambda (Some str) in

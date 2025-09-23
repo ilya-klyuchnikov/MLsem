@@ -11,9 +11,9 @@ let expr_to_ast t =
   let add_suggs v tys =
     Hashtbl.replace sugg v (tys@(get_sugg v))
   in
-  let lambda_annot x a =
+  let lambda_annot name a =
     match a with
-    | None -> TVar.mk KInfer (Variable.get_name x) |> TVar.typ |> GTy.mk
+    | None -> TVar.mk KInfer name |> TVar.typ |> GTy.mk
     | Some d -> GTy.mk d
   in
   let rec aux_pat = function
@@ -38,18 +38,25 @@ let expr_to_ast t =
     | Tag (t, e) -> Constructor (Tag t, [aux e])
     | Suggest (v, tys, (_,e)) ->
       add_suggs v tys ; aux_e e
-    | Lambda ((_,x), a, e) -> Lambda (get_sugg x, lambda_annot x a, x, aux e)
+    | Lambda (x, a, e) ->
+      let name = Variable.get_name x in
+      let x' = MVariable.create_lambda MVariable.Immut name in
+      let e = aux e |> rename_fv x x' in
+      Lambda (get_sugg x, lambda_annot name a, x', e)
     | LambdaRec lst ->
       let lst = lst |> List.map (fun (x,a,e) ->
-        x, MVariable.create_lambda MVariable.Immut (Variable.get_name x), a, e) in
-      let aux (_,x',a,e) =
-        lambda_annot x' a, x',
-        List.fold_left (fun e (x,x',_,_) -> rename_fv x x' e) (aux e) lst
+        let name = Variable.get_name x in
+        x, name, MVariable.create_lambda MVariable.Immut name, a, e) in
+      let aux (_,name,x',a,e) =
+        lambda_annot name a, x',
+        List.fold_left (fun e (x,_,x',_,_) -> rename_fv x x' e) (aux e) lst
       in
       LambdaRec (List.map aux lst)
     | Ite (e,t,e1,e2) -> Ite (aux e, t, aux e1, aux e2)
     | App (e1,e2) -> App (aux e1, aux e2)
-    | Let ((_,x), e1, e2) -> Let (get_sugg x, x, aux e1, aux e2)
+    | Let ((_,x), e1, e2) ->
+      let e1, e2 = aux e1, aux e2 in
+      Let (get_sugg x, x, e1, e2)
     | Tuple es -> Constructor (Tuple (List.length es), List.map aux es)
     | Cons (e1, e2) -> Constructor (Cons, [aux e1 ; aux e2])
     | Projection (p, e) -> Projection (p, aux e)

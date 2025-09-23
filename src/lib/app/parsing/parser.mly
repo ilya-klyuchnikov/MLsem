@@ -9,15 +9,17 @@
   let annot sp ep e =
     (new_annot (Position.lex_join sp ep), e)
 
-  let tmp_var = "__encoding"
+  type param = PPattern of parser_pat | PVar of string
+
+  let tmp_var = "__encoding__"
   let abstraction startpos endpos lst t =
     let step acc (da, pat) =
       match pat with
-      | PatVar v -> annot startpos endpos (Lambda (v, da, acc))
-      | pat ->
+      | PVar v -> annot startpos endpos (Lambda (v, da, acc))
+      | PPattern pat ->
         let test = annot startpos endpos (Var tmp_var) in
         let body = annot startpos endpos (PatMatch (test, [(pat, acc)])) in
-        annot startpos endpos (Lambda ((Immut, tmp_var), da, body))
+        annot startpos endpos (Lambda (tmp_var, da, body))
     in
     List.rev lst |> List.fold_left step t
 
@@ -272,9 +274,8 @@ lint:
 | COLON ty=typ { Some ty }
 
 parameter:
-  arg = id_mid { (None, PatVar arg) }
-| LPAREN arg = pattern opta = optional_typ RPAREN
-{ (opta, arg) }
+  arg = ID { (None, PVar arg) }
+| LPAREN arg = pattern opta = optional_typ RPAREN { (opta, PPattern arg) }
 
 generalized_identifier:
   | x=ID | x=OPID { x }
