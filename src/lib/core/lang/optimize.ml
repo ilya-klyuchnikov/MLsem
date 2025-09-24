@@ -76,29 +76,23 @@ let optimize_cf e =
     | Var v when has_mut env v -> env, hole, (id, Var (get_mut env v))
     | Var v -> env, hole, (id, Var v)
     | Constructor (c, es) ->
-      (* TODO: For Constructor, LambdaRec, App and Try, only consider written vars of others *)
-      let wv = List.map written_vars es |> List.fold_left VarSet.union VarSet.empty in
-      let env = restrict_immut env wv in
-      let envs, es = List.map (aux' env) es |> List.split in
-      merge_envs' env envs, hole, (id, Constructor (c, es))
+      let env, es = aux_parallel env es in
+      env, hole, (id, Constructor (c, es))
     | Lambda (tys, ty, v, e) ->
       let e = aux' (reset_env env) e |> snd in
       let env = add_captured env (written_vars e) in
       env, hole, (id, Lambda (tys, ty, v, e))
     | LambdaRec lst ->
-      let wv = List.map (fun (_,_,e) -> written_vars e) lst |> List.fold_left VarSet.union VarSet.empty in
-      let env = restrict_immut env wv in
-      let envs, es = List.map (fun (_,_,e) -> aux' env e) lst |> List.split in
-      merge_envs' env envs, hole, (id, LambdaRec (List.map2 (fun e (d,v,_) -> d,v,e) es lst))
+      let es = List.map (fun (_,_,e) -> e) lst in
+      let env, es = aux_parallel env es in
+      env, hole, (id, LambdaRec (List.map2 (fun (d,v,_) e -> d,v,e) lst es))
     | Ite (e, ty, e1, e2) ->
       let env, ctx, e = aux env e in
       let (env1, e1), (env2, e2) = aux' env e1, aux' env e2 in
       merge_envs' env [env1 ; env2], ctx, (id, Ite (e, ty, e1, e2))
     | App (e1, e2) ->
-      let wv = List.map written_vars [e1;e2] |> List.fold_left VarSet.union VarSet.empty in
-      let env = restrict_immut env wv in
-      let (env1, e1), (env2, e2) = aux' env e1, aux' env e2 in
-      merge_envs' env [env1 ; env2], hole, (id, App (e1, e2))
+      let env, es = aux_parallel env [e1;e2] in
+      env, hole, (id, App (List.nth es 0, List.nth es 1))
     | Projection (p, e) ->
       let env, ctx, e = aux env e in
       env, ctx, (id, Projection (p, e))
@@ -144,10 +138,14 @@ let optimize_cf e =
       let env, ctx2, e2 = aux env e2 in
       env, fill ctx1 (id, Seq (e1, ctx2)), e2
     | Try es ->
-      let wv = List.map written_vars es |> List.fold_left VarSet.union VarSet.empty in
-      let env = restrict_immut env wv in
-      let envs, es = List.map (aux' env) es |> List.split in
-      merge_envs' env envs, hole, (id, Try es)
+      let env, es = aux_parallel env es in
+      env, hole, (id, Try es)
+  and aux_parallel env es =
+    (* TODO: only consider written vars of others *)
+    let wv = List.map written_vars es |> List.fold_left VarSet.union VarSet.empty in
+    let env = restrict_immut env wv in
+    let envs, es = List.map (aux' env) es |> List.split in
+    merge_envs' env envs, es
   and aux' env e =
     let env', ctx, e = aux env e in
     merge_envs env env', fill ctx e
@@ -175,22 +173,22 @@ let rec clean_unused_assigns e =
     | Voidify e -> let e, rv = aux rv e in (id, Voidify e), rv
     | Var v -> (id, Var v), VarSet.add v rv
     | Constructor (c, es) ->
-      (* TODO: For Constructor, LambdaRec, App and Try, only consider written vars of others *)
-      let rv = List.map read_vars es |> List.fold_left VarSet.union rv in
-      (id, Constructor (c, List.map (aux rv) es |> List.map fst)), rv
+      let es, rv = aux_parallel rv es in
+      (id, Constructor (c, es)), rv
     | Lambda (tys, ty, v, e) ->
       (id, Lambda (tys, ty, v, clean_unused_assigns e)), rv
     | LambdaRec lst ->
-      let rv = List.map (fun (_,_,e) -> read_vars e) lst |> List.fold_left VarSet.union rv in
-      (id, LambdaRec (List.map (fun (ty,v,e) -> ty, v, aux rv e |> fst) lst)), rv
+      let es = List.map (fun (_,_,e) -> e) lst in
+      let es, rv = aux_parallel rv es in
+      (id, LambdaRec (List.map2 (fun (ty,v,_) e -> ty, v, e) lst es)), rv
     | Ite (e, ty, e1, e2) ->
       let (e1, rv1), (e2, rv2) = aux rv e1, aux rv e2 in
       let rv = VarSet.union rv1 rv2 in
       let e, rv = aux rv e in
       (id, Ite (e,ty,e1,e2)), rv
     | App (e1, e2) ->
-      let rv = List.map read_vars [e1;e2] |> List.fold_left VarSet.union rv in
-      (id, App (aux rv e1 |> fst, aux rv e2 |> fst)), rv
+      let es, rv = aux_parallel rv [e1;e2] in
+      (id, App (List.nth es 0, List.nth es 1)), rv
     | Projection (p, e) -> let e, rv = aux rv e in (id, Projection (p, e)), rv
     | Declare (v, e) -> let e, rv = aux rv e in (id, Declare (v, e)), rv
     | Let (tys, v, e1, e2) ->
@@ -208,8 +206,12 @@ let rec clean_unused_assigns e =
       let e1, rv = aux rv e1 in
       (id, Seq (e1, e2)), rv
     | Try es ->
+      let es, rv = aux_parallel rv es in
+      (id, Try es), rv
+  and aux_parallel rv es =
+      (* TODO: only consider written vars of others *)
       let rv = List.map read_vars es |> List.fold_left VarSet.union rv in
-      (id, Try (List.map (aux rv) es |> List.map fst)), rv
+      List.map (aux rv) es |> List.map fst, rv
   in
   aux (fv e (* Global vars *)) e |> fst
 
