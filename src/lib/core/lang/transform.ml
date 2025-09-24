@@ -151,10 +151,15 @@ let rec try_elim_ret bid e =
       (id, TypeCoerce (hole, ty, c)) |> cont' |> aux e
     | VarAssign (v, e) ->
       (id, VarAssign (v, hole)) |> cont' |> aux e
-    | Try es when not (List.exists (has_eliminable_ret bid) es) ->
-      (* Do not duplicate the continuation if unnecessary *)
-      (id, Try es) |> cont'
-    | Try (es) -> (id, Try (es |> List.map (fun e -> aux e cont)))
+    | Try es ->
+      let es, es' = List.partition (has_eliminable_ret bid) es in
+      let es = es |> List.map (fun e -> aux e cont) in
+      begin match es, es' with
+      | [], es' -> (id, Try es') |> cont'
+      | es, [] -> (id, Try es)
+      | es, [e'] -> (id, Try (es@[cont' e']))
+      | es, es' -> (id, Try (es@[(Eid.unique (), Try es') |> cont']))
+      end
     | Ite (e, tau, e1, e2) when not ((has_eliminable_ret bid) e1) && not ((has_eliminable_ret bid) e2) ->
       (* Do not duplicate the continuation if unnecessary *)
       (id, Ite (hole, tau, e1, e2)) |> cont' |> aux e
