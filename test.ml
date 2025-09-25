@@ -723,3 +723,25 @@ let mut_and_return (_) =
         mx := 0 ; return false
     end ;
     mx
+
+let abs_imp x =
+  let mut x = x in
+  if x is Nil do return x end ;
+  if x < 0 do x := 0-x end ;
+  x := (0-x,x) ;
+  return x
+
+let abs_imp_ann (x:int|Nil) =
+  let mut x = x in
+  if x is Nil do return x end ;
+  if x < 0 do x := 0-x end ;
+  x := (0-x,x) ;
+  return x
+
+let order (x:(int|Nil,int|Nil)|Nil) =
+  let mut x = x in
+  if x is Nil do return x end ;
+  if fst x is Nil do return snd x end ;
+  if snd x is Nil do return fst x end ;
+  if (snd x) < (fst x) do x := (snd x, fst x) end ;
+  return x
