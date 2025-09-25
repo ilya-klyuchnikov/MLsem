@@ -1,5 +1,5 @@
 
-type t = int
+type t
 val dummy : t
 val unique : unit -> t
 val unique_with_pos : Position.t -> t

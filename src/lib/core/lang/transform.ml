@@ -101,15 +101,15 @@ let eliminate_if_while_break_return e =
   let aux (id,e) =
     let e = match e with
     | Lambda (tys, ty, v, e) ->
-      let block = Eid.unique (), Block (BFun, e) in
+      let block = Eid.refresh (fst e), Block (BFun, e) in
       Lambda (tys, ty, v, block)
     | If (e,t,e1,None) ->
-      Ite (e, t, (Eid.unique (), Voidify e1), (Eid.unique (), Void))
+      Ite (e, t, (Eid.refresh (fst e1), Voidify e1), (Eid.unique (), Void))
     | If (e,t,e1,Some e2) ->
-      Ite (e, t, (Eid.unique (), Voidify e1), (Eid.unique (), Voidify e2))
+      Ite (e, t, (Eid.refresh (fst e1), Voidify e1), (Eid.refresh (fst e2), Voidify e2))
     | While (e,t,e1) ->
-      let block = Eid.unique (), Block (BLoop, e1) in
-      Ite (e, t, (Eid.unique (), Voidify block), (Eid.unique (), Void))
+      let block = Eid.refresh (fst e1), Block (BLoop, e1) in
+      Ite (e, t, (Eid.refresh (fst block), Voidify block), (Eid.unique (), Void))
     | Break -> Ret (BLoop, None)
     | Return e -> Ret (BFun, Some e)
     | e -> e
@@ -185,14 +185,14 @@ let has_ret ~count_noarg bid e =
     iter' f e ; false
   with Exit -> true
 
-let rec elim_ret_args bid e =
-  if has_ret ~count_noarg:false bid e
+let rec elim_ret_args bid (id,e) =
+  if has_ret ~count_noarg:false bid (id,e)
   then
     let v = MVariable.create_let MVariable.Mut (Some "res") in
-    let body = Eid.unique (), VarAssign (v, treat_rets bid v e) in
-    let body = Eid.unique (), Seq ((Eid.unique (), Voidify body), (Eid.unique (), Var v)) in
-    Eid.unique (), Declare (v, body)
-  else e
+    let body = Eid.refresh id, VarAssign (v, treat_rets bid v (id,e)) in
+    let body = Eid.refresh id, Seq ((Eid.refresh id, Voidify body), (Eid.unique (), Var v)) in
+    Eid.refresh id, Declare (v, body)
+  else id, e
 and treat_rets bid v e =
   let f = function
   | (id,Lambda (tys, ty, v, e)) -> Some (id, Lambda (tys, ty, v, e))
@@ -200,7 +200,7 @@ and treat_rets bid v e =
   | (_, Block _) -> assert false
   | (id, Ret (bid', Some e)) when bid'=bid ->
     let e = treat_rets bid v e in
-    Some (id, Seq ((Eid.unique (), VarAssign (v, e)), (Eid.unique (), Ret (bid, None))))
+    Some (id, Seq ((Eid.refresh id, VarAssign (v, e)), (Eid.refresh id, Ret (bid, None))))
   | _ -> None
   in
   map' f e

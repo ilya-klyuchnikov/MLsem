@@ -126,11 +126,11 @@ let optimize_cf e =
       let env = add_mut env v vmut in
       let ctx = fill ctx (Eid.unique (), Declare (vmut, hole)) in
       let vmuts = get_muts env v in
-      let e = Eid.unique (), VarAssign (v, (Eid.unique (), Var vimmut)) in
+      let e = Eid.refresh id, VarAssign (v, (Eid.unique (), Var vimmut)) in
       let add_assign e v =
-        Eid.unique (), Seq (
+        Eid.refresh id, Seq (
           e,
-          (Eid.unique (), VarAssign (v, (Eid.unique (), Var vimmut)))
+          (Eid.refresh id, VarAssign (v, (Eid.unique (), Var vimmut)))
         )
       in
       env, ctx, List.fold_left add_assign e vmuts
