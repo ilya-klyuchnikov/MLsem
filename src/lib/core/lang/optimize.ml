@@ -77,23 +77,29 @@ let optimize_cf e =
     | Var v when has_mut env v -> env, hole, (id, Var (get_mut env v))
     | Var v -> env, hole, (id, Var v)
     | Constructor (c, es) ->
-      let env, es = aux_parallel env es in
-      env, hole, (id, Constructor (c, es))
+      let env, ctx, es = aux_parallel env es in
+      env, ctx, (id, Constructor (c, es))
     | Lambda (tys, ty, v, e) ->
       let e = aux' (reset_env env) e |> snd in
       let env = add_captured env (written_vars e) in
       env, hole, (id, Lambda (tys, ty, v, e))
     | LambdaRec lst ->
       let es = List.map (fun (_,_,e) -> e) lst in
-      let env, es = aux_parallel env es in
-      env, hole, (id, LambdaRec (List.map2 (fun (d,v,_) e -> d,v,e) lst es))
+      let env, ctx, es = aux_parallel env es in
+      env, ctx, (id, LambdaRec (List.map2 (fun (d,v,_) e -> d,v,e) lst es))
     | Ite (e, ty, e1, e2) ->
       let env, ctx, e = aux env e in
       let (env1, e1), (env2, e2) = aux' env e1, aux' env e2 in
       merge_envs' env [env1 ; env2], ctx, (id, Ite (e, ty, e1, e2))
     | App (e1, e2) ->
-      let env, es = aux_parallel env [e1;e2] in
-      env, hole, (id, App (List.nth es 0, List.nth es 1))
+      let aux =
+        match !Config.app_eval_order with
+        | LeftToRight -> aux_sequence
+        | RightToLeft -> aux_sequence_rev
+        | UnknownOrder -> aux_parallel
+      in
+      let env, ctx, es = aux env [e1;e2] in
+      env, ctx, (id, App (List.nth es 0, List.nth es 1))
     | Projection (p, e) ->
       let env, ctx, e = aux env e in
       env, ctx, (id, Projection (p, e))
@@ -139,8 +145,8 @@ let optimize_cf e =
       let env, ctx2, e2 = aux env e2 in
       env, fill ctx1 (id, Seq (e1, ctx2)), e2
     | Try (e1, e2) ->
-      let env, es = aux_parallel env [e1;e2] in
-      env, hole, (id, Try (List.nth es 0, List.nth es 1))
+      let env, ctx, es = aux_parallel env [e1;e2] in
+      env, ctx, (id, Try (List.nth es 0, List.nth es 1))
   and aux_parallel env es =
     let envs, es = es
       |> List.map (fun e -> e, written_vars e)
@@ -149,7 +155,17 @@ let optimize_cf e =
       let env = restrict_immut env wv in
       aux' env e
       ) |> List.split in
-    merge_envs' env envs, es
+    merge_envs' env envs, hole, es
+  and aux_sequence env es =
+    let f (env,ctx,es) e =
+      let env', ctx', e' = aux env e in
+      env', fill ctx ctx', e'::es
+    in
+    let env, ctx, es = List.fold_left f (env, hole, []) es in
+    env, ctx, List.rev es
+  and aux_sequence_rev env es =
+    let env, ctx, es = aux_sequence env (List.rev es) in
+    env, ctx, List.rev es
   and aux' env e =
     let env', ctx, e = aux env e in
     merge_envs env env', fill ctx e
@@ -191,8 +207,14 @@ let rec clean_unused_assigns e =
       let e, rv = aux rv e in
       (id, Ite (e,ty,e1,e2)), rv
     | App (e1, e2) ->
-      let es, rv = aux_parallel rv [e1;e2] in
-      (id, App (List.nth es 0, List.nth es 1)), rv
+      let aux =
+        match !Config.app_eval_order with
+        | LeftToRight -> aux_sequence
+        | RightToLeft -> aux_sequence_rev
+        | UnknownOrder -> aux_parallel
+      in
+      let es, rv = aux rv [e1;e2] in
+      (id, App (List.nth es 0, List.nth es 1)), rv 
     | Projection (p, e) -> let e, rv = aux rv e in (id, Projection (p, e)), rv
     | Declare (v, e) -> let e, rv = aux rv e in (id, Declare (v, e)), rv
     | Let (tys, v, e1, e2) ->
@@ -220,6 +242,16 @@ let rec clean_unused_assigns e =
       aux rv e
       ) |> List.split in
     es, rvs |> List.fold_left VarSet.union rv
+  and aux_sequence rv es =
+    let f e (rv, es) =
+      let e', rv' = aux rv e in
+      rv', e'::es
+    in
+    let rv, es = List.fold_right f es (rv, []) in
+    es, rv
+  and aux_sequence_rev env es =
+    let es, rv = aux_sequence env (List.rev es) in
+    List.rev es, rv
   in
   aux (fv e (* Global vars *)) e |> fst
 
