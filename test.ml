@@ -745,3 +745,15 @@ let order (x:(int|Nil,int|Nil)|Nil) =
   if snd x is Nil do return fst x end ;
   if (snd x) < (fst x) do x := (snd x, fst x) end ;
   return x
+
+
+val rand : () -> any
+val is_int : (int -> true) & (~int -> false)
+let loop_tricky_narrowing x =
+  let mut x = 0 in
+  while is_int (x := rand () ; x) do
+    x := x + x
+  end ;
+  x
+
+(* TODO: Add syntax for "declare" *)

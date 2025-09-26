@@ -4,6 +4,17 @@ open Mlsem_types
 open TVOp
 open Mlsem_utils
 
+let rec typeof env (_,e) =
+  match e with
+  | Var v when Env.mem v env -> Env.find v env
+  (* The cases below are necessary because of pattern matching encoding *)
+  | Projection (p, t) ->
+    let _, ty = typeof env t |> TyScheme.get in
+    TyScheme.mk_mono (GTy.map (Checker.proj p) ty)
+  | TypeCast (t, _) -> typeof env t
+  | TypeCoerce (_, ty, _) -> TyScheme.mk_mono ty
+  | _ -> TyScheme.mk_mono GTy.any
+
 let rec is_undesirable_arrow s =
   Ty.leq s Arrow.any &&
   Arrow.dnf s |> List.for_all
@@ -21,7 +32,7 @@ let combine' rss =
   Utils.carthesian_prod' rss |> List.map REnv.conj
 
 let sufficient_refinements env e t =
-  let rec aux (_,e) t =
+  let rec aux env (_,e) t =
     if Ty.is_any t then [REnv.empty] else
     match e with
     | Lambda _ -> []
@@ -30,12 +41,12 @@ let sufficient_refinements env e t =
     | Constructor (c, es) ->
       Checker.domains_of_construct c t
       |> List.concat_map (fun ts ->
-        List.map2 (fun e t -> aux e t) es ts |> combine')
+        List.map2 (fun e t -> aux env e t) es ts |> combine')
     | TypeCoerce (_, s, _) when Ty.leq (GTy.lb s) t -> [REnv.empty]
     | Value s when Ty.leq (GTy.lb s) t -> [REnv.empty]
     | Value _ | TypeCoerce _ -> []
-    | Projection (p, e) -> aux e (Checker.domain_of_proj p t)
-    | TypeCast (e, _) -> aux e t
+    | Projection (p, e) -> aux env e (Checker.domain_of_proj p t)
+    | TypeCast (e, _) -> aux env e t
     | App ((_, Var v), e) when Env.mem v env ->
       let alpha = TVar.mk KInfer None in
       let (mono, ty) = Env.find v env |> TyScheme.get_fresh in
@@ -47,18 +58,27 @@ let sufficient_refinements env e t =
         let res = tallying mono [ (t1, Arrow.mk (TVar.typ alpha) t) ] in
         res |> List.concat_map (fun sol ->
             let targ = Subst.find sol alpha |> top_instance mono in
-            if is_undesirable mono targ then [] else aux e targ
+            if is_undesirable mono targ then [] else aux env e targ
           )
       | _ -> []
       end
     | App _ -> []
     | Ite (e, s, e1, e2) ->
-      let r1 = combine (aux e s) (aux e1 t) in
-      let r2 = combine (aux e (Ty.neg s)) (aux e2 t) in
+      let r1 = combine (aux env e s) (aux env e1 t) in
+      let r2 = combine (aux env e (Ty.neg s)) (aux env e2 t) in
       r1@r2
-    | Let (_, _, _, _) -> []
+    | Let (_, v, e1, e2) ->
+      aux (Env.add v (typeof env e1) env) e2 t
+      |> List.concat_map (fun renv ->
+          if REnv.mem v renv
+          then
+            let renv, t = REnv.rm v renv, REnv.find v renv in
+            let renvs = aux env e1 t in
+            List.map (REnv.cap renv) renvs
+          else [renv]
+        )
   in
-  aux e t
+  aux env e t
 
 let refine env e t =
   let base_renv = REnv.empty in
@@ -76,17 +96,6 @@ let refine env e t =
     if REnv.leq renv renv' then renv else aux renv' renvs
   in
   aux base_renv renvs
-
-let rec typeof env (_,e) =
-  match e with
-  | Var v when Env.mem v env -> Env.find v env
-  (* These cases are necessary because of pattern matching encoding *)
-  | Projection (p, t) ->
-    let _, ty = typeof env t |> TyScheme.get in
-    TyScheme.mk_mono (GTy.map (Checker.proj p) ty)
-  | TypeCast (t, _) -> typeof env t
-  | TypeCoerce (_, ty, _) -> TyScheme.mk_mono ty
-  | _ -> TyScheme.mk_mono GTy.any
 
 let refinement_envs env e =
   let res = ref REnvSet.empty in
