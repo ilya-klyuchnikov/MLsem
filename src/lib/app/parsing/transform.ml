@@ -55,6 +55,7 @@ let expr_to_ast t =
     | Let ((_,x), e1, e2) ->
       let e1, e2 = aux e1, aux e2 in
       Let (get_sugg x, x, e1, e2)
+    | Declare ((_,x), e) -> Declare (x, aux e)
     | Tuple es -> Constructor (Tuple (List.length es), List.map aux es)
     | Cons (e1, e2) -> Constructor (Cons, [aux e1 ; aux e2])
     | Projection (p, e) -> Projection (p, aux e)

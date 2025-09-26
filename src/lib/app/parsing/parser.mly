@@ -162,6 +162,7 @@ term:
   }
 | LET mid=mid EQUAL td=term IN t=terms { annot $startpos $endpos (Let (mid, td, t)) }
 | LET p=ppattern EQUAL td=term IN t=terms { let_pattern $startpos $endpos p td t }
+| LET mid=mid IN t=terms { annot $startpos $endpos (Declare (mid, t)) }
 | SUGGEST id=generalized_identifier IS tys=separated_nonempty_list(OR_KW, typ) IN t=terms
 { annot $startpos $endpos (Suggest (id, tys, t)) }
 | IF t=term ott=optional_test_type THEN t1=term ELSE t2=term { annot $startpos $endpos (Ite (t,ott,t1,t2)) }

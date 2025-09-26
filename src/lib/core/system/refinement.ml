@@ -11,9 +11,7 @@ let rec typeof env (_,e) =
   | Projection (p, e) ->
     let _, ty = typeof env e |> TyScheme.get in
     TyScheme.mk_mono (GTy.map (Checker.proj p) ty)
-  | TypeCast (e, ty, _) ->
-    let _, ty' = typeof env e |> TyScheme.get in
-    TyScheme.mk_mono (GTy.cap (GTy.mk ty) ty')
+  | TypeCast (e, _, _) -> typeof env e
   | TypeCoerce (_, ty, _) -> TyScheme.mk_mono ty
   | _ -> TyScheme.mk_mono GTy.any
 

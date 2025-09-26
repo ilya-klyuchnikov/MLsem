@@ -39,6 +39,7 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 | Ite of ('a, 'typ, 'enu, 'tag, 'v) t * 'typ * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
 | App of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
 | Let of ('typ,'v) vdef * ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
+| Declare of ('typ,'v) vdef * ('a, 'typ, 'enu, 'tag, 'v) t
 | Tuple of ('a, 'typ, 'enu, 'tag, 'v) t list
 | Cons of ('a, 'typ, 'enu, 'tag, 'v) t * ('a, 'typ, 'enu, 'tag, 'v) t
 | Projection of projection * ('a, 'typ, 'enu, 'tag, 'v) t
@@ -131,6 +132,13 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             Variable.attach_location var pos ;
             let env' = NameMap.add str var env in
             Let ((kind, var), aux vtenv env e1, aux vtenv env' e2)
+        | Declare ((kind,str), e) ->
+            let mkind, kind, vtenv = aux_vkind tenv vtenv kind in
+            let var = MVariable.create mkind (Some str) in
+            assert (MVariable.is_mutable var) ;
+            Variable.attach_location var pos ;
+            let env' = NameMap.add str var env in
+            Declare ((kind, var), aux vtenv env' e)
         | Tuple es ->
             Tuple (List.map (aux vtenv env) es)
         | Cons (e1, e2) ->
