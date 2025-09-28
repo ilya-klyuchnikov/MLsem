@@ -11,10 +11,34 @@ let mut b : int = 73
 let read_b = b
 let write_b = b := true
 
-let typeof_cf x =
+let typeof x =
   if x is string do return "string" end ;
   if x is bool do return "bool" end ;
   if x is int do return "int" end ;
   if x is char do return "char" end ;
   if x is () do return "unit" end ;
   "object"
+
+let neg_and_pos x =
+  let mut x = x in
+  if x is Nil do return x end ;
+  if x < 0 do x := 0-x end ;
+  x := (0-x,x) ;
+  return x
+
+let neg_and_pos_ann (x:int|Nil) =
+  let mut x = x in
+  if x is Nil do return x end ;
+  if x < 0 do x := 0-x end ;
+  x := (0-x,x) ;
+  return x
+
+val rand : () -> any
+val is_int : (int -> true) & (~int -> false)
+let loop_tricky_narrowing x =
+  let mut x in
+  let mut y = 0 in
+  while is_int (x := rand () ; x) do
+    y := y + x
+  end ;
+  return y

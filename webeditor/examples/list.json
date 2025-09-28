@@ -8,7 +8,7 @@
         "path": "narrowing.stml"
     },
     {
-        "name": "Imperative Programming",
+        "name": "Imperative Programming (encoding)",
         "path": "imperative.stml"
     },
     {
@@ -16,7 +16,7 @@
         "path": "gradual.stml"
     },
     {
-        "name": "Imperative Programming (advanced)",
+        "name": "Imperative Programming (built-in)",
         "path": "imperative_advanced.stml"
     }
 ]

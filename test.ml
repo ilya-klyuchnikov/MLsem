@@ -724,14 +724,14 @@ let mut_and_return (_) =
     end ;
     mx
 
-let abs_imp x =
+let neg_and_pos x =
   let mut x = x in
   if x is Nil do return x end ;
   if x < 0 do x := 0-x end ;
   x := (0-x,x) ;
   return x
 
-let abs_imp_ann (x:int|Nil) =
+let neg_and_pos_ann (x:int|Nil) =
   let mut x = x in
   if x is Nil do return x end ;
   if x < 0 do x := 0-x end ;
@@ -751,7 +751,8 @@ val rand : () -> any
 val is_int : (int -> true) & (~int -> false)
 let loop_tricky_narrowing x =
   let mut x in
+  let mut y = 0 in
   while is_int (x := rand () ; x) do
-    x := x + x
+    y := y + x
   end ;
-  x
+  return y
