@@ -1,6 +1,11 @@
 
 # value_restriction = true
 
+val (<) : int -> int -> bool
+val (<=) : int -> int -> bool
+val (>) : int -> int -> bool
+val (>=) : int -> int -> bool
+
 (* If not specifying the type of a top-level mutable variable, it is considered dyn *)
 let mut a = 42
 let read_a = a
