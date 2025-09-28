@@ -110,6 +110,7 @@ let eliminate_if_while_break_return e =
     | While (e,t,e1) ->
       let block = Eid.refresh (fst e1), Block (BLoop, e1) in
       Ite (e, t, (Eid.refresh (fst block), Voidify block), (Eid.unique (), Void))
+      (* TODO: Add a Loop construct *)
     | Break -> Ret (BLoop, None)
     | Return e -> Ret (BFun, Some e)
     | e -> e
