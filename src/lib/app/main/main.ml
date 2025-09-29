@@ -64,7 +64,7 @@ let type_check_with_sigs env (var,e,sigs,aty) =
     let c = if !Config.allow_implicit_downcast then CheckStatic else Check in
     let es = List.map (fun s -> coerce c (GTy.mk s) e) sigs in
     let typs, msg = List.map (infer (Some var) env) es |> List.split in
-    let msg = List.concat msg in
+    let msg = (List.concat msg)@(Mlsem_system.Analyzer.get_unreachable e) in
     let tscap t1 t2 =
       let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
       TyScheme.mk (TVarSet.union tvs1 tvs2) (GTy.cap t1 t2)
@@ -80,6 +80,7 @@ let type_check_recs pos env lst =
     PAst.LambdaRec (List.map (fun (v,e) -> (v,None,e)) lst) in
   let e = Transform.expr_to_ast e in
   let ty, msg = infer None env e in
+  let msg = msg@(Mlsem_system.Analyzer.get_unreachable e) in
   let tvs, ty = ty |> TyScheme.get in
   let n = List.length lst in
   List.mapi (fun i (var,_) ->

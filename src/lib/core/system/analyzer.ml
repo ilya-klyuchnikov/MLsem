@@ -27,6 +27,7 @@ let rec iter_ann f (id,e) a =
   in
   f (id,e) a ; children |> List.iter (fun (e, a) -> iter_ann f e a)
 
+let visited = Hashtbl.create 1000
 let analyze e a =
   let tyof a =
     match a.Annot.cache with
@@ -36,6 +37,7 @@ let analyze e a =
   let res = ref [] in
   let msg m = res := m::!res in
   let aux e a =
+    Hashtbl.replace visited (fst e) () ;
     let msg s t d = msg { eid=fst e ; severity=s ; title=t ; descr=Some d } in
     match snd e, a.Annot.ann with
     | TypeCoerce (_, _, c), ACoerce (ty, a) ->
@@ -51,4 +53,15 @@ let analyze e a =
     | _, _ -> ()
   in
   iter_ann aux e a ;
+  List.rev !res
+
+let get_unreachable e =
+  let res = ref [] in
+  let msg m = res := m::!res in
+  let aux e =
+    let msg s t = msg { eid=fst e ; severity=s ; title=t ; descr=None } in
+    if Hashtbl.mem visited (fst e) then true
+    else (msg Warning "Unreachable code" ; false)
+  in
+  iter' aux e ;
   List.rev !res
