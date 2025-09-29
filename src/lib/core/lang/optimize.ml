@@ -23,7 +23,7 @@ let written_vars e =
   | VarAssign (v,_) -> wv := VarSet.add v !wv
   | _ -> ()
   in
-  iter aux e ; !wv
+  iter aux e ; VarSet.inter (fv e) !wv
 
 let read_vars e =
   let rv = ref VarSet.empty in
@@ -31,7 +31,7 @@ let read_vars e =
   | Var v -> rv := VarSet.add v !rv
   | _ -> ()
   in
-  iter aux e ; !rv
+  iter aux e ; VarSet.inter (fv e) !rv
 
 type env = { captured:VarSet.t ; immut:Variable.t VarMap.t ; mut:Variable.t list VarMap.t }
 
@@ -81,7 +81,17 @@ let optimize_cf e =
     { captured=env.captured ; mut=VarMap.empty ; immut=VarMap.empty }
   in
   let rec aux env (id, e) =
-    match e with
+    let env, ctx' =
+      read_vars (id, e)
+      |> VarSet.elements |> List.filter MVariable.is_mutable
+      |> List.filter (fun v -> has_immut env v |> not)
+      |> List.fold_left (fun (env, ctx') v ->
+        let v' = MVariable.refresh MVariable.Immut v in
+        add_immut env v v',
+        fill ctx' (Eid.refresh id, Let ([], v', (Eid.unique (), Var v), hole))
+      ) (env, hole)
+    in
+    let env, ctx, e = match e with
     | Hole _ -> failwith "Unsupported hole."
     | Exc | Void | Value _ -> env, hole, (id, e)
     | Voidify e ->
@@ -163,6 +173,8 @@ let optimize_cf e =
     | Try (e1, e2) ->
       let env, ctx, es = aux_parallel env [e1;e2] in
       env, ctx, (id, Try (List.nth es 0, List.nth es 1))
+    in
+    env, fill ctx' ctx, e
   and aux_parallel env es =
     let envs, es = es
       |> List.map (fun e -> e, written_vars e)
