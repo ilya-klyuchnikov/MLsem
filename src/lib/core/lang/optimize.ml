@@ -211,74 +211,77 @@ let captured_vars e =
   iter' aux e ; !cv
 
 let rec clean_unused_assigns e =
-  let cv = VarSet.union (captured_vars e) (fv e (* Global vars *)) in
   let rec aux
+      cv (* Captured variables (may be read at any moment) *)
       rv (* Variables that MAY be read before being written *)
       (id,e) =
     match e with
     | Hole _ -> failwith "Unsupported hole."
     | Exc | Void | Value _ -> (id, e), rv
-    | Voidify e -> let e, rv = aux rv e in (id, Voidify e), rv
+    | Voidify e ->
+      (* rv is now considered captured, because e may exit (exception) before the end *)
+      let cv, rv = VarSet.union cv rv, VarSet.empty in
+      let e, rv = aux cv rv e in (id, Voidify e), rv
     | Var v -> (id, Var v), VarSet.add v rv
     | Constructor (c, es) ->
-      let es, rv = aux_order (eval_order_of_constructor c) rv es in
+      (* Note: unlike Voidify, we consider that a diverging argument makes the
+         constructor diverge (which is technically not true for the Ignore constructor) *)
+      let es, rv = aux_order (eval_order_of_constructor c) cv rv es in
       (id, Constructor (c, es)), rv
     | Lambda (tys, ty, v, e) ->
       (id, Lambda (tys, ty, v, clean_unused_assigns e)), rv
     | LambdaRec lst ->
       let es = List.map (fun (_,_,e) -> e) lst in
       let rv = List.map read_vars es |> List.fold_left VarSet.union rv in
-      let es, rvs = List.map (aux rv) es |> List.split in
+      let es, rvs = List.map (aux cv rv) es |> List.split in
       (id, LambdaRec (List.map2 (fun (ty,v,_) e -> ty, v, e) lst es)),
       rvs |> List.fold_left VarSet.union rv
     | Ite (e, ty, e1, e2) ->
-      let (e1, rv1), (e2, rv2) = aux rv e1, aux rv e2 in
+      let (e1, rv1), (e2, rv2) = aux cv rv e1, aux cv rv e2 in
       let rv = VarSet.union rv1 rv2 in
-      let e, rv = aux rv e in
+      let e, rv = aux cv rv e in
       (id, Ite (e,ty,e1,e2)), rv
     | App (e1, e2) ->
-      let es, rv = aux_order !Config.app_eval_order rv [e1;e2] in
+      let es, rv = aux_order !Config.app_eval_order cv rv [e1;e2] in
       (id, App (List.nth es 0, List.nth es 1)), rv 
-    | Projection (p, e) -> let e, rv = aux rv e in (id, Projection (p, e)), rv
-    | Declare (v, e) -> let e, rv = aux rv e in (id, Declare (v, e)), rv
+    | Projection (p, e) -> let e, rv = aux cv rv e in (id, Projection (p, e)), rv
+    | Declare (v, e) -> let e, rv = aux cv rv e in (id, Declare (v, e)), rv
     | Let (tys, v, e1, e2) ->
-      let e2, rv = aux rv e2 in
-      let e1, rv = aux rv e1 in
+      let e2, rv = aux cv rv e2 in
+      let e1, rv = aux cv rv e1 in
       (id, Let (tys, v, e1, e2)), rv
-    | TypeCast (e, ty, c) -> let e, rv = aux rv e in (id, TypeCast (e, ty, c)), rv
-    | TypeCoerce (e, ty, c) -> let e, rv = aux rv e in (id, TypeCoerce (e, ty, c)), rv
+    | TypeCast (e, ty, c) -> let e, rv = aux cv rv e in (id, TypeCast (e, ty, c)), rv
+    | TypeCoerce (e, ty, c) -> let e, rv = aux cv rv e in (id, TypeCoerce (e, ty, c)), rv
     | VarAssign (v, e) when VarSet.mem v (VarSet.union cv rv) ->
-      (* let rv = VarSet.remove v rv in *)
-      (* Not safe to do so: e could diverge, skipping the assignment *)
-      (* TODO: improve *)
-      let e, rv = aux rv e in (id, VarAssign (v, e)), rv
-    | VarAssign (_, e) -> let e, rv = aux rv e in (id, Voidify e), rv
+      let rv = VarSet.remove v rv in
+      let e, rv = aux cv rv e in (id, VarAssign (v, e)), rv
+    | VarAssign (_, e) -> let e, rv = aux cv rv e in (id, Voidify e), rv
     | Loop e ->
       let rv = VarSet.union rv (read_vars e) in
-      let e, rv = aux rv e in
+      let e, rv = aux cv rv e in
       (id, Loop e), rv
     | Seq (e1, e2) ->
-      let e2, rv = aux rv e2 in
-      let e1, rv = aux rv e1 in
+      let e2, rv = aux cv rv e2 in
+      let e1, rv = aux cv rv e1 in
       (id, Seq (e1, e2)), rv
     | Try (e1, e2) ->
-      let es, rv = aux_parallel rv [e1;e2] in
+      let es, rv = aux_parallel cv rv [e1;e2] in
       (id, Try (List.nth es 0, List.nth es 1)), rv
     | Alt (e1, e2) ->
-      let (e1, rv1), (e2, rv2) = aux rv e1, aux rv e2 in
+      let (e1, rv1), (e2, rv2) = aux cv rv e1, aux cv rv e2 in
       let rv = VarSet.union rv1 rv2 in
       (id, Alt (e1,e2)), rv
-  and aux_parallel rv es =
+  and aux_parallel cv rv es =
     let es, rvs = es
       |> List.map (fun e -> e, read_vars e)
       |> Utils.add_others |> List.map (fun ((e,_), es) ->
       let rv = List.map snd es |> List.fold_left VarSet.union rv in
-      aux rv e
+      aux cv rv e
       ) |> List.split in
     es, rvs |> List.fold_left VarSet.union rv
-  and aux_sequence rv es =
+  and aux_sequence cv rv es =
     let f e (rv, es) =
-      let e', rv' = aux rv e in
+      let e', rv' = aux cv rv e in
       rv', e'::es
     in
     let rv, es = List.fold_right f es (rv, []) in
@@ -288,11 +291,13 @@ let rec clean_unused_assigns e =
     | Config.LeftToRight -> aux_sequence
     | Config.RightToLeft -> aux_sequence_rev
     | Config.UnknownOrder -> aux_parallel
-  and aux_sequence_rev env es =
-    let es, rv = aux_sequence env (List.rev es) in
+  and aux_sequence_rev cv rv es =
+    let es, rv = aux_sequence cv rv (List.rev es) in
     List.rev es, rv
   in
-  aux VarSet.empty e |> fst
+  aux
+    (VarSet.union (captured_vars e) (fv e (* Global vars *)))
+    VarSet.empty e |> fst
 
 (* let clean_unused_assigns e =
   let f rv (id, e) =
