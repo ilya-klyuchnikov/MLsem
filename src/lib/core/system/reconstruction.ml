@@ -229,22 +229,13 @@ let rec infer cache env renvs annot (id, e) =
       Subst (ss,AApp(a1,a2),AApp(a1',a2'),r)
     | AllOk ([a1;a2],[t1;t2]) ->
       let t1, t2 = GTy.lb t1, GTy.lb t2 in
-      let dom = Arrow.domain t1 in
-      let approx_mode = not !Config.infer_overload && Ty.non_empty dom in
-      let res =
-        if approx_mode && not (Ty.leq t2 dom) then
-          let ss = tallying_simpl ~infer:true env Ty.any [(t2, dom)] in
-          Subst (ss, AApp(A a1, A a2), Untyp, empty_cov)
-        else
-          let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
-          let arrow = Arrow.mk t2 (TVar.typ tv) in
-          let ss = tallying_simpl ~infer:(not approx_mode) env (TVar.typ tv) [(t1, arrow)] in
-          Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
-      in
+      let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
+      let arrow = Arrow.mk t2 (TVar.typ tv) in
+      let ss = tallying_simpl ~infer:true env (TVar.typ tv) [(t1, arrow)] in
       log "untypeable application" (fun fmt ->
         Format.fprintf fmt "function: %a\nargument: %a" Ty.pp t1 Ty.pp t2
         ) ;
-      res
+      Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
     end
   | Projection _, Infer -> retry_with (AProj Infer)
