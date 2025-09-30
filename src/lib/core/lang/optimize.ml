@@ -173,6 +173,9 @@ let optimize_cf e =
     | Try (e1, e2) ->
       let env, ctx, es = aux_parallel env [e1;e2] in
       env, ctx, (id, Try (List.nth es 0, List.nth es 1))
+    | Alt (e1, e2) ->
+      let (env1, e1), (env2, e2) = aux' env e1, aux' env e2 in
+      merge_envs' env [env1;env2], hole, (id, Alt (e1, e2))
     in
     env, fill ctx' ctx, e
   and aux_parallel env es =
@@ -267,6 +270,10 @@ let rec clean_unused_assigns e =
     | Try (e1, e2) ->
       let es, rv = aux_parallel rv [e1;e2] in
       (id, Try (List.nth es 0, List.nth es 1)), rv
+    | Alt (e1, e2) ->
+      let (e1, rv1), (e2, rv2) = aux rv e1, aux rv e2 in
+      let rv = VarSet.union rv1 rv2 in
+      (id, Alt (e1,e2)), rv
   and aux_parallel rv es =
     let es, rvs = es
       |> List.map (fun e -> e, read_vars e)

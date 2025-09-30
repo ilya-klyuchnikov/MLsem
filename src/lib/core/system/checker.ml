@@ -116,7 +116,7 @@ let rec is_gen (_,e) =
   | Projection (p, e) -> proj_is_gen p && is_gen e
   | LambdaRec lst -> List.for_all (fun (_,_,e) -> is_gen e) lst
   | TypeCast (e, _, _) | TypeCoerce (e, _, _) -> is_gen e
-  | Let (_, _, e1, e2) | Ite (_, _, e1, e2) -> is_gen e1 && is_gen e2
+  | Let (_, _, e1, e2) | Ite (_, _, e1, e2) | Alt (e1, e2) -> is_gen e1 && is_gen e2
 
 let generalize ~e env s =
   if not (!Config.value_restriction) || is_gen e then
@@ -166,6 +166,12 @@ let rec typeof' env annot (id,e) =
     let t1 = typeof_b env b1 e1 s tau in
     let t2 = typeof_b env b2 e2 s (Ty.neg tau) in
     GTy.cup t1 t2
+  | Alt _, AAlt (None, None) ->
+    untypeable id ("At least one side of a Alt expr must be typeable.")
+  | Alt (e1, e2), AAlt (a1, a2) ->
+    let t1 = match a1 with None -> GTy.any | Some a1 -> typeof env a1 e1 in
+    let t2 = match a2 with None -> GTy.any | Some a2 -> typeof env a2 e2 in
+    GTy.cap t1 t2
   | App (e1, e2), AApp (annot1, annot2) ->
     let check ty1 ty2 =
       Ty.leq ty1 Arrow.any &&

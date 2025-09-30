@@ -221,6 +221,23 @@ let rec infer cache env renvs annot (id, e) =
         end  
       end
     end
+  | Alt _, Infer -> retry_with (AAlt (Some Infer, Some Infer))
+  | Alt _, AAlt (None, None) -> log "no typeable alternative" (fun _ -> ()) ; Fail
+  | Alt _, AAlt (Some (A a1), None) -> retry_with (nc (Annot.AAlt(Some a1,None)))
+  | Alt _, AAlt (None, Some (A a2)) -> retry_with (nc (Annot.AAlt(None,Some a2)))
+  | Alt _, AAlt (Some (A a1), Some (A a2)) -> retry_with (nc (Annot.AAlt(Some a1,Some a2)))
+  | Alt (_, e2), AAlt ((None | Some (A _) as a1), Some a2) ->
+    begin match infer' cache env renvs a2 e2 with
+    | Ok (a2, _) -> retry_with (AAlt (a1, Some (A a2)))
+    | Subst (ss,a2,a2',r) -> Subst (ss,AAlt (a1,Some a2),AAlt (a1,Some a2'),r)
+    | Fail -> retry_with (AAlt (a1, None))
+    end
+  | Alt (e1, _), AAlt (Some a1, a2) ->
+    begin match infer' cache env renvs a1 e1 with
+    | Ok (a1, _) -> retry_with (AAlt (Some (A a1), a2))
+    | Subst (ss,a1,a1',r) -> Subst (ss,AAlt (Some a1,a2),AAlt (Some a1',a2),r)
+    | Fail -> retry_with (AAlt (None, a2))
+    end
   | App _, Infer -> retry_with (AApp (Infer, Infer))
   | App (e1, e2), AApp (a1,a2) ->
     begin match infer_seq' cache env renvs [(a1,e1);(a2,e2)] with

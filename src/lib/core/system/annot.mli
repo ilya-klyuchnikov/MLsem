@@ -17,6 +17,7 @@ module Annot : sig
   | AIte of t * branch * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
+  | AAlt of t option * t option
   | AInter of inter
   and t = { mutable cache: GTy.t option ; ann: a }
 
@@ -45,6 +46,7 @@ module IAnnot : sig
   | AIte of t * branch * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
+  | AAlt of t option * t option
   | AInter of inter
 
   val substitute : Subst.t -> t -> t

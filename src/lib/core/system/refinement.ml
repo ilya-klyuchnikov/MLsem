@@ -67,6 +67,7 @@ let sufficient_refinements env e t =
       let r1 = combine (aux env e s) (aux env e1 t) in
       let r2 = combine (aux env e (Ty.neg s)) (aux env e2 t) in
       r1@r2
+    | Alt (e1, e2) -> (aux env e1 t)@(aux env e2 t)
     | Let (_, v, e1, e2) ->
       aux (Env.add v (typeof env e1) env) e2 t
       |> List.concat_map (fun renv ->
@@ -116,7 +117,7 @@ let refinement_envs env e =
       if fv e1 |> VarSet.is_empty |> not then add_refinement env e tau ;
       if fv e2 |> VarSet.is_empty |> not then add_refinement env e (Ty.neg tau) ;
       aux env e ; aux env e1 ; aux env e2
-    | App (e1, e2) -> aux env e1 ; aux env e2
+    | App (e1, e2) | Alt (e1, e2) -> aux env e1 ; aux env e2
     | Let (_, v, e1, e2) ->
       aux env e1 ; aux (Env.add v (typeof env e1) env) e2 ;
       let res' =

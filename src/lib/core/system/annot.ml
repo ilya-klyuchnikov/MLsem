@@ -20,6 +20,7 @@ module Annot = struct
   | AIte of t * branch * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
+  | AAlt of t option * t option
   | AInter of inter
   [@@deriving show]
   and t = { mutable cache: GTy.t option ; ann: a }
@@ -39,6 +40,7 @@ module Annot = struct
       | AIte (t,b1,b2) -> AIte (aux t, aux_b b1, aux_b b2)
       | ALambda (ty, t) -> ALambda (GTy.substitute s ty, aux t)
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (GTy.substitute s ty, aux t)) lst)
+      | AAlt (t1, t2) -> AAlt (Option.map aux t1, Option.map aux t2)
       | AInter ts -> AInter (List.map aux ts)
     in { cache=Option.map (GTy.substitute s) t.cache ; ann }
     and aux_b b =
@@ -73,6 +75,7 @@ module IAnnot = struct
   | AIte of t * branch * branch
   | ALambda of GTy.t * t
   | ALambdaRec of (GTy.t * t) list
+  | AAlt of t option * t option
   | AInter of inter
   [@@deriving show]
 
@@ -91,6 +94,7 @@ module IAnnot = struct
       | AIte (t,b1,b2) -> AIte (aux t, aux_b b1, aux_b b2)
       | ALambda (ty, t) -> ALambda (GTy.substitute s ty, aux t)
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (GTy.substitute s ty, aux t)) lst)
+      | AAlt (t1, t2) -> AAlt (Option.map aux t1, Option.map aux t2)
       | AInter bs -> AInter (List.map aux_ib bs)
     and aux_b b =
       match b with

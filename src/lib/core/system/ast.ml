@@ -28,6 +28,7 @@ type e =
 | Let of (Ty.t list) * Variable.t * t * t
 | TypeCast of t * Ty.t * check
 | TypeCoerce of t * GTy.t * check
+| Alt of t * t
 [@@deriving show]
 and t = Eid.t * e
 [@@deriving show]
@@ -46,6 +47,7 @@ let map_tl f (id,e) =
     | Let (ta, v, e1, e2) -> Let (ta, v, f e1, f e2)
     | TypeCast (e, ty, c) -> TypeCast (f e, ty, c)
     | TypeCoerce (e, ty, c) -> TypeCoerce (f e, ty, c)
+    | Alt (e1, e2) -> Alt (f e1, f e2)
   in
   (id,e)
 

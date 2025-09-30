@@ -39,8 +39,9 @@ type e =
 | TypeCoerce of t * GTy.t * SA.check
 | VarAssign of Variable.t * t (* Cannot be translated to system AST if v is not mutable *)
 | Loop of t
-| Try of t * t
-| Seq of t * t
+| Try of t * t (* May jump from a branch to another. Used to model try-with expressions. *)
+| Seq of t * t (* Evaluate the first expression, then the second. *)
+| Alt of t * t (* Evaluate both branches independently. The result is the result of the branches that do not fail.  *)
 | Block of blockid * t
 | Ret of blockid * t option
 (* Imperative control flow *)
@@ -118,6 +119,7 @@ let map_tl f (id,e) =
     | Loop e -> Loop (f e)
     | Try (e1, e2) -> Try (f e1, f e2)
     | Seq (e1, e2) -> Seq (f e1, f e2)
+    | Alt (e1, e2) -> Alt (f e1, f e2)
     | Block (bid, e) -> Block (bid, f e)
     | Ret (bid, eo) -> Ret (bid, Option.map f eo)
     | If (e, ty, e1, e2) -> If (f e, ty, f e1, Option.map f e2)

@@ -163,6 +163,10 @@ let rec try_elim_ret bid e =
       (id, Ite (hole, tau, e1, e2)) |> cont' |> aux e
     | Ite (e, tau, e1, e2) ->
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
+    | Alt (e1, e2) when not (has_eliminable_ret bid e1) && not (has_eliminable_ret bid e2) ->
+      (* Do not duplicate the continuation if unnecessary *)
+      (id, Alt (e1, e2)) |> cont'
+    | Alt (e1, e2) -> (id, Alt (aux e1 cont, aux e2 cont))
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
     | Block _ -> assert false
     | Ret (bid', None) when bid'=bid -> id, Void
@@ -251,6 +255,7 @@ let eliminate_cf t =
     | VarAssign (v, e) -> MAst.VarAssign (v, aux e)
     | Loop e -> MAst.Loop (aux e)
     | Seq (e1, e2) -> MAst.Seq (aux e1, aux e2)
+    | Alt (e1, e2) -> MAst.Alt (aux e1, aux e2)
     | Exc -> Exc
     | PatMatch _ | If _ | While _ | Break | Return _ | Block _ -> assert false
     | Ret _ -> invalid_arg "Expression contains an orphan ret expression."
