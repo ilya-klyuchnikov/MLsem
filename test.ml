@@ -779,7 +779,7 @@ let loop_invalid x =
 let loop_valid x =
 	let mut y = x in
   while true do
-    if y is ~int do break end ;
+    if y is ~int do return y end ;
     y := y + 1 ;
     y := false
   end ;
