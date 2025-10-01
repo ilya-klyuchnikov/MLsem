@@ -665,8 +665,8 @@ val f4 : char -> char
 val f5 : () -> ()
 val f6 : Nil -> Nil
 
-let test_alt a = [ f1 a | [ f2 a | [ f3 a | [ f4 a | [ f5 a | f6 a ] ] ] ] ]
-let fall = [ f1 | [ f2 | [ f3 | [ f4 | [ f5 | f6 ] ] ] ] ]
+let test_alt a = [ f1 a | f2 a | f3 a | f4 a | f5 a | f6 a ]
+let fall = [ f1 | f2 | f3 | f4 | f5 | f6 ]
 let test_noalt a = fall a 
 
 (* ========= CONTROL FLOW ========= *)

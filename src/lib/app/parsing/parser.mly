@@ -38,6 +38,13 @@
     let left = x in let right = list_of_elts startpos endpos xs in
     annot startpos endpos (Cons (left,right))
 
+  let rec alts startpos endpos = function
+    | [] -> assert false
+    | [x] -> x
+    | x::xs ->
+    let left = x in let right = alts startpos endpos xs in
+    annot startpos endpos (Alt (left,right))
+
   let rec record_update startpos endpos base = function
     | [] -> base
     | (label,e)::fields ->
@@ -245,7 +252,8 @@ atomic_term:
 { record_update $startpos $endpos br fs }
 | LBRACKET lst=separated_list(SEMICOLON, simple_term) RBRACKET
 { list_of_elts $startpos $endpos lst }
-| LBRACKET t1=term OR t2=term RBRACKET { annot $startpos $endpos (Alt (t1,t2)) }
+| LBRACKET t1=term OR ts=separated_nonempty_list(OR, term) RBRACKET
+{ alts $startpos $endpos (t1::ts) }
 
 %inline coerce:
   COERCE { Check } | COERCE_STATIC { CheckStatic } | COERCE_NOCHECK { NoCheck }
