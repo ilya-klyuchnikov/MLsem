@@ -103,14 +103,15 @@ let eliminate_if_while_break_return e =
     | Lambda (tys, ty, v, e) ->
       let block = Eid.refresh (fst e), Block (BFun, e) in
       Lambda (tys, ty, v, block)
-    | If (e,t,e1,None) ->
-      Ite (e, t, (Eid.refresh (fst e1), Voidify e1), (Eid.unique (), Void))
-    | If (e,t,e1,Some e2) ->
-      Ite (e, t, (Eid.refresh (fst e1), Voidify e1), (Eid.refresh (fst e2), Voidify e2))
+    | If (e,t,e1,e2) ->
+      let e2 = match e2 with None -> Eid.unique (), Exc | Some e2 -> e2 in
+      let body = Eid.refresh id, Ite (e, t, e1, e2) in
+      Voidify body
     | While (e,t,e1) ->
-      let body = Ite (e, t, (Eid.refresh (fst e1), Voidify e1), (Eid.unique (), Void)) in
-      let loop = Eid.refresh id, Loop (Eid.refresh id, body) in
-      Block (BLoop, loop)
+      let body = Eid.refresh id, Ite (e, t, e1, (Eid.unique (), Exc)) in
+      let block = Eid.refresh id, Block (BLoop, body) in
+      let block = Eid.refresh id, Voidify block in
+      Loop block
     | Break -> Ret (BLoop, None)
     | Return e -> Ret (BFun, Some e)
     | e -> e
@@ -145,7 +146,7 @@ let rec try_elim_ret bid e =
          is always called at least once for non-ret expr *)
       (id, Voidify hole) |> cont' |> aux e
     | Loop e ->
-      (* Note: pushing the Loop outside may prevent optimisations from applying *)
+      (* TODO: pushing the Loop outside may prevent optimisations from applying *)
       (id, Loop (aux e cont))
     | Declare (v, e) -> (id, Declare (v, aux e cont))
     | Let (tys, v, e1, e2) ->
@@ -167,7 +168,7 @@ let rec try_elim_ret bid e =
       (id, Ite (hole, tau, aux e1 cont, aux e2 cont)) |> aux e
     | Seq (e1,e2) -> (id, Seq (hole, aux e2 cont)) |> aux e1
     | Block _ -> assert false
-    | Ret (bid', None) when bid'=bid -> id, Void
+    | Ret (bid', None) when bid'=bid -> id, Exc
     | Ret (bid', Some e) when bid'=bid -> try_elim_ret bid e
     | Ret (bid', None) -> (id, Ret (bid', None)) |> cont'
     | Ret (bid', Some e) -> (id, Ret (bid', Some hole)) |> cont' |> aux e
@@ -219,7 +220,6 @@ let elim_all_ret_noarg bid e =
   map' f e
 
 let eliminate_blocks e =
-  (* TODO: maybe we should not call try_elim_ret... *)
   let aux (id,e) =
     match e with
     | Block (bid, e) ->
