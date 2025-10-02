@@ -760,9 +760,9 @@ let order (x:(int|Nil,int|Nil)|Nil) =
 
 val rand : () -> any
 val is_int : (int -> true) & (~int -> false)
-let loop_tricky_narrowing x =
+let loop_tricky_narrowing y =
   let mut x in
-  let mut y = 0 in
+  let mut y = y in
   while is_int (x := rand () ; x) do
     y := y + x
   end ;
