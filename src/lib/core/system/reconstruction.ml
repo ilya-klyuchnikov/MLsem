@@ -222,7 +222,7 @@ let rec infer cache env renvs annot (id, e) =
       end
     end
   | Alt _, Infer -> retry_with (AAlt (Some Infer, Some Infer))
-  | Alt _, AAlt (None, None) -> log "no typeable alternative" (fun _ -> ()) ; Fail
+  | Alt _, AAlt (None, None) -> Fail
   | Alt _, AAlt (Some (A a1), None) -> retry_with (nc (Annot.AAlt(Some a1,None)))
   | Alt _, AAlt (None, Some (A a2)) -> retry_with (nc (Annot.AAlt(None,Some a2)))
   | Alt _, AAlt (Some (A a1), Some (A a2)) -> retry_with (nc (Annot.AAlt(Some a1,Some a2)))

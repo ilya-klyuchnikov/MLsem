@@ -57,16 +57,16 @@ let analyze e a =
   List.rev !res
 
 let get_unreachable e =
-  let is_exc_branch e =
-    match snd e with
-    | Value ty when GTy.is_empty ty -> true
-    | _ -> false
+  (* Expressions with an unknown pos may be residuals of
+     the program transformations and encoding *)
+  let has_unknown_position (id,_) =
+    Eid.loc id = Position.dummy
   in
   let res = ref [] in
   let msg m = res := m::!res in
   let aux e =
     let msg s t = msg { eid=fst e ; severity=s ; title=t ; descr=None } in
-    if Hashtbl.mem visited (fst e) || is_exc_branch e then true
+    if Hashtbl.mem visited (fst e) || has_unknown_position e then true
     else (msg Warning "Unreachable code" ; false)
   in
   iter' aux e ;
