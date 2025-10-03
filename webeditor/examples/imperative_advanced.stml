@@ -64,3 +64,22 @@ let loop_valid x =
     x := false
   end ;
   x
+
+abstract type dict('k, 'v)
+abstract type array('a)
+val dict : () -> dict('a, 'b)
+val array : () -> array('a)
+val ([]<-) : ((dict('a, 'b), 'a) -> 'b -> ()) & ((array('b), int) -> 'b -> ())
+val ([]) : ((dict('a, 'b), 'a) -> 'b) & ((array('b), int) -> 'b)
+val push : array('a) -> 'a -> ()
+val len : array('a) -> int
+
+let filter_imp (f:('a -> bool) & ('b -> false)) (arr:array('a|'b)) =
+  let res = array () in
+  let mut i = 0 in
+  while i < (len arr) do
+    let e = arr[i] in
+    if f e do push res e end ;
+    i := i + 1
+  end ;
+  return res

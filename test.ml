@@ -784,3 +784,13 @@ let loop_valid x =
     x := false
   end ;
   x
+
+let filter_imp (f:('a -> bool) & ('b -> false)) (arr:array('a|'b)) =
+  let res = array () in
+  let mut i = 0 in
+  while i < (len arr) do
+    let e = arr[i] in
+    if f e do push res e end ;
+    i := i + 1
+  end ;
+  return res
