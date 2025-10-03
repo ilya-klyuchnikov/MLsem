@@ -49,18 +49,18 @@ let loop_tricky_narrowing y =
   return (x,y)
 
 let loop_invalid x =
-  let mut y = x in
+  let mut x = x in
   while true do
-    y := y + 1 ;
-    y := false
+    x := x + 1 ;
+    x := false
   end ;
-  y
+  x
 
 let loop_valid x =
-	let mut y = x in
+  let mut x = x in
   while true do
-    if y is ~int do return y end ;
-    y := y + 1 ;
-    y := false
+    if x is ~int do return x end ;
+    x := x + 1 ;
+    x := false
   end ;
-  y
+  x
