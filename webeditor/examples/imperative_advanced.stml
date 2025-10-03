@@ -46,7 +46,7 @@ let loop_tricky_narrowing y =
   while is_int (x := rand () ; x) do
     y := y + x
   end ;
-  return y
+  return (x,y)
 
 let loop_invalid x =
   let mut y = x in
