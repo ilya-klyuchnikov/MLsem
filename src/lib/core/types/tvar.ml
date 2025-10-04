@@ -132,9 +132,6 @@ module Subst = struct
     Sstt.Subst.filter (fun v _ -> TVarSet.mem vars v |> not) s
   let split s vars =
       (restrict s vars, remove s vars)
-  let vars s =
-      destruct s |> List.map (fun (v, t) -> TVarSet.rm v (Sstt.Ty.vars t))
-      |> TVarSet.union_many
 
   let pp fmt s = Sstt.Printer.print_subst (Ty.printer_params ()) fmt s
 end

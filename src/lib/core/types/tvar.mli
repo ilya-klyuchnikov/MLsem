@@ -54,7 +54,6 @@ module Subst : sig
     val is_identity : t -> bool
     val dom : t -> TVarSet.t
     val intro : t -> TVarSet.t
-    val vars : t -> TVarSet.t
     val mem : t -> TVar.t -> bool
     val rm: TVar.t -> t -> t
     val find : t -> TVar.t -> Ty.t
