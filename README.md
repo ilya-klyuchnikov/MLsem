@@ -10,7 +10,7 @@ The [OCaml Package Manager](https://opam.ocaml.org/) must be installed first.
 
 ```
 opam switch create mlsem 5.3.0
-eval $(opam env)
+eval $(opam env --switch=mlsem)
 opam install dune
 opam install . --deps-only
 make

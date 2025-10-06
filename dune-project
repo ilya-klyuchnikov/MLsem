@@ -42,7 +42,7 @@
 (package
  (name mlsem)
  (synopsis "A type-checker for dynamic languages")
- (depends (ocaml (>= 5.3.0)) dune (sstt (>= 0.1.0)) mlsem-types mlsem-common mlsem-system mlsem-lang)
+ (depends (ocaml (>= 5.3.0)) dune mlsem-types mlsem-common mlsem-system mlsem-lang)
 )
 
 (package
