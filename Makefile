@@ -21,7 +21,6 @@ run:
 
 clean:
 	opam exec -- dune clean
-	rm -f ./webeditor/typechecker.js ./webeditor/version.txt
 
 js:
 	opam exec -- dune build --profile release src/bin/js.bc.js
