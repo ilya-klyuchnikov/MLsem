@@ -6,7 +6,7 @@ let stop_recording () = recording := false
 (* === Recording of tallying calls === *)
 type tally_call = {
     vars : Sstt.Var.t list ;
-    mono : Sstt.VarSet.t ;
+    mono : Sstt.Var.t list ;
     priority : Sstt.Var.t list ;
     constraints : (Sstt.Ty.t * Sstt.Ty.t) list
     }
@@ -17,6 +17,7 @@ let record mono priority cs =
     let tvars = List.fold_left
       (fun acc c -> Sstt.VarSet.union acc (vars c)) Sstt.VarSet.empty cs in
     let order = Sstt.VarSet.elements tvars in
+    let mono = Sstt.VarSet.inter tvars mono |> Sstt.VarSet.elements in
     tally_calls := {vars=order;mono;priority;constraints=cs}::!tally_calls
   end
 let clear () = tally_calls := []

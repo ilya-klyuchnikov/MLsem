@@ -7,7 +7,7 @@ val clear : unit -> unit
 
 type tally_call = {
     vars : Sstt.Var.t list ;
-    mono : Sstt.VarSet.t ;
+    mono : Sstt.Var.t list ;
     priority : Sstt.Var.t list ;
     constraints : (Sstt.Ty.t * Sstt.Ty.t) list
     }
