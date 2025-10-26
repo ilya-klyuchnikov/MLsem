@@ -1,6 +1,8 @@
 open Mlsem_common
 open Mlsem_app.Main
 open Mlsem_utils
+open Yojson.Basic
+open Mlsem_types
 
 let severity_to_str s =
     match s with
@@ -39,6 +41,27 @@ let treat_res (acc, res) =
         acc, false
     | TDone -> acc, true
 
+let save_recorded file =
+    let ty_to_string ty = `String (Format.asprintf "%a" Ty.pp_raw ty) in
+    file |> Option.iter (fun file ->
+        let tallys = Recording.tally_calls () in
+        let instances = tallys |> List.map (fun (r:Recording.tally_call) ->
+            let s = TVOp.shorten_names (TVarSet.construct r.vars) in
+            let ty_to_string ty = Subst.apply s ty |> ty_to_string in
+            let to_str = List.map (fun v -> TVar.typ v |> ty_to_string) in
+            let vars, mono, priority =
+                to_str r.vars, to_str r.mono, to_str r.priority in
+            let cs = r.constraints |> List.map (fun (s,t) ->
+                    `Assoc [("lhs", ty_to_string s) ; ("rhs", ty_to_string t)]
+                )
+            in
+            let res = [ ("vars", `List vars) ; ("mono", `List mono) ; ("constraints", `List cs) ] in
+            let res = if List.is_empty priority then res else res@[("priority", `List priority)] in
+            `Assoc res
+        ) in
+        to_file file (`List instances)
+    )
+
 (* Command line *)
 let usage_msg = "mlsem [-record <output>] <file1> [<file2>] ..."
 let record = ref None
@@ -56,8 +79,8 @@ let () =
     Arg.parse speclist anon_fun usage_msg ;
     (* Printexc.record_backtrace true; *)
     if Unix.isatty Unix.stdout then Colors.add_ansi_marking Format.std_formatter ;
+    if !record <> None then Recording.start_recording () ;
     try
-        (* TODO: JSON export of recording *)
         !input_files |> List.iter (fun fn ->
             match parse (`File fn) with
             | PSuccess program ->
@@ -72,7 +95,8 @@ let () =
                 Format.printf "@.@{<bold;green>Total time: %.02fs@}@." (time1 -. time0)
             | PFailure (pos, msg) ->
                 Format.printf "@{<bold;red>%s: %s@}@." (Position.string_of_pos pos) msg
-        )
+        ) ;
+        save_recorded !record
     with e ->
         let msg = Printexc.to_string e
         and stack = Printexc.get_backtrace () in

@@ -1,6 +1,7 @@
 
 include Base
 
+module Recording = Recording
 module TVar = Tvar.TVar
 module TVarSet = Tvar.TVarSet
 module Subst = Tvar.Subst

@@ -19,6 +19,9 @@ doc:
 run:
 	opam exec -- dune exec ./src/bin/native.exe test.ml
 
+record:
+	opam exec -- dune exec -- ./src/bin/native.exe -record test.json test.ml
+
 clean:
 	opam exec -- dune clean
 

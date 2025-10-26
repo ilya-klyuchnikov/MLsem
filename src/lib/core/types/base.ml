@@ -23,6 +23,7 @@ module Ty = struct
   let add_printer_param p = pparams_ext := p::!pparams_ext
 
   let pp fmt ty = Sstt.Printer.print_ty (printer_params ()) fmt ty
+  let pp_raw = Sstt.Printer.print_ty'
 
   let any = Sstt.Ty.any
   let empty = Sstt.Ty.empty

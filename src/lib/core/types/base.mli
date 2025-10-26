@@ -7,6 +7,7 @@ module Ty : sig
     val add_printer_param : Sstt.Printer.params -> unit
     val printer_params : unit -> Sstt.Printer.params
     val pp : Format.formatter -> t -> unit
+    val pp_raw : Format.formatter -> t -> unit
 
     val any : t
     val empty : t
