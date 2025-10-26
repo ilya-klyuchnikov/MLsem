@@ -88,7 +88,7 @@ let () =
     if Unix.isatty Unix.stdout then Colors.add_ansi_marking Format.std_formatter ;
     if !record <> None then Recording.start_recording () ;
     try
-        !input_files |> List.iter (fun fn ->
+        List.rev !input_files |> List.iter (fun fn ->
             match parse (`File fn) with
             | PSuccess program ->
                 let time0 = Unix.gettimeofday () in
