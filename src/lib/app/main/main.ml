@@ -247,17 +247,7 @@ let treat_all_sigs envs elts =
   in
   aux envs elts
 
-let builtin_functions =
-  let arith_operators_typ =
-    Arrow.mk Ty.int (Arrow.mk Ty.int Ty.int) |> GTy.mk |> TyScheme.mk_poly
-  in
-  [
-    ("+", arith_operators_typ) ;
-    ("-", arith_operators_typ) ;
-    ("*", arith_operators_typ) ;
-    ("/", arith_operators_typ) ;
-    ("%", arith_operators_typ)
-  ]
+let builtin_functions = []
 
 let initial_varm =
   builtin_functions |> List.fold_left (fun varm (name, _) ->

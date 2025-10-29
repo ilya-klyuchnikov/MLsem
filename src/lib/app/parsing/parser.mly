@@ -28,9 +28,13 @@
     | PatVar v -> annot startpos endpos (Let (v, d, t))
     | pat -> annot startpos endpos (PatMatch (d, [(pat, t)]))
 
-  let double_app startpos endpos f a b =
-    let app1 = annot startpos endpos (App (f, a)) in
-    annot startpos endpos (App (app1, b))
+  let bin_app startpos endpos f a b =
+    let arg = annot startpos endpos (Tuple [a;b]) in
+    annot startpos endpos (App (f, arg))
+
+  let tern_app startpos endpos f a b c =
+    let arg = annot startpos endpos (Tuple [a;b;c]) in
+    annot startpos endpos (App (f, arg))
 
   let rec list_of_elts startpos endpos = function
     | [] -> annot startpos endpos (Const Nil)
@@ -198,13 +202,13 @@ simple_term3:
   a=simple_term4 { a }
 | a=simple_term3 b=simple_term4 { annot $startpos $endpos (App (a, b)) }
 | p=proj a=simple_term4 { annot $startpos $endpos (Projection (p, a)) }
-| a=simple_term4 s=infix_term b=simple_term4 { double_app $startpos $endpos s a b }
+| a=simple_term4 s=infix_term b=simple_term4 { bin_app $startpos $endpos s a b }
 | LT t=typ GT { annot $startpos $endpos (Magic t) }
-| t1=indexed i=INDEXED t2=simple_term4
+| t=indexed i=INDEXED t3=simple_term4
 {
+  let (t1,t2) = t in
   let f = annot $startpos $endpos (Var ("["^i)) in
-  let app = annot $startpos $endpos (App (f, t1)) in
-  annot $startpos $endpos (App (app, t2))
+  tern_app $startpos $endpos f t1 t2 t3
 }
 
 simple_term4:
@@ -214,8 +218,8 @@ simple_term4:
 | p=prefix_term a=simple_term4 { annot $startpos $endpos (App (p, a)) }
 
 %inline indexed:
-| x=IID t=term { annot $startpos $endpos (Tuple [ annot $startpos $endpos (Var x) ; t ]) }
-| LPAREN t1=terms IRPAREN t2=term { annot $startpos $endpos (Tuple [ t1 ; t2 ]) }
+| x=IID t=term { annot $startpos $endpos (Var x), t }
+| LPAREN t1=terms IRPAREN t2=term { t1, t2 }
 
 proj:
 | FST { Pi(2,0) } | SND { Pi(2,1) } | HD { Hd } | TL { Tl }
@@ -230,8 +234,9 @@ atomic_term:
   x=generalized_identifier { annot $startpos $endpos (Var x) }
 | t=indexed RBRACKET
 {
+  let (t1,t2) = t in
   let f = annot $startpos $endpos (Var "[]") in
-  annot $startpos $endpos (App (f, t))
+  bin_app $startpos $endpos f t1 t2
 }
 | c=CID { annot $startpos $endpos (Enum c) }
 | t=PCID a=term RPAREN { annot $startpos $endpos (Tag (t,a)) }

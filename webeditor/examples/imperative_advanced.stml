@@ -1,10 +1,16 @@
 
 # value_restriction = true
 
-val (<) : int -> int -> bool
-val (<=) : int -> int -> bool
-val (>) : int -> int -> bool
-val (>=) : int -> int -> bool
+val (+) : (int, int) -> int
+val (-) : (int, int) -> int
+val ( * ) : (int, int) -> int
+val (/) : (int, int) -> int
+val (%) : (int, int) -> int
+
+val (<) : (int, int) -> bool
+val (<=) : (int, int) -> bool
+val (>) : (int, int) -> bool
+val (>=) : (int, int) -> bool
 
 (* If not specifying the type of a top-level mutable variable, it is considered dyn *)
 let mut a = 42
@@ -69,7 +75,7 @@ abstract type dict('k, 'v)
 abstract type array('a)
 val dict : () -> dict('a, 'b)
 val array : () -> array('a)
-val ([]<-) : ((dict('a, 'b), 'a) -> 'b -> ()) & ((array('b), int) -> 'b -> ())
+val ([]<-) : ((dict('a, 'b), 'a, 'b) -> ()) & ((array('b), int, 'b) -> ())
 val ([]) : ((dict('a, 'b), 'a) -> 'b) & ((array('b), int) -> 'b)
 val push : array('a) -> 'a -> ()
 val len : array('a) -> int

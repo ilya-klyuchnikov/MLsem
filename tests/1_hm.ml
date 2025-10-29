@@ -1,7 +1,8 @@
-
+val (+) : (int, int) -> int
+val (-) : (int, int) -> int
 val compare : 'a -> 'a -> int
-val (<) : 'a -> 'a -> bool
-val (=) : 'a -> 'a -> bool
+val (<) : ('a, 'a) -> bool
+val (=) : ('a, 'a) -> bool
 val failwith : string -> empty
 
 #infer_overload = false
@@ -49,7 +50,7 @@ let append l1 l2 =
   | [] -> l2
   | x::l -> x::(append l l2)
   end
-let (@) l1 l2 = append l1 l2
+let (@) (l1, l2) = append l1 l2
 
 let rev_append l1 l2 =
   match l1 with

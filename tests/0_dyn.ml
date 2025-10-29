@@ -1,8 +1,13 @@
+val (+) : (int, int) -> int
+val (-) : (int, int) -> int
+val ( * ) : (int, int) -> int
+val (/) : (int, int) -> int
+val (%) : (int, int) -> int
 
-val (<) : int -> int -> bool
-val (<=) : int -> int -> bool
-val (>) : int -> int -> bool
-val (>=) : int -> int -> bool
+val (<) : (int, int) -> bool
+val (<=) : (int, int) -> bool
+val (>) : (int, int) -> bool
+val (>=) : (int, int) -> bool
 
 (* ========= SIGNATURES & ANNOTATIONS ========= *)
 
@@ -44,7 +49,7 @@ let record_ab ({ a ; b }) = { a ; b }
 
 abstract type ref('a)
 val ref : 'a -> ref('a)
-val (<-) : ref('a) -> 'a -> ()
+val (<-) : (ref('a), 'a) -> ()
 val (!) : ref('a) -> 'a
 
 val ref_42 : ref(int)
@@ -62,7 +67,7 @@ abstract type array('a)
 
 val dict : () -> dict('a, 'b)
 val array : () -> array('a)
-val ([]<-) : ((dict('a, 'b), 'a) -> 'b -> ()) & ((array('b), int) -> 'b -> ())
+val ([]<-) : ((dict('a, 'b), 'a, 'b) -> ()) & ((array('b), int, 'b) -> ())
 val ([]) : ((dict('a, 'b), 'a) -> 'b) & ((array('b), int) -> 'b)
 val push : array('a) -> 'a -> ()
 val len : array('a) -> int

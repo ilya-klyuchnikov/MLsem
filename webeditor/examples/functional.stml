@@ -1,6 +1,12 @@
 
 # value_restriction = false
 
+val (+) : (int, int) -> int
+val (-) : (int, int) -> int
+val ( * ) : (int, int) -> int
+val (/) : (int, int) -> int
+val (%) : (int, int) -> int
+
 (* === Fixpoint combinator === *)
 
 let fixpoint = fun f ->

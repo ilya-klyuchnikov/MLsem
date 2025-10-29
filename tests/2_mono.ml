@@ -1,6 +1,5 @@
 
 val compare : (int,int) | (bool,bool) | (string,string) | (char,char) -> int
-val (<) : (int,int) | (bool,bool) | (string,string) | (char,char) -> bool
 val (=) : (int,int) | (bool,bool) | (string,string) | (char,char) -> bool
 
 #infer_overload = false
