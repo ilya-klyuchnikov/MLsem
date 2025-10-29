@@ -90,7 +90,7 @@ let fold_acc_rem f lst =
 let filter_among_others pred =
   fold_acc_rem (fun c acc rem -> if pred c (acc@rem) then c::acc else acc)
 
-let map_among_others f =
+(* let map_among_others f =
   fold_acc_rem (fun c acc rem -> (f c (acc@rem))::acc)
 
 let map_among_others' f lst =
@@ -99,7 +99,7 @@ let map_among_others' f lst =
     | [] -> acc
     | c::left -> aux ((f c (left@right))::acc) left (c::right)
   in
-  aux [] (List.rev lst) []
+  aux [] (List.rev lst) [] *)
 
 let merge_when_possible merge_opt lst =
   let merge_opt a b others =

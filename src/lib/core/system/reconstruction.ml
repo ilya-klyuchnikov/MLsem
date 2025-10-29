@@ -83,8 +83,17 @@ let minimize_new_tvars mono sol =
 
 let tallying_simpl env res cs =
   let tvars = Env.tvars env in
+  let ntvars s = TVarSet.union tvars (Subst.restrict s tvars |> Subst.intro) in
   let mono = TVar.all_vars KNoInfer in
-  let leq_sol (_,r1) (_,r2) = Ty.leq r1 r2 in
+  let is_better (s1,r1) (s2,r2) =
+    let mono = TVarSet.union mono tvars in
+    let s1, s2 = Subst.restrict s1 tvars, Subst.restrict s2 tvars in
+    TVOp.decompose (TVarSet.union mono tvars) s1 s2
+    |> List.exists (fun s' -> TVOp.tallying mono [(Subst.apply s' r1, r2)] <> [])
+  in
+  let not_redundant s ss =
+    ss |> List.for_all (fun s' -> is_better s' s |> not)
+  in
   (* Format.printf "Tallying:@." ;
   cs |> List.iter (fun (a,b) -> Format.printf "%a <= %a@." Ty.pp a Ty.pp b) ; *)
   (* Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
@@ -96,12 +105,12 @@ let tallying_simpl env res cs =
   |> List.map (fun s -> s, Subst.apply s res)
   (* Simplify result if it does not impact the domains *)
   |> List.map (fun (s,r) ->
-    let mono' = TVarSet.union tvars (Subst.restrict s tvars |> Subst.intro) in
-    let mono = TVarSet.union mono mono' in
+    let mono = TVarSet.union mono (ntvars s) in
     let clean = clean_subst ~pos:Ty.empty ~neg:Ty.any mono r in
     (Subst.compose clean s, Subst.apply clean r)
   )
-  |> tsort leq_sol
+  |> Utils.filter_among_others not_redundant
+  |> tsort (fun (_,r1) (_,r2) -> Ty.leq r1 r2)
   (* |> List.map (fun (s,r) -> Format.printf "%a@.%a@." Subst.pp s Ty.pp r ; s,r) *)
 
 (* Reconstruction algorithm *)
