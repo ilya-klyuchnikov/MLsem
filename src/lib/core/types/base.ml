@@ -61,8 +61,8 @@ module Ty = struct
         name
       in
       let pp_param fmt ty =
-        let t = Sstt.Printer.get (printer_params ()) ty in
-        if List.is_empty t.defs |> not then raise Exit ; (* TODO: improve *)
+        let t = Sstt.Printer.get ~inline:true (printer_params ()) ty in
+        if List.is_empty t.defs |> not then raise Exit ;
         let d = t.main |> Sstt.Printer.map_descr (fun d ->
             match d.op with
             | Sstt.Printer.Var v -> Sstt.Printer.Var (Sstt.Var.mk (new_var v))
