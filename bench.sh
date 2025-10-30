@@ -17,8 +17,8 @@ BASE_DIR="_bench"
 mkdir -p "$BASE_DIR"
 
 compare_output () {
-    cat "$1" | sed -e 's/[(][0-9a-zA-Z. ]*[)]$//g' | head -n -2 > "$BASE_DIR"/t1.tmp
-    cat "$2" | sed -e 's/[(][0-9a-zA-Z. ]*[)]$//g' | head -n -2 > "$BASE_DIR"/t2.tmp
+    cat "$1" | grep -vi "total time" | sed -e 's/[(][0-9a-zA-Z. ]*[)]$//g' | head -n -2 > "$BASE_DIR"/t1.tmp
+    cat "$2" | grep -vi "total time" | sed -e 's/[(][0-9a-zA-Z. ]*[)]$//g' | head -n -2 > "$BASE_DIR"/t2.tmp
     diff -q "$BASE_DIR"/t1.tmp "$BASE_DIR"/t2.tmp >/dev/null 2>&1
     R=$?
     if [ "$R" -ne 0 ]
@@ -53,7 +53,7 @@ then
         echo -n Run "$i ... "
         dune exec --display=quiet -- src/bin/native.exe tests/*.ml > "$BASE_DIR"/timing.tmp
         compare_output "$BASE_DIR"/timing.ref "$BASE_DIR"/timing.tmp || exit 1
-        T=`cat "$BASE_DIR"/timing.tmp | grep 'Total time' | grep -o '[0-9]\+[.][0-9]\+'`
+        T=`cat "$BASE_DIR"/timing.tmp | grep 'Cumulated total time' | grep -o '[0-9]\+[.][0-9]\+'`
         echo "$T"
         SUM_T=`echo "$T" "$SUM_T" + 2 k p | dc`
     done
