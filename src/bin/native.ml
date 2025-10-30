@@ -52,7 +52,7 @@ let save_recorded file =
             let vars, mono, priority =
                 to_str r.vars, to_str r.mono, to_str r.priority in
             let cs = r.constraints |> List.map (fun (s,t) ->
-                `Tuple  [ty_to_string s ; ty_to_string t]
+                `List  [ty_to_string s ; ty_to_string t]
                 )
             in
             let res = [ ("vars", `List vars) ; ("mono", `List mono) ; ("constr", `List cs) ] in
