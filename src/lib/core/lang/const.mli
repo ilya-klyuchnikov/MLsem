@@ -10,4 +10,8 @@ type t =
 
 val typeof : t -> Ty.t
 
+(** [is_approximated t] returns [false] if and only if [typeof t] is a singleton type
+    capturing only [t]. *)
+val is_approximated : t -> bool
+
 val pp : Format.formatter -> t -> unit

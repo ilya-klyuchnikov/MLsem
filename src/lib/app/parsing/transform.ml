@@ -19,7 +19,7 @@ let expr_to_ast t =
   let rec aux_pat = function
     | PAst.PatType ty -> PType ty
     | PatVar (_, v) -> PVar v
-    | PatLit c -> PType (Mlsem_lang.Const.typeof c)
+    | PatLit c -> assert (Mlsem_lang.Const.is_approximated c |> not) ; PType (Mlsem_lang.Const.typeof c)
     | PatTag (t, pat) -> PConstructor (PCTag t, [aux_pat pat])
     | PatTuple pats -> PConstructor (PCTuple (List.length pats), List.map aux_pat pats)
     | PatCons (p1, p2) -> PConstructor (PCCons, [aux_pat p1; aux_pat p2])

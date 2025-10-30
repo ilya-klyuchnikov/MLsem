@@ -201,7 +201,10 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
             | PatVar vdef ->
                 let mut, var, str, vtenv = find_or_def_var tenv vtenv vdef in
                 (PatVar (mut, var), vtenv, NameMap.singleton str var)
-            | PatLit c -> (PatLit c, vtenv, NameMap.empty)
+            | PatLit c ->
+                if Mlsem_lang.Const.is_approximated c
+                then raise (SymbolError ("cannot pattern-match on approximated constants"))
+                else (PatLit c, vtenv, NameMap.empty)
             | PatTag (str, p) ->
                 let tag = get_tag tenv str in
                 let (p, vtenv, env) = aux_p vtenv env p in

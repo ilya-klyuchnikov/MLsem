@@ -23,3 +23,8 @@ let typeof c =
   | Float _ -> Ty.float
   | Char c -> Ty.char_interval c c
   | String str -> Ty.string_lit str
+
+let is_approximated c =
+  match c with
+  | Float _ -> true
+  | Unit | Nil | Bool _ | Int _ | Char _ | String _ -> false
