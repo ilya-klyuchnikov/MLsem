@@ -20,7 +20,7 @@ run:
 	opam exec -- dune exec ./src/bin/native.exe tests/*.ml
 
 record:
-	opam exec -- dune exec -- ./src/bin/native.exe -record test.json tests/*.ml
+	opam exec -- dune exec -- ./src/bin/native.exe -record tests/*.ml
 
 clean:
 	opam exec -- dune clean

@@ -36,4 +36,4 @@ _bench/
 # Linux perf tool
 perf.data
 
-test.json
+tests/*.json

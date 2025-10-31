@@ -43,54 +43,52 @@ let treat_res (acc, res) =
 
 let save_recorded file =
     let ty_to_string ty = `String (Format.asprintf "%a" Ty.pp_raw ty) in
-    file |> Option.iter (fun file ->
-        let tallys = Recording.tally_calls () in
-        let instances = tallys |> List.map (fun (r:Recording.tally_call) ->
-            let s = TVOp.shorten_names (TVarSet.construct r.vars) in
-            let ty_to_string ty = Subst.apply s ty |> ty_to_string in
-            let to_str = List.map (fun v -> TVar.typ v |> ty_to_string) in
-            let vars, mono, priority =
-                to_str r.vars, to_str r.mono, to_str r.priority in
-            let cs = r.constraints |> List.map (fun (s,t) ->
-                `List  [ty_to_string s ; ty_to_string t]
-                )
-            in
-            let res = [ ("vars", `List vars) ; ("mono", `List mono) ; ("constr", `List cs) ] in
-            let res = if List.is_empty priority then res else res@[("prio", `List priority)] in
-            `Assoc res
-        ) in
-        let oc = open_out file in
-        try
-            pretty_to_channel oc (`List instances) ;
-            close_out oc
-        with e ->
-            close_out_noerr oc;
-            raise e
-        (* to_file ~suf:"" file (`List instances) *)
-    )
+    let tallys = Recording.tally_calls () in
+    let instances = tallys |> List.map (fun (r:Recording.tally_call) ->
+        let s = TVOp.shorten_names (TVarSet.construct r.vars) in
+        let ty_to_string ty = Subst.apply s ty |> ty_to_string in
+        let to_str = List.map (fun v -> TVar.typ v |> ty_to_string) in
+        let vars, mono, priority =
+            to_str r.vars, to_str r.mono, to_str r.priority in
+        let cs = r.constraints |> List.map (fun (s,t) ->
+            `List  [ty_to_string s ; ty_to_string t]
+            )
+        in
+        let res = [ ("vars", `List vars) ; ("mono", `List mono) ; ("constr", `List cs) ] in
+        let res = if List.is_empty priority then res else res@[("prio", `List priority)] in
+        `Assoc res
+    ) in
+    let file = (Filename.remove_extension file)^".json" in
+    let oc = open_out file in
+    try
+        pretty_to_channel oc (`List instances) ;
+        close_out oc
+    with e ->
+        close_out_noerr oc;
+        raise e
+    (* to_file ~suf:"" file (`List instances) *)
 
 (* Command line *)
-let usage_msg = "mlsem [-record <output>] <file1> [<file2>] ..."
-let record = ref None
+let usage_msg = "mlsem [-record] <file1> [<file2>] ..."
+let record = ref false
 let input_files = ref []
 
 let anon_fun filename =
     input_files := filename::!input_files
-let record_fun filename =
-    record := Some filename
 
 let speclist =
-    [("-record", Arg.String record_fun, "Record tallying instances to a file")]
+    [("-record", Arg.Set record, "Record tallying instances into a file")]
 
 let () =
     Arg.parse speclist anon_fun usage_msg ;
     (* Printexc.record_backtrace true; *)
     if Unix.isatty Unix.stdout then Colors.add_ansi_marking Format.std_formatter ;
-    if !record <> None then Recording.start_recording () ;
+    if !record then Recording.start_recording () ;
     try
         let time = Unix.gettimeofday () in
         List.rev !input_files |> List.iter (fun fn ->
             Format.printf "@.@{<bold>===== Processing %s =====@}@." fn ;
+            Recording.clear () ;
             match parse (`File fn) with
             | PSuccess program ->
                 let time0 = Unix.gettimeofday () in
@@ -101,13 +99,13 @@ let () =
                         treat_def acc e |> treat_res |> fst
                     ) envs program |> ignore ;
                 let time1 = Unix.gettimeofday () in
-                Format.printf "@{<bold;green>Total time: %.02fs@}@." (time1 -. time0)
+                Format.printf "@{<bold;green>Total time: %.02fs@}@." (time1 -. time0) ;
+                if !record then save_recorded fn
             | PFailure (pos, msg) ->
                 Format.printf "@{<bold;red>%s: %s@}@." (Position.string_of_pos pos) msg
         ) ;
         let time = (Unix.gettimeofday ()) -. time in
-        Format.printf "@.@{<bold>Cumulated total time: %.02fs@}@." time ;
-        save_recorded !record
+        Format.printf "@.@{<bold>Cumulated total time: %.02fs@}@." time
     with e ->
         let msg = Printexc.to_string e
         and stack = Printexc.get_backtrace () in
