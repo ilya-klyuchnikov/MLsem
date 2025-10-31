@@ -18,7 +18,7 @@ let expr_to_ast t =
   in
   let rec aux_pat = function
     | PAst.PatType ty -> PType ty
-    | PatVar (_, v) -> PVar v
+    | PatVar (_, v) -> PVar (get_sugg v, v)
     | PatLit c -> assert (Mlsem_lang.Const.is_approximated c |> not) ; PType (Mlsem_lang.Const.typeof c)
     | PatTag (t, pat) -> PConstructor (PCTag t, [aux_pat pat])
     | PatTuple pats -> PConstructor (PCTuple (List.length pats), List.map aux_pat pats)
@@ -27,7 +27,7 @@ let expr_to_ast t =
       PConstructor (PCRec (List.map fst fields, opened), fields |> List.map snd |> List.map aux_pat)
     | PatAnd (p1, p2) -> PAnd (aux_pat p1, aux_pat p2)
     | PatOr (p1, p2) -> POr (aux_pat p1, aux_pat p2)
-    | PatAssign ((_,v), c) -> PAssign (v, Mlsem_lang.Const.typeof c |> GTy.mk)
+    | PatAssign ((_,v), c) -> PAssign (get_sugg v, v, Mlsem_lang.Const.typeof c |> GTy.mk)
   in
   let rec aux_e e =
     match e with
@@ -68,7 +68,11 @@ let expr_to_ast t =
       let ty = match tyo with None -> GTy.dyn | Some ty -> GTy.mk ty in
       TypeCoerce (aux e, ty, c)
     | VarAssign (v, e) -> VarAssign (v, aux e)
-    | PatMatch (e, pats) -> PatMatch (aux e, List.map (fun (pat,e) -> (aux_pat pat,aux e)) pats)
+    | PatMatch (e, pats) ->
+      PatMatch (aux e, List.map (fun (pat,e) ->
+        let e = aux e in (* e must be transformed before the pattern in case of a suggest *)
+        (aux_pat pat, e)
+        ) pats)
     | Cond (e,t,e1,e2) -> If (aux e, t, aux e1, Option.map aux e2)
     | While (e,t,e1) -> While (aux e, t, aux e1)
     | Seq (e1, e2) -> Seq (aux e1, aux e2)

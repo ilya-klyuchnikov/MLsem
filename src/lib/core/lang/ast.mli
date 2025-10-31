@@ -12,11 +12,14 @@ type pattern_constructor =
 | PCCustom of SA.ccustom * SA.pcustom list
 type pattern =
 | PType of Ty.t
-| PVar of Variable.t
+| PVar of Ty.t list * Variable.t
+(** The first parameter is a suggested type decomposition, similarly to let-bindings *)
 | PConstructor of pattern_constructor * pattern list
 | PAnd of pattern * pattern
 | POr of pattern * pattern
-| PAssign of Variable.t * GTy.t
+| PAssign of Ty.t list * Variable.t * GTy.t
+(** The first parameter is a suggested type decomposition, similarly to let-bindings *)
+
 type e =
 | Hole of int
 | Exc (** Expression of type [empty] *) | Void (** Expression of type [void] *)

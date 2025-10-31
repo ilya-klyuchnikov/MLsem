@@ -136,7 +136,7 @@ let lnot x = not_ x
 let tautology = fun x -> fun y ->
   land (lor x (lnot x)) (lor (lnot y) y)
 
-let tautology_ann = fun (x:any) -> fun (y:any) -> (* TODO *)
+let tautology_ann = fun (x:any) -> fun (y:any) ->
   suggest x is true or ~true in
   suggest y is true or ~true in
   land (lor x (lnot x)) (lor (lnot y) y)

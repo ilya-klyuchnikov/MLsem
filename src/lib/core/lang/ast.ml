@@ -14,11 +14,11 @@ type pattern_constructor =
 [@@deriving show]
 type pattern =
 | PType of Ty.t
-| PVar of Variable.t
+| PVar of Ty.t list * Variable.t
 | PConstructor of pattern_constructor * pattern list
 | PAnd of pattern * pattern
 | POr of pattern * pattern
-| PAssign of Variable.t * GTy.t
+| PAssign of Ty.t list * Variable.t * GTy.t
 [@@deriving show]
 type e =
 | Hole of int
@@ -55,11 +55,11 @@ and t = Eid.t * e
 let map_pat_tl f pat =
   match pat with
   | PType ty -> PType ty
-  | PVar v -> PVar v
+  | PVar (tys,v) -> PVar (tys,v)
   | PConstructor (p, ps) -> PConstructor (p, List.map f ps)
   | PAnd (p1, p2) -> PAnd (f p1, f p2)
   | POr (p1, p2) -> POr (f p1, f p2)
-  | PAssign (v, ty) -> PAssign (v, ty)
+  | PAssign (tys, v, ty) -> PAssign (tys, v, ty)
 
 let map_pat f =
   let rec aux pat =
@@ -86,7 +86,7 @@ let iter_pat' f pat =
 let bv_pat pat =
   let bv = ref VarSet.empty in
   let aux = function
-  | PVar v | PAssign (v, _) -> bv := VarSet.add v !bv
+  | PVar (_, v) | PAssign (_, v, _) -> bv := VarSet.add v !bv
   | _ -> ()
   in
   iter_pat aux pat ; !bv

@@ -41,7 +41,7 @@ let rec type_of_pat pat =
 let rec vars_of_pat pat =
   match pat with
   | PType _ -> VarSet.empty
-  | PVar x | PAssign (x,_) -> VarSet.singleton x
+  | PVar (_,x) | PAssign (_,x,_) -> VarSet.singleton x
   | PConstructor (_, args) ->
     List.fold_left VarSet.union VarSet.empty (List.map vars_of_pat args)
   | POr (p1, p2) -> VarSet.inter (vars_of_pat p1) (vars_of_pat p2)
@@ -49,16 +49,18 @@ let rec vars_of_pat pat =
 
 let rec def_of_var_pat pat v e =
   match pat with
-  | PVar v' when Variable.equals v v' -> e
-  | PAssign (v', ty) when Variable.equals v v' -> (Eid.unique (), Value ty)
+  | PVar (tys,v') when Variable.equals v v' -> tys,e
+  | PAssign (tys,v', ty) when Variable.equals v v' -> tys,(Eid.unique (), Value ty)
   | PVar _ | PAssign _ | PType _ -> assert false
   | PAnd (p1, p2) ->
     if vars_of_pat p1 |> VarSet.mem v
     then def_of_var_pat p1 v e
     else def_of_var_pat p2 v e
   | POr (p1, p2) ->
-    let case = Ite (e, type_of_pat p1, def_of_var_pat p1 v e, def_of_var_pat p2 v e) in
-    (Eid.unique (), case)
+    let tys1, e1 = def_of_var_pat p1 v e in
+    let tys2, e2 = def_of_var_pat p2 v e in
+    let case = Ite (e, type_of_pat p1, e1, e2) in
+    tys1@tys2, (Eid.unique (), case)
   | PConstructor (c, ps) ->
     let i = List.find_index (fun p -> vars_of_pat p |> VarSet.mem v) ps |> Option.get in
     def_of_var_pat (List.nth ps i) v (Eid.unique (), Projection (proj_of_patconstr c i, e))
@@ -68,8 +70,8 @@ let encode_pattern_matching e pats =
   let ts = pats |> List.map fst |> List.map type_of_pat in
   let body_of_pat pat e =
     let add_def acc v =
-      let d = def_of_var_pat pat v (Eid.unique (), Var x) in
-      (Eid.refresh (fst acc), Let ([], v, d, acc))
+      let tys,d = def_of_var_pat pat v (Eid.unique (), Var x) in
+      (Eid.refresh (fst acc), Let (tys, v, d, acc))
     in
     List.fold_left add_def e (vars_of_pat pat |> VarSet.elements)
   in
