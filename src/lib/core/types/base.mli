@@ -2,19 +2,22 @@
 (** @canonical Mlsem_types.Ty *)
 module Ty : sig
     type t = Sstt.Ty.t
+    type penv (* Printing environment *)
 
     (* Alias registering (for pretty printing) *)
-    val register : string -> t -> unit
-    val register_parametrized : string -> t list -> t -> unit
-    val set_max_parametrized : int -> unit
-    val reset_parametrized : unit -> unit
+    val empty_penv : penv
+    val merge_penvs : penv -> penv -> penv
+    val merge_penvs' : penv list -> penv
+    val register : penv -> string -> t -> penv
+    val register_parametrized : penv -> string -> t list -> t -> penv
 
     (* Pretty-printing *)
     val add_printer_param : Sstt.Printer.params -> unit
-    val printer_params : unit -> Sstt.Printer.params
-    val printer_params' : Sstt.Subst.t -> Sstt.Printer.params
-    val pp : Format.formatter -> t -> unit
-    val pp' : Sstt.Subst.t -> Format.formatter -> t -> unit
+    val printer_params : penv -> Sstt.Printer.params
+    val printer_params' : penv -> Sstt.Subst.t -> Sstt.Printer.params
+    val pp : penv -> Format.formatter -> t -> unit
+    val pp' : penv -> Sstt.Subst.t -> Format.formatter -> t -> unit
+    val pp_na : Format.formatter -> t -> unit
     val pp_raw : Format.formatter -> t -> unit
 
     val any : t
