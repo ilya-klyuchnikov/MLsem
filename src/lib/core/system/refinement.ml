@@ -15,14 +15,8 @@ let rec typeof env (_,e) =
   | TypeCoerce (_, ty, _) -> TyScheme.mk_mono ty
   | _ -> TyScheme.mk_mono GTy.any
 
-let rec is_undesirable_arrow s =
-  Ty.leq s Arrow.any &&
-  Arrow.dnf s |> List.for_all
-    (List.exists (fun (a, b) -> Ty.non_empty a && is_undesirable_arrow b))
-
 let is_undesirable mono s =
-  TVarSet.subset (vars s) mono |> not ||
-  is_undesirable_arrow s
+  TVarSet.subset (vars s) mono |> not || Ty.is_empty s
 
 let combine rs1 rs2 =
   Utils.carthesian_prod rs1 rs2
