@@ -1,5 +1,8 @@
 
-let pparams = ref (
+open Effect
+
+module PEnv = struct
+  let pparams = ref (
     [
       Sstt.Extensions.Bools.printer_params ;
       Sstt.Extensions.Floats.printer_params ;
@@ -9,9 +12,6 @@ let pparams = ref (
     ] |> Sstt.Printer.merge_params
   )
 
-open Effect
-
-module PEnv = struct
   type gstring (* gap string *) = string (* name *)
                                 * (string * Sstt.Var.t) list (* gaps (type variables) *)
   type t = { aliases: (Sstt.Ty.t * string) list ;
