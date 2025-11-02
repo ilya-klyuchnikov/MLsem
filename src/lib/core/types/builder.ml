@@ -51,15 +51,18 @@ module Builder' = struct
         val empty_tenv : type_env
         val empty_vtenv : var_type_env
 
+        type benv = { tenv:type_env ; vtenv:var_type_env }
+        val empty_benv : benv
+
         val type_base_to_typ : type_base -> Ty.t
 
-        val type_expr_to_typ : type_env -> var_type_env -> type_expr -> Ty.t * var_type_env
-        val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> Ty.t list * var_type_env
+        val type_expr_to_typ : benv -> type_expr -> Ty.t * benv
+        val type_exprs_to_typs : benv -> type_expr list -> Ty.t list * benv
 
-        val define_abstract : type_env -> string -> int -> type_env
-        val define_aliases : type_env -> var_type_env -> (string * string list * type_expr) list -> type_env
-        val get_enum : type_env -> string -> Enum.t
-        val get_tag : type_env -> string -> Tag.t
+        val define_abstract : benv -> string -> int -> benv
+        val define_aliases : benv -> (string * string list * type_expr) list -> benv
+        val get_enum : benv -> string -> Enum.t * benv
+        val get_tag : benv -> string -> Tag.t * benv
 
         val is_test_type : Ty.t -> bool
     end
@@ -80,8 +83,8 @@ module Builder' = struct
 
         type type_env = {
             aliases : (Ty.t * TVar.t list) StrMap.t ; (* User-defined non-parametric types *)
-            mutable enums : Enum.t StrMap.t ; (* Atoms *)
-            mutable tags : Tag.t StrMap.t ; (* Tags *)
+            enums : Enum.t StrMap.t ; (* Atoms *)
+            tags : Tag.t StrMap.t ; (* Tags *)
             abs : Abstract.t StrMap.t (* Abstract types *)
         }
         type var_type_env = TVar.t StrMap.t
@@ -89,6 +92,9 @@ module Builder' = struct
         let empty_tenv = { aliases=StrMap.empty ; enums=StrMap.empty ;
             tags=StrMap.empty ; abs=StrMap.empty }
         let empty_vtenv = StrMap.empty
+        
+        type benv = { tenv:type_env ; vtenv:var_type_env }
+        let empty_benv = { tenv=empty_tenv ; vtenv=empty_vtenv }
 
         let reg_to_sstt f r =
             let open TyExpr in
@@ -129,8 +135,9 @@ module Builder' = struct
             | Some (ty, ps) when List.length ps = List.length args ->
                 let s = List.combine ps args |> Subst.construct in
                 let res = Subst.apply s ty in
-                if List.is_empty ps |> not then Ty.register_parametrized name args res ;
-                Some res
+                if List.is_empty ps |> not then
+                    PEnv.register_parametrized name args res
+                ; Some res
             | Some _ -> None
         let get_abstract_type tenv name otys =
             match StrMap.find_opt name tenv.abs with
@@ -142,25 +149,24 @@ module Builder' = struct
                 end
         let get_enum tenv name =
             match StrMap.find_opt name tenv.enums with
-            | Some e -> e
+            | Some e -> e, tenv
             | None ->
                 let e = Enum.define name in
-                tenv.enums <- StrMap.add name e tenv.enums ;
-                e
+                e, { tenv with enums=StrMap.add name e tenv.enums }
         let get_tag tenv name =
             match StrMap.find_opt name tenv.tags with
-            | Some t -> t
+            | Some t -> t, tenv
             | None ->
                 let t = Tag.define name in
-                tenv.tags <- StrMap.add name t tenv.tags ;
-                t
+                t, { tenv with tags=StrMap.add name t tenv.tags }
 
-        let derecurse_types tenv venv defs =
+        let derecurse_types env defs =
             let venv =
                 let h = Hashtbl.create 16 in
-                StrMap.iter (fun n v -> Hashtbl.add h n v) venv ;
+                StrMap.iter (fun n v -> Hashtbl.add h n v) env.vtenv ;
                 h
             in
+            let tenv = ref env.tenv in
             let henv = Hashtbl.create 16 in
             let eqs = ref [] in
             let rec derecurse_types defs =
@@ -191,10 +197,10 @@ module Builder' = struct
                     match get_def args name with
                     | Some v -> TVar.typ v
                     | None ->
-                        begin match get_alias tenv name args with
+                        begin match get_alias !tenv name args with
                         | Some t -> t
                         | None ->
-                            begin match get_abstract_type tenv name oargs with
+                            begin match get_abstract_type !tenv name oargs with
                             | Some t -> t
                             | None -> raise (TypeDefinitionError (Printf.sprintf "Type %s undefined!" name))
                             end    
@@ -216,8 +222,12 @@ module Builder' = struct
                     | TApp (n, args) ->
                         let args = args |> List.map (aux lcl) in
                         get_name (Some args) n
-                    | TEnum name -> get_enum tenv name |> Enum.typ
-                    | TTag (name, t) -> Tag.mk (get_tag tenv name) (aux lcl t)
+                    | TEnum name ->
+                        let enum, tenv' = get_enum !tenv name in
+                        tenv := tenv' ; Enum.typ enum
+                    | TTag (name, t) ->
+                        let tag, tenv' = get_tag !tenv name in
+                        tenv := tenv' ; Tag.mk tag (aux lcl t)
                     | TTuple ts -> Tuple.mk (List.map (aux lcl) ts)
                     | TRecord (is_open, fields) ->
                         let aux' (label,t,opt) = (label, (opt, aux lcl t)) in
@@ -258,37 +268,49 @@ module Builder' = struct
             let res = derecurse_types defs in
             let tys = Sstt.Ty.of_eqs !eqs |> VarMap.of_list in
             let res = res |> List.map (fun (n,p,node) -> (n,p,VarMap.find node tys)) in
-            let venv = Hashtbl.fold StrMap.add venv StrMap.empty in
-            (res, venv)
+            let vtenv, tenv = Hashtbl.fold StrMap.add venv StrMap.empty, !tenv in
+            res, { tenv ; vtenv }
 
-        let type_expr_to_typ tenv venv t =
-            match derecurse_types tenv venv [ ("", [], t) ] with
-            | ([ "", [], t ], venv) -> (t, venv)
+        let type_expr_to_typ env t =
+            match derecurse_types env [ ("", [], t) ] with
+            | ([ "", [], t ], env) -> (t, env)
             | _ -> assert false
 
-        let type_exprs_to_typs env venv ts =
-            let venv = ref venv in
+        let type_exprs_to_typs env ts =
+            let env = ref env in
             let ts = List.map (fun t ->
-                let (t, venv') = type_expr_to_typ env !venv t in
-                venv := venv' ; t
+                let (t, env') = type_expr_to_typ !env t in
+                env := env' ; t
             ) ts in
-            (ts, !venv)
+            (ts, !env)
 
-        let define_aliases tenv venv defs =
-            let (res, _) = derecurse_types tenv venv defs in
+        let define_aliases env defs =
+            let (res, env) = derecurse_types env defs in
+            let tenv = env.tenv in
             let aliases = List.fold_left
                 (fun aliases (name, params, typ) ->
-                    if List.is_empty params then Ty.register name typ ;
+                    if List.is_empty params then PEnv.register name typ ;
                     StrMap.add name (typ, params) aliases
                 )
                 tenv.aliases res
             in
-            { tenv with aliases }
+            let tenv = { env.tenv with aliases } in
+            { env with tenv }
 
-        let define_abstract tenv name n =
+        let define_abstract env name n =
+            let tenv = env.tenv in
             if StrMap.mem name tenv.abs
             then raise (TypeDefinitionError (Printf.sprintf "Abstract type %s already defined!" name))
-            else { tenv with abs = StrMap.add name (Abstract.define name n) tenv.abs }
+            else
+                let tenv = { tenv with abs = StrMap.add name (Abstract.define name n) tenv.abs } in
+                { env with tenv }
+
+        let get_enum env str =
+            let enum, tenv = get_enum env.tenv str in
+            enum, { env with tenv }
+        let get_tag env str =
+            let tag, tenv = get_tag env.tenv str in
+            tag, { env with tenv }
 
         let is_test_type t =
             let exception NotTestType in

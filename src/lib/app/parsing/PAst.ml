@@ -69,18 +69,20 @@ let empty_name_var_map = NameMap.empty
 let new_annot p =
     Position.with_pos p (Eid.unique_with_pos p)
 
-let parser_expr_to_expr tenv vtenv name_var_map e =
-    let aux_a tyo vtenv =
-        match tyo with
-        | None -> None, vtenv
-        | Some ty ->
-            let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
-            Some ty, vtenv
+let parser_expr_to_expr benv env e =
+    let benv = ref benv in
+    let aux_ty ty =
+        let ty, benv' = type_expr_to_typ !benv ty in
+        benv := benv' ; ty
     in
-    let aux_cond tenv vtenv t =
-        let (t, vtenv) = type_expr_to_typ tenv vtenv t in
-        if is_test_type t
-        then (t, vtenv)
+    let aux_tys tys =
+        let tys, benv' = type_exprs_to_typs !benv tys in
+        benv := benv' ; tys
+    in
+    let aux_a tyo = Option.map aux_ty tyo in
+    let aux_cond t =
+        let t = aux_ty t in
+        if is_test_type t then t
         else raise (SymbolError ("typecases should use test types"))
     in
     let aux_var env str =
@@ -88,165 +90,157 @@ let parser_expr_to_expr tenv vtenv name_var_map e =
         then NameMap.find str env
         else raise (SymbolError ("undefined symbol "^str))
     in
-    let aux_vkind tenv vtenv k =
+    let aux_vkind k =
         match k with
-        | Immut -> (MVariable.Immut, Immut, vtenv) | Mut -> (MVariable.Mut, Mut, vtenv)
+        | Immut -> MVariable.Immut, Immut | Mut -> MVariable.Mut, Mut
         | AnnotMut ty ->
-            let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
-            MVariable.AnnotMut ty, AnnotMut ty, vtenv
+            let ty = aux_ty ty in
+            MVariable.AnnotMut ty, AnnotMut ty
     in
-    let rec aux vtenv env ((eid,pos),e) =
+    let get_enum str =
+        let enum, benv' = get_enum !benv str in
+        benv := benv' ; enum
+    in
+    let get_tag str =
+        let tag, benv' = get_tag !benv str in
+        benv := benv' ; tag
+    in
+    let rec aux env ((eid,pos),e) =
         let e = match e with
-        | Magic t ->
-            let (t, _) = type_expr_to_typ tenv vtenv t in
-            Magic t
+        | Magic t -> Magic (aux_ty t)
         | Const c -> Const c
         | Var str -> Var (aux_var env str)
-        | Enum str -> Enum (get_enum tenv str)
-        | Tag (str, e) -> Tag (get_tag tenv str, aux vtenv env e)
+        | Enum str -> Enum (get_enum str)
+        | Tag (str, e) -> Tag (get_tag str, aux env e)
         | Suggest (str,tys,e) ->
-            let tys, vtenv = type_exprs_to_typs tenv vtenv tys in
-            let var = aux_var env str in
-            Suggest (var, tys, aux vtenv env e)
+            Suggest (aux_var env str, aux_tys tys, aux env e)
         | Lambda (str,da,e) ->
-            let da, vtenv = aux_a da vtenv in
             let var = MVariable.create Immut (Some str) in
             Variable.attach_location var pos ;
             let env = NameMap.add str var env in
-            Lambda (var, da, aux vtenv env e)
+            Lambda (var, aux_a da, aux env e)
         | LambdaRec lst ->
             let aux (str,tyo,e) =
                 let var = MVariable.create Immut (Some str) in
                 Variable.attach_location var pos ;
                 let env = NameMap.add str var env in
-                let a, vtenv = aux_a tyo vtenv in
-                var, a, aux vtenv env e
+                var, aux_a tyo, aux env e
             in 
             LambdaRec (List.map aux lst)
         | Ite (e, t, e1, e2) ->
-            let (t, vtenv) = aux_cond tenv vtenv t in
-            Ite (aux vtenv env e, t, aux vtenv env e1, aux vtenv env e2)
-        | App (e1, e2) -> App (aux vtenv env e1, aux vtenv env e2)
+            Ite (aux env e, aux_cond t, aux env e1, aux env e2)
+        | App (e1, e2) -> App (aux env e1, aux env e2)
         | Let ((kind,str), e1, e2) ->
-            let mkind, kind, vtenv = aux_vkind tenv vtenv kind in
+            let mkind, kind = aux_vkind kind in
             let var = MVariable.create mkind (Some str) in
             Variable.attach_location var pos ;
             let env' = NameMap.add str var env in
-            Let ((kind, var), aux vtenv env e1, aux vtenv env' e2)
+            Let ((kind, var), aux env e1, aux env' e2)
         | Declare ((kind,str), e) ->
-            let mkind, kind, vtenv = aux_vkind tenv vtenv kind in
+            let mkind, kind = aux_vkind kind in
             let var = MVariable.create mkind (Some str) in
             assert (MVariable.is_mutable var) ;
             Variable.attach_location var pos ;
             let env' = NameMap.add str var env in
-            Declare ((kind, var), aux vtenv env' e)
-        | Tuple es ->
-            Tuple (List.map (aux vtenv env) es)
-        | Cons (e1, e2) ->
-            Cons (aux vtenv env e1, aux vtenv env e2)
-        | Projection (p, e) -> Projection (p, aux vtenv env e)
-        | Record lst ->
-            Record (List.map (fun (str, e) -> str, aux vtenv env e) lst)
+            Declare ((kind, var), aux env' e)
+        | Tuple es -> Tuple (List.map (aux env) es)
+        | Cons (e1, e2) -> Cons (aux env e1, aux env e2)
+        | Projection (p, e) -> Projection (p, aux env e)
+        | Record lst -> Record (List.map (fun (str, e) -> str, aux env e) lst)
         | RecordUpdate (e1, l, e2) ->
-            RecordUpdate (aux vtenv env e1, l, Option.map (aux vtenv env) e2)
+            RecordUpdate (aux env e1, l, Option.map (aux env) e2)
         | TypeCast (e, ty) ->
-            let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
-            if is_test_type ty
-            then TypeCast (aux vtenv env e, ty)
+            let ty = aux_ty ty in
+            if is_test_type ty then TypeCast (aux env e, ty)
             else raise (SymbolError ("type constraint should be a test type"))
         | TypeCoerce (e, Some ty, c) ->
-            let (ty, vtenv) = type_expr_to_typ tenv vtenv ty in
-            TypeCoerce (aux vtenv env e, Some ty, c)
-        | TypeCoerce (e, None, c) -> TypeCoerce (aux vtenv env e, None, c)
-        | VarAssign (str, e) ->
-            VarAssign (aux_var env str, aux vtenv env e)
+            let ty = aux_ty ty in
+            TypeCoerce (aux env e, Some ty, c)
+        | TypeCoerce (e, None, c) -> TypeCoerce (aux env e, None, c)
+        | VarAssign (str, e) -> VarAssign (aux_var env str, aux env e)
         | PatMatch (e, pats) ->
-            PatMatch (aux vtenv env e, List.map (aux_pat pos vtenv env) pats)
+            PatMatch (aux env e, List.map (aux_pat pos env) pats)
         | Cond (e, t, e1, e2) ->
-            let (t, vtenv) = aux_cond tenv vtenv t in
-            Cond (aux vtenv env e, t, aux vtenv env e1, Option.map (aux vtenv env) e2)
-        | While (e, t, e') ->
-            let (t, vtenv) = aux_cond tenv vtenv t in
-            While (aux vtenv env e, t, aux vtenv env e')
-        | Seq (e1, e2) -> Seq (aux vtenv env e1, aux vtenv env e2)
-        | Alt (e1, e2) -> Alt (aux vtenv env e1, aux vtenv env e2)
-        | Return eo -> Return (aux vtenv env eo)
+            Cond (aux env e, aux_cond t, aux env e1, Option.map (aux env) e2)
+        | While (e, t, e') -> While (aux env e, aux_cond t, aux env e')
+        | Seq (e1, e2) -> Seq (aux env e1, aux env e2)
+        | Alt (e1, e2) -> Alt (aux env e1, aux env e2)
+        | Return e -> Return (aux env e)
         | Break -> Break | Continue -> Continue
         in
         (eid,e)
-    and aux_pat pos vtenv env (pat, e) =
+    and aux_pat pos env (pat, e) =
         let merge_disj =
             NameMap.union (fun str v1 v2 ->
                 if Variable.equals v1 v2 then Some v1
                 else raise (SymbolError ("matched variables "^str^" are conflicting")))
         in
-        let rec aux_p vtenv env pat =
-            let find_or_def_var tenv vtenv (kind, str) =
-                let mkind, kind, vtenv = aux_vkind tenv vtenv kind in
+        let rec aux_p env pat =
+            let find_or_def_var (kind, str) =
+                let mkind, kind = aux_vkind kind in
                 if NameMap.mem str env
                 then
                     let v = NameMap.find str env in
-                    if MVariable.kind_equal (MVariable.kind v) mkind then kind, v, str, vtenv
+                    if MVariable.kind_equal (MVariable.kind v) mkind then kind, v, str
                     else raise (SymbolError ("inconsistent mutability for var '"^str^"'"))
                 else
                     let var = MVariable.create mkind (Some str) in
-                    Variable.attach_location var pos ; kind, var, str, vtenv
+                    Variable.attach_location var pos ; kind, var, str
             in
             match pat with
             | PatType t ->
-                let (t, vtenv) = type_expr_to_typ tenv vtenv t in
+                let t = aux_ty t in
                 if is_test_type t
-                then (PatType t, vtenv, NameMap.empty)
+                then (PatType t, NameMap.empty)
                 else raise (SymbolError ("typecases should use test types"))
             | PatVar vdef ->
-                let mut, var, str, vtenv = find_or_def_var tenv vtenv vdef in
-                (PatVar (mut, var), vtenv, NameMap.singleton str var)
+                let mut, var, str = find_or_def_var vdef in
+                (PatVar (mut, var), NameMap.singleton str var)
             | PatLit c ->
                 if Mlsem_lang.Const.is_approximated c
                 then raise (SymbolError ("cannot pattern-match on approximated constants"))
-                else (PatLit c, vtenv, NameMap.empty)
+                else (PatLit c, NameMap.empty)
             | PatTag (str, p) ->
-                let tag = get_tag tenv str in
-                let (p, vtenv, env) = aux_p vtenv env p in
-                (PatTag (tag, p), vtenv, env)
+                let tag = get_tag str in
+                let (p, env) = aux_p env p in
+                (PatTag (tag, p), env)
             | PatAnd (p1, p2) ->
-                let (p1, vtenv, env1) = aux_p vtenv env p1 in
-                let (p2, vtenv, env2) = aux_p vtenv env p2 in
-                (PatAnd (p1, p2), vtenv, merge_disj env1 env2)
+                let (p1, env1) = aux_p env p1 in
+                let (p2, env2) = aux_p env p2 in
+                (PatAnd (p1, p2), merge_disj env1 env2)
             | PatOr (p1, p2) ->
-                let (p1, vtenv, env1) = aux_p vtenv env p1 in
-                let env = merge_disj env env1 in 
-                let (p2, vtenv, env2) = aux_p vtenv env p2 in
+                let (p1, env1) = aux_p env p1 in
+                let (p2, env2) = aux_p (merge_disj env env1) p2 in
                 if NameMap.equal (Variable.equals) env1 env2 |> not
                 then raise (SymbolError ("missing matched variables in pattern")) ;
-                (PatOr (p1, p2), vtenv, env1)
+                (PatOr (p1, p2), env1)
             | PatTuple ps ->
-                let aux (ps, vtenv, env) p =
-                    let (p, vtenv, env') = aux_p vtenv env p in
-                    (p::ps, vtenv, merge_disj env env')
+                let aux (ps, acc_env) p =
+                    let (p, env') = aux_p env p in
+                    (p::ps, merge_disj acc_env env')
                 in
-                let (ps, vtenv, env) = List.fold_left aux ([],vtenv,env) ps in
-                (PatTuple (List.rev ps), vtenv, env)
+                let (ps, env) = List.fold_left aux ([],env) ps in
+                (PatTuple (List.rev ps), env)
             | PatCons (p1, p2) ->
-                let (p1, vtenv, env1) = aux_p vtenv env p1 in
-                let (p2, vtenv, env2) = aux_p vtenv env p2 in
-                (PatCons (p1, p2), vtenv, merge_disj env1 env2)
+                let (p1, env1) = aux_p env p1 in
+                let (p2, env2) = aux_p env p2 in
+                (PatCons (p1, p2), merge_disj env1 env2)
             | PatRecord (fields, o) ->
-                let (fields, vtenv, env) = List.fold_left
-                    (fun (fields, vtenv, acc_env) (name, p) ->
-                        let (p, vtenv, env') = aux_p vtenv env p in
-                        ((name, p)::fields, vtenv, merge_disj acc_env env')
-                ) ([], vtenv, env) fields in
-                (PatRecord (List.rev fields, o), vtenv, env)
+                let (fields, env) = List.fold_left
+                    (fun (fields, acc_env) (name, p) ->
+                        let (p, env') = aux_p env p in
+                        ((name, p)::fields, merge_disj acc_env env')
+                ) ([], env) fields in
+                (PatRecord (List.rev fields, o), env)
             | PatAssign (vdef, c) ->
-                let mut, var, str, vtenv = find_or_def_var tenv vtenv vdef in
-                (PatAssign ((mut, var), c), vtenv, NameMap.singleton str var)
+                let mut, var, str = find_or_def_var vdef in
+                (PatAssign ((mut, var), c), NameMap.singleton str var)
         in
-        let (pat, vtenv, env') = aux_p vtenv NameMap.empty pat in
+        let (pat, env') = aux_p NameMap.empty pat in
         let env = NameMap.add_seq (NameMap.to_seq env') env in
-        (pat, aux vtenv env e)
+        (pat, aux env e)
     in
-    aux vtenv name_var_map e
+    let res = aux env e in res, !benv
 
 type parser_element =
 | Definitions of ((type_expr, string) vdef * parser_expr) list

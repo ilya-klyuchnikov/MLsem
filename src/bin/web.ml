@@ -55,10 +55,9 @@ let add_res res res' =
     lst |> List.iter (fun (v,t)->
       let name = Variable.get_name v |> Option.get in
       let def_pos = Variable.get_location v in
-      let typ = Format.asprintf "%a" Mlsem_types.TyScheme.pp_short t in
       let typ =
         `Assoc [("name", `String name) ; ("def_pos", json_of_pos def_pos) ;
-        ("typeable", `Bool true) ; ("type", `String typ) ; ("time", `Float time) ;
+        ("typeable", `Bool true) ; ("type", `String t) ; ("time", `Float time) ;
         ("messages", `List (List.map json_of_msg msgs))]
       in
       res := typ::!res
@@ -78,7 +77,7 @@ let typecheck code callback =
     try (
       match parse (`String (Js.to_string code)) with
       | PSuccess program ->
-        let envs = (initial_tenv, initial_varm, initial_senv, initial_env) in
+        let envs = initial_envs in
         let envs,res = treat_all_sigs envs program in
         let ok = match res with | TFailure _ -> false | _ -> true in
         let res = add_res [] res in

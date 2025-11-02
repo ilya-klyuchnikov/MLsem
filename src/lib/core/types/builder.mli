@@ -50,15 +50,18 @@ module Builder' : sig
         val empty_tenv : type_env
         val empty_vtenv : var_type_env
 
+        type benv = { tenv:type_env ; vtenv:var_type_env }
+        val empty_benv : benv
+
         val type_base_to_typ : type_base -> Ty.t
 
-        val type_expr_to_typ : type_env -> var_type_env -> type_expr -> Ty.t * var_type_env
-        val type_exprs_to_typs : type_env -> var_type_env -> type_expr list -> Ty.t list * var_type_env
+        val type_expr_to_typ : benv -> type_expr -> Ty.t * benv
+        val type_exprs_to_typs : benv -> type_expr list -> Ty.t list * benv
 
-        val define_abstract : type_env -> string -> int -> type_env
-        val define_aliases : type_env -> var_type_env -> (string * string list * type_expr) list -> type_env
-        val get_enum : type_env -> string -> Enum.t
-        val get_tag : type_env -> string -> Tag.t
+        val define_abstract : benv -> string -> int -> benv
+        val define_aliases : benv -> (string * string list * type_expr) list -> benv
+        val get_enum : benv -> string -> Enum.t * benv
+        val get_tag : benv -> string -> Tag.t * benv
 
         val is_test_type : Ty.t -> bool
     end

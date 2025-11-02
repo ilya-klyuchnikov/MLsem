@@ -34,6 +34,7 @@ let proj_ab x =
   | B(v) -> v
   end
 
+let proj_a_test x = proj_a A(x)
 let proj_ab_test x y = (proj_ab A(x), proj_ab B(y))
 
 type clist('a) = Nil | Cons('a, clist('a))

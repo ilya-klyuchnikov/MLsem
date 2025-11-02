@@ -133,7 +133,7 @@ module Subst = struct
   let split s vars =
       (restrict s vars, remove s vars)
 
-  let pp fmt s = Sstt.Printer.print_subst (Ty.printer_params ()) fmt s
+  let pp fmt s = Sstt.Printer.print_subst (PEnv.printer_params ()) fmt s
 end
 
 module TVOp = struct

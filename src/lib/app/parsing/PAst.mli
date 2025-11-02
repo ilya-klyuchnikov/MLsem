@@ -69,7 +69,7 @@ val empty_name_var_map : name_var_map
 
 val new_annot : Position.t -> annotation
 
-val parser_expr_to_expr : type_env -> var_type_env -> name_var_map -> parser_expr -> expr
+val parser_expr_to_expr : benv -> name_var_map -> parser_expr -> expr * benv
 
 type parser_element =
 | Definitions of ((type_expr, string) vdef * parser_expr) list

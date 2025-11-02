@@ -69,8 +69,7 @@ module PEnv = struct
       let id = ref 0 in
       let new_var v =
         let name = "{{"^(string_of_int !id)^"}}" in
-        id := !id+1 ;
-        hmap := StrMap.add name v !hmap ;
+        id := !id+1 ; hmap := StrMap.add name v !hmap ;
         name
       in
       let pparam = printer_params () in

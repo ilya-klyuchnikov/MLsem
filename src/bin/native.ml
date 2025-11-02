@@ -17,8 +17,7 @@ let treat_res (acc, res) =
         lst |> List.iter (fun (v,t) ->
             Format.printf "@{<blue;bold>%s@}: %!"
                 (Variable.get_name v |> Option.get) ;
-            Format.printf "%a @{<italic;yellow>(checked in %.00fms)@}\n%!"
-                Mlsem_types.TyScheme.pp_short t time ;
+            Format.printf "%s @{<italic;yellow>(checked in %.00fms)@}\n%!" t time ;
         ) ;
         msg |> List.iter (fun (s,pos,title,descr) ->
             Format.printf "@{<italic;bold;cyan>[%s]@} @{<italic;cyan>%s@} @{<italic;cyan>%s@}\n%!"
@@ -92,7 +91,7 @@ let () =
             match parse (`File fn) with
             | PSuccess program ->
                 let time0 = Unix.gettimeofday () in
-                let envs = (initial_tenv, initial_varm, initial_senv, initial_env) in
+                let envs = initial_envs in
                 let envs, ok = treat_all_sigs envs program |> treat_res in
                 if ok then
                     List.fold_left (fun acc e ->
