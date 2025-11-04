@@ -71,30 +71,31 @@ module PEnv = struct
 
   let register_parametrized name ps ty =
     let module StrMap = Map.Make(String) in
-    try
-      let sep,prio,_ = Sstt.Prec.varop_info Sstt.Prec.Tuple in
-      let hmap = ref StrMap.empty in
-      let id = ref 0 in
-      let new_var v =
-        let name = "{{"^(string_of_int !id)^"}}" in
-        id := !id+1 ; hmap := StrMap.add name v !hmap ;
-        name
+    let sep,prio,_ = Sstt.Prec.varop_info Sstt.Prec.Tuple in
+    let hmap = ref StrMap.empty in
+    let id = ref 0 in
+    let new_var v =
+      let name = "{{"^(string_of_int !id)^"}}" in
+      id := !id+1 ; hmap := StrMap.add name v !hmap ;
+      name
+    in
+    let pparam = printer_params () in
+    let pp_param fmt ty =
+      let t = Sstt.Printer.get ~inline:true pparam ty in
+      let rename_vars (d:Sstt.Printer.descr) =
+        match d.op with
+        | Sstt.Printer.Var v -> Sstt.Printer.Var (Sstt.Var.mk (new_var v))
+        | o -> o
       in
-      let pparam = printer_params () in
-      let pp_param fmt ty =
-        let t = Sstt.Printer.get ~inline:true pparam ty in
-        if List.is_empty t.defs |> not then raise Exit ;
-        let d = t.main |> Sstt.Printer.map_descr (fun d ->
-            match d.op with
-            | Sstt.Printer.Var v -> Sstt.Printer.Var (Sstt.Var.mk (new_var v))
-            | o -> o
-          )
-        in
+      if List.is_empty t.defs then
+        let d = t.main |> Sstt.Printer.map_descr rename_vars in
         Sstt.Printer.print_descr_ctx prio Sstt.Prec.NoAssoc fmt d
-      in
-      let str = Format.asprintf "%s(%a)" name (Mlsem_utils.Utils.pp_seq pp_param sep) ps in
-      perform (Update { empty with paliases=[ty, (str, StrMap.bindings !hmap)] })
-    with Exit -> ()
+      else
+        let t = t |> Sstt.Printer.map rename_vars in
+        Format.fprintf fmt "(%a)" Sstt.Printer.print t
+    in
+    let str = Format.asprintf "%s(%a)" name (Mlsem_utils.Utils.pp_seq pp_param sep) ps in
+    perform (Update { empty with paliases=[ty, (str, StrMap.bindings !hmap)] })
 end
 
 module Ty = struct
