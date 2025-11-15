@@ -38,7 +38,7 @@ let domains_of_construct (c:Ast.constructor) ty =
   | Tuple n ->
     Tuple.dnf n ty
     |> List.filter (fun b -> Ty.leq (Tuple.mk b) ty)
-  | Choice n -> [List.init n (fun _ -> ty)]
+  | Join n | Meet n -> [List.init n (fun _ -> ty)]
   | Ignore ty' when Ty.leq ty' ty -> [ [Ty.any] ]
   | Ignore _ -> []
   | Cons ->
@@ -76,7 +76,8 @@ let domains_of_construct (c:Ast.constructor) ty =
 let construct (c:Ast.constructor) tys =
   match c, tys with
   | Tuple n, tys when List.length tys = n -> Tuple.mk tys
-  | Choice n, tys when List.length tys = n -> Ty.disj tys
+  | Join n, tys when List.length tys = n -> Ty.disj tys
+  | Meet n, tys when List.length tys = n -> Ty.conj tys
   | Ignore ty, [_] -> ty
   | Cons, [t1 ; t2] -> Lst.cons t1 t2
   | Rec (labels, opened), tys when List.length labels = List.length tys ->
@@ -105,7 +106,7 @@ let proj_is_gen p =
 let constr_is_gen c =
   match c with
   | Tuple _ | Cons | Rec _ | Tag _ | Enum _
-  | RecUpd _ | RecDel _ | Choice _ -> true
+  | RecUpd _ | RecDel _ | Join _ | Meet _ -> true
   | Ignore _ -> false
   | CCustom c -> c.cgen
 let rec is_gen (_,e) =

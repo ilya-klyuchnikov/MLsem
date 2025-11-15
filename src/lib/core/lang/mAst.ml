@@ -166,7 +166,7 @@ let to_system_ast t =
     | VarAssign _ -> invalid_arg "Cannot assign to an immutable variable."
     | Loop e -> aux e |> snd
     | Seq (e1, e2) -> Let ([], MVariable.create Immut None, aux e1, aux e2)
-    | Try (e1, e2) -> SA.Constructor (SA.Choice 2, [aux e1 ; aux e2])
+    | Try (e1, e2) -> SA.Constructor (SA.Join 2, [aux e1 ; aux e2])
     | Alt (e1, e2) -> SA.Alt (aux e1, aux e2)
     | Hole _ -> invalid_arg "Expression should not contain a hole."
     in

@@ -9,8 +9,8 @@ type projection =
 | PCustom of pcustom
 type constructor =
 | Tuple of int | Cons | Rec of (string * bool) list * bool | Tag of Tag.t | Enum of Enum.t 
-| RecUpd of string | RecDel of string | Choice of int | Ignore of Ty.t (* Should not contain type vars *)
-| CCustom of ccustom
+| RecUpd of string | RecDel of string | Join of int | Meet of int
+| Ignore of Ty.t (* Should not contain type vars *) | CCustom of ccustom
 type e =
 | Value of GTy.t
 | Var of Variable.t
