@@ -25,21 +25,6 @@ let tsort leq lst =
   in
   List.fold_left add_elt [] (List.rev lst)
 
-let substitute_by_similar_var v t =
-  let vs = TVarSet.rm v (top_vars t) in
-  let nt = vars_with_polarity t |> List.find_map (fun (v', k) ->
-    if TVarSet.mem vs v' then
-    match k with
-    | `Pos -> Some (TVar.typ v')
-    | `Neg -> Some (TVar.typ v' |> Ty.neg)
-    | `Both -> (* Cases like Bool & 'a \ 'b  |  Int & 'a & 'b *) None
-    else None
-    )
-  in
-  match nt with
-  | None -> Subst.identity
-  | Some nt -> Subst.construct [(v,nt)]
-
 let abstract_factors v ty =
   let (factor, _) = factorize (TVarSet.construct [v], TVarSet.empty) ty in
   let res = ref [] in
@@ -67,19 +52,25 @@ let abstract_factors tvars sol =
   else
     [sol]
 
-let minimize_new_tvars mono sol (v,t) =
-  let mono = TVarSet.add v mono in
-  let ss = tallying mono [(TVar.typ v, t) ; (t, TVar.typ v)] in
-  let aux sol s =
-    let aux sol (v,t) =
-      let r = substitute_by_similar_var v t in
-      Subst.compose r sol
-    in
-    List.fold_left aux sol (Subst.destruct s)
+let substitute_similar_vars mono v t =
+  let vs = TVarSet.diff (top_vars t) (TVarSet.add v mono) in
+  let nt = vars_with_polarity t |> List.filter_map (fun (v', k) ->
+    if TVarSet.mem vs v' then
+    match k with
+    | `Pos -> Some (v', TVar.typ v)
+    | `Neg -> Some (v', TVar.typ v |> Ty.neg)
+    | `Both -> (* Cases like Bool & 'a \ 'b  |  Int & 'a & 'b *) None
+    else None
+    )
   in
-  List.fold_left aux sol ss
+  Subst.construct nt
+
 let minimize_new_tvars mono sol =
-  List.fold_left (minimize_new_tvars mono) sol (Subst.destruct sol)
+  let minimize_binding sol (v,t) =
+    let r = substitute_similar_vars mono v t in
+    Subst.compose r sol
+  in
+  List.fold_left minimize_binding sol (Subst.destruct sol)
 
 let tallying_simpl env res cs =
   let tvars = Env.tvars env in
@@ -98,7 +89,7 @@ let tallying_simpl env res cs =
   (* Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
     (TVarSet.destruct tvars) ; *)
   (* Format.printf "with env=%a@." Env.pp env ; *)
-  tallying_with_prio mono (tvars |> TVarSet.destruct) cs
+  tallying mono cs
   |> List.concat_map (abstract_factors tvars)
   |> List.map (minimize_new_tvars (TVarSet.union mono tvars))
   |> List.map (fun s -> s, Subst.apply s res)

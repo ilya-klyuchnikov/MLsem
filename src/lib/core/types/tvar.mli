@@ -98,7 +98,6 @@ module TVOp : sig
     val top_instance : TVarSet.t -> Ty.t -> Ty.t
 
     val tallying : TVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
-    val tallying_with_prio : TVarSet.t -> (TVar.t list) -> (Ty.t * Ty.t) list -> Subst.t list
     val decompose : TVarSet.t -> Subst.t -> Subst.t -> Subst.t list
 
     val factorize : TVarSet.t * TVarSet.t -> Ty.t -> Ty.t * Ty.t

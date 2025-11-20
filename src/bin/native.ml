@@ -48,15 +48,12 @@ let save_recorded file =
         let s = TVOp.shorten_names (TVarSet.construct r.vars) in
         let ty_to_string ty = Subst.apply s ty |> ty_to_string in
         let to_str = List.map (fun v -> TVar.typ v |> ty_to_string) in
-        let vars, mono, priority =
-            to_str r.vars, to_str r.mono, to_str r.priority in
+        let vars, mono = to_str r.vars, to_str r.mono in
         let cs = r.constraints |> List.map (fun (s,t) ->
             `List  [ty_to_string s ; ty_to_string t]
             )
         in
-        let res = [ ("vars", `List vars) ; ("mono", `List mono) ; ("constr", `List cs) ] in
-        let res = if List.is_empty priority then res else res@[("prio", `List priority)] in
-        `Assoc res
+        `Assoc [ ("vars", `List vars) ; ("mono", `List mono) ; ("constr", `List cs) ]
     ) in
     let file = (Filename.remove_extension file)^".json" in
     let oc = open_out file in
