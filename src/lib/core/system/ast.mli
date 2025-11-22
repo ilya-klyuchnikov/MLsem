@@ -3,14 +3,18 @@ open Mlsem_types
 
 type pcustom = { pname: string ; pdom: Ty.t -> Ty.t ; proj: Ty.t -> Ty.t ; pgen: bool }
 type ccustom = { cname: string ; cdom: Ty.t -> Ty.t list list ; cons: Ty.t list -> Ty.t ; cgen: bool }
+type ocustom = { oname: string ; ofun: TyScheme.t ; ogen: bool }
 type check = Check | CheckStatic | NoCheck
 type projection =
-| Pi of int * int | Field of string | FieldOpt of string
+| Pi of int * int | PiField of string | PiFieldOpt of string
 | Hd | Tl | PiTag of Tag.t | PCustom of pcustom
 type constructor =
-| Tuple of int | Cons | Rec of (string * bool) list * bool | Tag of Tag.t | Enum of Enum.t 
-| RecUpd of string | RecDel of string | Join of int | Meet of int | Ternary of Ty.t
-| Ignore of Ty.t (* Should not contain type vars *) | CCustom of ccustom
+| Tuple of int | Cons | Rec of string list * bool | Tag of Tag.t | Enum of Enum.t 
+| Join of int | Meet of int | Ternary of Ty.t | Ignore of Ty.t (* Should not contain type vars *)
+| CCustom of ccustom
+type operation =
+| RecUpd of string | RecDel of string
+| OCustom of ocustom
 type e =
 | Value of GTy.t
 | Var of Variable.t
@@ -19,6 +23,7 @@ type e =
 | LambdaRec of (GTy.t * Variable.t * t) list
 | Ite of t * Ty.t * t * t
 | App of t * t
+| Operation of operation * t
 | Projection of projection * t
 | Let of (Ty.t list) * Variable.t * t * t
 | TypeCast of t * Ty.t * check
@@ -41,5 +46,6 @@ val pp_e : Format.formatter -> e -> unit
 val pp_check : Format.formatter -> check -> unit
 val pp_projection : Format.formatter -> projection -> unit
 val pp_constructor : Format.formatter -> constructor -> unit
+val pp_operation : Format.formatter -> operation -> unit
 val pp_pcustom : Format.formatter -> pcustom -> unit
 val pp_ccustom : Format.formatter -> ccustom -> unit

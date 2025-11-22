@@ -8,7 +8,7 @@ module SA = Mlsem_system.Ast
 let constr_of_patconstr = function
   | PCTuple n -> SA.Tuple n
   | PCCons -> SA.Cons
-  | PCRec (fields, opened) -> SA.Rec (List.map (fun f -> (f, false)) fields, opened)
+  | PCRec (fields, opened) -> SA.Rec (fields, opened)
   | PCTag t -> SA.Tag t
   | PCEnum e -> SA.Enum e
   | PCCustom (c, _) -> SA.CCustom c
@@ -18,7 +18,7 @@ let proj_of_patconstr c i =
   | PCTuple n, i when i < n -> SA.Pi (n,i)
   | PCCons, 0 -> SA.Hd
   | PCCons, 1 -> SA.Tl
-  | PCRec (fields, _), i -> SA.Field (List.nth fields i)
+  | PCRec (fields, _), i -> SA.PiField (List.nth fields i)
   | PCTag t, 0 -> SA.PiTag t
   | PCCustom (_, ps), i -> SA.PCustom (List.nth ps i)
   | _, _ -> invalid_arg "Wrong constructor arity."
@@ -127,7 +127,8 @@ let has_eliminable_ret bid e =
   try
     let f = function
     | (_, Lambda _) | (_, LambdaRec _) | (_, Isolate _) | (_, Loop _) | (_, Alt _)
-    | (_, App _) | (_, Constructor _) | (_, Projection _) | (_, VarAssign _) -> false
+    | (_, App _) | (_, Constructor _) | (_, Operation _) | (_, Projection _)
+    | (_, VarAssign _) -> false
     | (_, Block _) -> assert false
     | (_, Ret (bid', _)) when bid=bid' -> raise Exit
     | _ -> true
@@ -150,6 +151,7 @@ let rec try_elim_ret ~keep_ret bid e =
     | Constructor (c,es) -> (id, Constructor (c, List.map aux' es)) |> cont'
     | Alt (e1, e2) -> (id, Alt (aux' e1, aux' e2)) |> cont'
     | App (e1, e2) -> (id, App (aux' e1, aux' e2)) |> cont'
+    | Operation (o,e) -> (id, Operation (o, aux' e)) |> cont'
     | Projection (p,e) -> (id, Projection (p, aux' e)) |> cont'
     | VarAssign (v,e) -> (id, VarAssign (v, aux' e)) |> cont'
     | Loop e -> (id, Loop (aux' e)) |> cont'
@@ -270,6 +272,7 @@ let eliminate_cf t =
     | Ite (e,t,e1,e2) -> MAst.Ite (aux e, t, aux e1, aux e2)
     | Try (e1,e2) -> MAst.Try (aux e1, aux e2)
     | App (e1,e2) -> MAst.App (aux e1, aux e2)
+    | Operation (o, e) -> MAst.Operation (o, aux e)
     | Projection (p, e) -> MAst.Projection (p, aux e)
     | Declare (x, e) -> MAst.Declare (x, aux e)
     | Let (tys, x, e1, e2) -> MAst.Let (tys, x, aux e1, aux e2)

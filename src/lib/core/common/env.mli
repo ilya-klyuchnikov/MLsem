@@ -18,7 +18,7 @@ module type Env = sig
     val restrict : Variable.t list -> t -> t
     val map : (ty -> ty) -> t -> t
     val filter : (Variable.t -> ty -> bool) -> t -> t
-    val tvars : t -> TVarSet.t
+    val tvars : t -> MVarSet.t
     val substitute : Subst.t -> t -> t
 
     val equiv : t -> t -> bool

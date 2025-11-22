@@ -32,6 +32,7 @@ type e =
 | Ite of t * Ty.t * t * t
 | PatMatch of t * (pattern * t) list
 | App of t * t
+| Operation of SA.operation * t
 | Projection of SA.projection * t
 | Declare of Variable.t * t
 | Let of Ty.t list * Variable.t * t * t
@@ -109,6 +110,7 @@ let map_tl f (id,e) =
     | PatMatch (e, pats) ->
       PatMatch (f e, List.map (fun (pat, e) -> pat, f e) pats)
     | App (e1, e2) -> App (f e1, f e2)
+    | Operation (o, e) -> Operation (o, f e)
     | Projection (p, e) -> Projection (p, f e)
     | Declare (v, e) -> Declare (v, f e)
     | Let (tys, v, e1, e2) -> Let (tys, v, f e1, f e2)

@@ -17,14 +17,15 @@ module TyExpr = struct
         | Star of 'ext regexp | Plus of 'ext regexp | Option of 'ext regexp
 
     and 'ext t =
-        | TVar of TVar.kind * string
+        | TVar of kind * string
+        | TRowVar of kind * string
         | TBase of base
         | TCustom of string
         | TApp of  string * 'ext t list
         | TEnum of string
         | TTag of string * 'ext t
         | TTuple of 'ext t list
-        | TRecord of bool * (string * 'ext t * bool) list
+        | TRecord of (string * 'ext t) list * 'ext t
         | TSList of 'ext regexp
         | TCons of 'ext t * 'ext t
         | TArrow of 'ext t * 'ext t
@@ -32,6 +33,7 @@ module TyExpr = struct
         | TCap of 'ext t * 'ext t
         | TDiff of 'ext t * 'ext t
         | TNeg of 'ext t
+        | TOption of 'ext t
         | TWhere of 'ext t * (string * string list * 'ext t) list
         | TExt of 'ext
 end
@@ -87,11 +89,11 @@ module Builder' = struct
             tags : Tag.t StrMap.t ; (* Tags *)
             abs : Abstract.t StrMap.t (* Abstract types *)
         }
-        type var_type_env = TVar.t StrMap.t
+        type var_type_env = { tv:TVar.t StrMap.t ; rv:RVar.t StrMap.t }
 
         let empty_tenv = { aliases=StrMap.empty ; enums=StrMap.empty ;
             tags=StrMap.empty ; abs=StrMap.empty }
-        let empty_vtenv = StrMap.empty
+        let empty_vtenv = { tv=StrMap.empty ; rv=StrMap.empty }
         
         type benv = { tenv:type_env ; vtenv:var_type_env }
         let empty_benv = { tenv=empty_tenv ; vtenv=empty_vtenv }
@@ -133,7 +135,7 @@ module Builder' = struct
             match StrMap.find_opt name tenv.aliases with
             | None -> None
             | Some (ty, ps) when List.length ps = List.length args ->
-                let s = List.combine ps args |> Subst.construct in
+                let s = List.combine ps args |> Subst.of_list1 in
                 let res = Subst.apply s ty in
                 if List.is_empty ps |> not then
                     PEnv.register_parametrized name args res
@@ -161,11 +163,12 @@ module Builder' = struct
                 t, { tenv with tags=StrMap.add name t tenv.tags }
 
         let derecurse_types env defs =
-            let venv =
+            let hashtbl_of x =
                 let h = Hashtbl.create 16 in
-                StrMap.iter (fun n v -> Hashtbl.add h n v) env.vtenv ;
-                h
+                StrMap.iter (fun n v -> Hashtbl.add h n v) x ; h
             in
+            let map_of x = Hashtbl.fold StrMap.add x StrMap.empty in
+            let venv, rvenv = hashtbl_of env.vtenv.tv, hashtbl_of env.vtenv.rv in
             let tenv = ref env.tenv in
             let henv = Hashtbl.create 16 in
             let eqs = ref [] in
@@ -180,7 +183,7 @@ module Builder' = struct
                         begin match cached with
                         | None ->
                             begin try
-                                let v = TVar.mk TVar.KTemporary None in
+                                let v = TVar.mk KTemporary None in
                                 Hashtbl.replace henv name (def, params, (args, v)::lst);
                                 let local = List.combine params args |> List.to_seq |> StrMap.of_seq in
                                 let t = aux local def in
@@ -214,9 +217,9 @@ module Builder' = struct
                         | None, Some t -> TVar.typ t
                         | None, None ->
                             let t = TVar.mk kind (Some v) in
-                            Hashtbl.add venv v t ;
-                            TVar.typ t
+                            Hashtbl.add venv v t ; TVar.typ t
                         end
+                    | TRowVar (_,name) -> raise (TypeDefinitionError (Printf.sprintf "Unexpected row variable %s!" name))
                     | TBase tb -> type_base_to_typ tb
                     | TCustom n -> get_name None n
                     | TApp (n, args) ->
@@ -229,9 +232,9 @@ module Builder' = struct
                         let tag, tenv' = get_tag !tenv name in
                         tenv := tenv' ; Tag.mk tag (aux lcl t)
                     | TTuple ts -> Tuple.mk (List.map (aux lcl) ts)
-                    | TRecord (is_open, fields) ->
-                        let aux' (label,t,opt) = (label, (opt, aux lcl t)) in
-                        Record.mk is_open (List.map aux' fields)
+                    | TRecord (fields, tail) ->
+                        let aux' (label,f) = (label, aux_field lcl f) in
+                        Record.mk' (aux_field lcl tail) (List.map aux' fields)
                     | TSList lst -> aux_re lcl lst
                     | TCons (t1,t2) -> Lst.cons (aux lcl t1) (aux lcl t2)
                     | TArrow (t1,t2) -> Arrow.mk (aux lcl t1) (aux lcl t2)
@@ -248,12 +251,38 @@ module Builder' = struct
                         let t2 = aux lcl t2 in
                         Ty.diff t1 t2
                     | TNeg t -> Ty.neg (aux lcl t)
+                    | TOption _ -> raise (TypeDefinitionError "Unexpected optional type!")
                     | TWhere (t, defs) ->
                         begin match derecurse_types (("", [], t)::defs) with
                         | ("", [], n)::_ -> TVar.typ n
                         | _ -> assert false
                         end
                     | TExt ext -> E.to_typ (aux lcl) ext
+                and aux_field lcl t =
+                    let open TyExpr in
+                    match t with
+                    | TOption t -> FTy.of_oty (aux lcl t, true)
+                    | TRowVar (kind, v) ->
+                        begin match Hashtbl.find_opt rvenv v with
+                        | Some t -> RVar.fty t
+                        | None ->
+                            let t = RVar.mk kind (Some v) in
+                            Hashtbl.add rvenv v t ; RVar.fty t
+                        end
+                    | TCup (t1,t2) ->
+                        let t1 = aux_field lcl t1 in
+                        let t2 = aux_field lcl t2 in
+                        FTy.cup t1 t2
+                    | TCap (t1,t2) ->
+                        let t1 = aux_field lcl t1 in
+                        let t2 = aux_field lcl t2 in
+                        FTy.cap t1 t2
+                    | TDiff (t1,t2) ->
+                        let t1 = aux_field lcl t1 in
+                        let t2 = aux_field lcl t2 in
+                        FTy.diff t1 t2
+                    | TNeg t -> FTy.neg (aux_field lcl t)
+                    | t -> FTy.of_oty (aux lcl t, false)
                 and aux_re lcl re =
                     re |> reg_to_sstt (aux lcl) |> Sstt.Extensions.Lists.build
                 in
@@ -268,8 +297,8 @@ module Builder' = struct
             let res = derecurse_types defs in
             let tys = Sstt.Ty.of_eqs !eqs |> VarMap.of_list in
             let res = res |> List.map (fun (n,p,node) -> (n,p,VarMap.find node tys)) in
-            let vtenv, tenv = Hashtbl.fold StrMap.add venv StrMap.empty, !tenv in
-            res, { tenv ; vtenv }
+            let vtenv, rvenv, tenv = map_of venv, map_of rvenv, !tenv in
+            res, { tenv ; vtenv={ tv=vtenv ; rv=rvenv } }
 
         let type_expr_to_typ env t =
             match derecurse_types env [ ("", [], t) ] with

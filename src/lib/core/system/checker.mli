@@ -8,6 +8,8 @@ val proj : Ast.projection -> Ty.t -> Ty.t
 val domains_of_construct : Ast.constructor -> Ty.t -> Ty.t list list
 val construct : Ast.constructor -> Ty.t list -> Ty.t
 
+val fun_of_operation : Ast.operation -> TyScheme.t
+
 type error = { eid: Eid.t ; title: string ; descr: string option }
 exception Untypeable of error
 

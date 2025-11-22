@@ -5,16 +5,22 @@ type pcustom = { pname: string ; pdom: Ty.t -> Ty.t ; proj: Ty.t -> Ty.t ; pgen:
 let pp_pcustom fmt pc = Format.fprintf fmt "%s" pc.pname
 type ccustom = { cname: string ; cdom: Ty.t -> Ty.t list list ; cons: Ty.t list -> Ty.t ; cgen: bool }
 let pp_ccustom fmt cc = Format.fprintf fmt "%s" cc.cname
+type ocustom = { oname: string ; ofun: TyScheme.t ; ogen: bool }
+let pp_ocustom fmt oc = Format.fprintf fmt "%s" oc.oname
 type check = Check | CheckStatic | NoCheck
 [@@deriving show]
 type projection =
-| Pi of int * int | Field of string | FieldOpt of string
+| Pi of int * int | PiField of string | PiFieldOpt of string
 | Hd | Tl | PiTag of Tag.t | PCustom of pcustom
 [@@deriving show]
 type constructor =
-| Tuple of int | Cons | Rec of (string * bool) list * bool | Tag of Tag.t | Enum of Enum.t 
-| RecUpd of string | RecDel of string | Join of int | Meet of int | Ternary of Ty.t
-| Ignore of Ty.t (* Should not contain type vars *) | CCustom of ccustom
+| Tuple of int | Cons | Rec of string list * bool | Tag of Tag.t | Enum of Enum.t 
+| Join of int | Meet of int | Ternary of Ty.t | Ignore of Ty.t (* Should not contain type vars *)
+| CCustom of ccustom
+[@@deriving show]
+type operation =
+| RecUpd of string | RecDel of string
+| OCustom of ocustom
 [@@deriving show]
 type e =
 | Value of GTy.t
@@ -24,6 +30,7 @@ type e =
 | LambdaRec of (GTy.t * Variable.t * t) list
 | Ite of t * Ty.t * t * t
 | App of t * t
+| Operation of operation * t
 | Projection of projection * t
 | Let of (Ty.t list) * Variable.t * t * t
 | TypeCast of t * Ty.t * check
@@ -38,11 +45,12 @@ let map_tl f (id,e) =
     match e with
     | Value t -> Value t
     | Var v -> Var v
-    | Constructor (c,es) -> Constructor (c, List.map f es)
+    | Constructor (c, es) -> Constructor (c, List.map f es)
     | Lambda (d, v, e) -> Lambda (d, v, f e)
     | LambdaRec lst -> LambdaRec (List.map (fun (ty,v,e) -> (ty,v,f e)) lst)
     | Ite (e, t, e1, e2) -> Ite (f e, t, f e1, f e2)
     | App (e1, e2) -> App (f e1, f e2)
+    | Operation (o, e) -> Operation (o, f e)
     | Projection (p, e) -> Projection (p, f e)
     | Let (ta, v, e1, e2) -> Let (ta, v, f e1, f e2)
     | TypeCast (e, ty, c) -> TypeCast (f e, ty, c)

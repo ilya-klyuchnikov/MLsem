@@ -25,8 +25,10 @@ let sigs_of_ty mono ty =
     | _ -> [ty]
   in
   if TVOp.vars ty
-    |> TVarSet.filter (fun tv -> TVar.has_kind KNoInfer tv |> not)
-    |> TVarSet.is_empty then
+    |> MVarSet.filter
+      (fun tv -> TVar.has_kind KNoInfer tv |> not)
+      (fun rv -> RVar.has_kind KNoInfer rv |> not)
+    |> MVarSet.is_empty then
     let sigs = aux ty in
     Some (sigs, GTy.mk ty |> TyScheme.mk_poly_except mono |> TyScheme.norm_and_simpl)
   else None
@@ -53,7 +55,7 @@ let retrieve_time time =
   let time' = Unix.gettimeofday () in
   (time' -. time) *. 1000.
 let check_resolved var env typ =
-  if TVarSet.diff (TyScheme.fv typ) (Env.tvars env) |> TVarSet.is_empty |> not
+  if MVarSet.diff (TyScheme.fv typ) (Env.tvars env) |> MVarSet.is_empty |> not
   then raise (UnresolvedType (var,typ))
 
 let type_check_with_sigs env (var,e,sigs,aty) =
@@ -68,7 +70,7 @@ let type_check_with_sigs env (var,e,sigs,aty) =
     let msg = (List.concat msg)@(Mlsem_system.Analyzer.get_unreachable e) in
     let tscap t1 t2 =
       let (tvs1, t1), (tvs2, t2) = TyScheme.get t1, TyScheme.get t2 in
-      TyScheme.mk (TVarSet.union tvs1 tvs2) (GTy.cap t1 t2)
+      TyScheme.mk (MVarSet.union tvs1 tvs2) (GTy.cap t1 t2)
     in
     let typ = List.fold_left tscap (TyScheme.mk_mono GTy.any) typs |> TyScheme.norm_and_simpl in
     if TyScheme.leq typ aty |> not then raise (IncompatibleType (var,typ)) ;

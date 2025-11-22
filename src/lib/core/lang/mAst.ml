@@ -12,6 +12,7 @@ type e =
 | LambdaRec of (GTy.t * Variable.t * t) list
 | Ite of t * Ty.t * t * t
 | App of t * t
+| Operation of SA.operation * t
 | Projection of SA.projection * t
 | Declare of Variable.t * t
 | Let of Ty.t list * Variable.t * t * t
@@ -40,6 +41,7 @@ let map_tl f (id,e) =
       LambdaRec (List.map (fun (ty,v,e) -> (ty,v,f e)) lst)
     | Ite (e, t, e1, e2) -> Ite (f e, t, f e1, f e2)
     | App (e1, e2) -> App (f e1, f e2)
+    | Operation (o, e) -> Operation (o, f e)
     | Projection (p, e) -> Projection (p, f e)
     | Declare (v, e) -> Declare (v, f e)
     | Let (tys, v, e1, e2) -> Let (tys, v, f e1, f e2)
@@ -140,6 +142,7 @@ let to_system_ast t =
       SA.LambdaRec (List.map aux lst)
     | Ite (e,t,e1,e2) -> SA.Ite (aux e, t, aux e1, aux e2)
     | App (e1,e2) -> SA.App (aux e1, aux e2)
+    | Operation (o, e) -> SA.Operation (o, aux e)
     | Projection (p, e) -> SA.Projection (p, aux e)
     | Declare (x, e) when MVariable.is_mutable x ->
       let def = Eid.unique (), SA.App (

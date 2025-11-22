@@ -50,8 +50,8 @@ let add_to_env v ty env =
   | None -> Env.add v ty env
   | Some None -> Env.add v (GTy.dyn |> TyScheme.mk_poly) env
   | Some (Some ty') ->
-    if TVOp.vars ty' |> TVarSet.is_empty |> not
-    then invalid_arg "Top-level mutable variables must not contain type variables." ;
+    if TVOp.vars ty' |> MVarSet.is_empty |> not
+    then invalid_arg "Top-level mutable variables should not contain type variables." ;
     if Ty.leq (TyScheme.get ty |> snd |> GTy.lb) ty' |> not
     then invalid_arg "Top-level mutable variable has an incompatible type." ;
     Env.add v (mk_ref ty' |> GTy.mk |> TyScheme.mk_mono) env
@@ -60,24 +60,24 @@ let subst_if_ann v a ty =
   match Hashtbl.find_opt all v with
   | None -> invalid_arg "Variable must be mutable."
   | Some None -> ty
-  | Some (Some ty') -> Subst.apply (Subst.construct [a,ty']) ty
+  | Some (Some ty') -> Subst.apply (Subst.singleton1 a ty') ty
 
 let ref_uninit v =
-  let a = TVar.mk TVar.KInfer None in
+  let a = TVar.mk KInfer None in
   Arrow.mk Ty.unit (TVar.typ a |> mk_ref)
   |> subst_if_ann v a
 
 let ref_cons v =
-  let a = TVar.mk TVar.KInfer None in
+  let a = TVar.mk KInfer None in
   Arrow.mk (TVar.typ a) (TVar.typ a |> mk_ref)
   |> subst_if_ann v a
 
 let ref_get v =
-  let a = TVar.mk TVar.KInfer None in
+  let a = TVar.mk KInfer None in
   Arrow.mk (TVar.typ a |> mk_ref) (TVar.typ a)
   |> subst_if_ann v a
 
 let ref_assign v =
-  let a = TVar.mk TVar.KInfer None in
+  let a = TVar.mk KInfer None in
   Arrow.mk (Tuple.mk [TVar.typ a |> mk_ref ; TVar.typ a]) (!Config.void_ty)
   |> subst_if_ann v a

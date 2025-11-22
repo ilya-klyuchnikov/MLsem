@@ -220,7 +220,7 @@ let filtermap (f, l) =
     end
   end
 
-type objF('a) = { f :? 'a ; proto :? objF('a) ..}
+type objF('a) = { f : 'a? ; proto : (objF('a))? ..}
 
 let call_f (o:objF('a)) =
   if o is { f : any ..} then o.f

@@ -28,7 +28,7 @@ module PEnv = struct
           let ty = Sstt.Subst.apply s ty in
           let replace acc (str,v) =
             Str.global_replace (Str.regexp str)
-              (Sstt.Subst.find s v |> Format.asprintf "%a" Sstt.Printer.print_ty') acc
+              (Sstt.Subst.find1 s v |> Format.asprintf "%a" Sstt.Printer.print_ty') acc
           in
           let str = List.fold_left replace str holes in
           ty, str
@@ -146,6 +146,12 @@ module Ty = struct
   let simplify = Sstt.Transform.simplify
 end
 
+module FTy = struct
+  include Sstt.Ty.F
+
+  let of_oty (t,o) = Sstt.Ty.F.mk_descr (t,o)
+end
+
 module Enum = struct
   type t = Sstt.Enums.Atom.t
   let pp = Sstt.Enums.Atom.pp
@@ -248,6 +254,8 @@ module Lst = struct
 end
 
 module Record = struct
+  type oty = Ty.t*bool
+
   let labelmap = Hashtbl.create 256
   let to_label str =
     match Hashtbl.find_opt labelmap str with
@@ -257,32 +265,40 @@ module Record = struct
       Hashtbl.add labelmap str lbl ; lbl
   let from_label lbl = Sstt.Label.name lbl
 
-  let mk opened bindings =
+  let mk tail bindings =
     let bindings = bindings |>
-      List.map (fun (str, (opt,ty)) -> (to_label str, (ty, opt))) |>
+      List.map (fun (str, (ty, opt)) -> (to_label str, (ty, opt))) |>
       Sstt.LabelMap.of_list in
-    { Sstt.Records.Atom.opened ; bindings }
-    |> Sstt.Descr.mk_record |> Sstt.Ty.mk_descr
+    { Sstt.Op.Records.Atom.tail ; bindings } |> Sstt.Op.Records.of_atom
+    |> Sstt.Descr.mk_records |> Sstt.Ty.mk_descr
+  let mk_open = mk (Ty.any, true)
+  let mk_closed = mk (Ty.empty, true)
+
+  let mk' tail bindings =
+    let bindings = bindings |>
+      List.map (fun (str, f) -> (to_label str, f)) |>
+      Sstt.LabelMap.of_list in
+    { Sstt.Records.Atom.tail ; bindings } |> Sstt.Records.mk
+    |> Sstt.Descr.mk_records |> Sstt.Ty.mk_descr
 
   let any =
     Sstt.Records.any |> Sstt.Descr.mk_records |> Sstt.Ty.mk_descr
-  let any_with l = mk true [l, (false, Ty.any)]
-  let any_without l = mk true [l, (true, Ty.empty)]
+  let any_with l = mk (Ty.any, true) [l, (Ty.any, false)]
+  let any_without l = mk (Ty.any, true) [l, (Ty.empty, true)]
 
   let dnf t =
     t |> Sstt.Ty.get_descr |> Sstt.Descr.get_records
     |> Sstt.Op.Records.as_union |> List.map (fun a ->
-      let opened = a.Sstt.Records.Atom.opened in
-      let bindings = a.bindings |> Sstt.LabelMap.bindings |>
-        List.map (fun (lbl, (ty,opt)) -> (from_label lbl, (opt,ty))) in
-      bindings, opened
+      let bindings = a.Sstt.Op.Records.Atom.bindings |> Sstt.LabelMap.bindings |>
+        List.map (fun (lbl, (ty,opt)) -> (from_label lbl, (ty,opt))) in
+      bindings, a.tail
     )
   let of_dnf lst =
-    let lst = lst |> List.map (fun (bs, opened) ->
-      let bindings = bs |>
-        List.map (fun (str, (opt,ty)) -> (to_label str, (ty, opt))) |> Sstt.LabelMap.of_list
-      in
-      { Sstt.Records.Atom.opened ; bindings }
+    let lst = lst |> List.map (fun (bs, tail) ->
+        let bindings = bs |>
+          List.map (fun (str, (ty,opt)) -> (to_label str, (ty,opt))) |> Sstt.LabelMap.of_list
+        in
+        { Sstt.Op.Records.Atom.tail ; bindings }
       )
     in
     Sstt.Op.Records.of_union lst |> Sstt.Descr.mk_records |> Sstt.Ty.mk_descr

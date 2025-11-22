@@ -25,9 +25,9 @@ module Domain = struct
     let f = if normalize then transform_abstract else Fun.id in
     let bindings = renv
       |> REnv.bindings |> List.map
-        (fun (v, ty) -> (Variable.get_unique_name v, (false, f ty)))
+        (fun (v, ty) -> (Variable.get_unique_name v, (f ty, false)))
     in
-    Record.mk true bindings
+    Record.mk_open bindings
 
   let more_specific res1 res2 =
     match res1, res2 with
@@ -48,21 +48,30 @@ module Domain = struct
 end
 
 module TVCache = struct
-  type t = { expr: (Eid.t * TVar.t, TVar.t) Hashtbl.t }
+  type t = { c1: (Eid.t * TVar.t, TVar.t) Hashtbl.t ;
+             c2: (Eid.t * RVar.t, RVar.t) Hashtbl.t }
 
-  let empty () = { expr = Hashtbl.create 100 }
+  let empty () = { c1 = Hashtbl.create 100 ; c2 = Hashtbl.create 100 }
 
-  let get t eid tv =
-    match Hashtbl.find_opt t.expr (eid, tv) with
+  let get1 t eid tv =
+    match Hashtbl.find_opt t.c1 (eid, tv) with
     | Some tv -> tv
     | None ->
       let tv' = TVar.mk KInfer None in
-      Hashtbl.replace t.expr (eid, tv) tv' ; tv'
+      Hashtbl.replace t.c1 (eid, tv) tv' ; tv'
+
+  let get2 t eid rv =
+    match Hashtbl.find_opt t.c2 (eid, rv) with
+    | Some rv -> rv
+    | None ->
+      let rv' = RVar.mk KInfer None in
+      Hashtbl.replace t.c2 (eid, rv) rv' ; rv'
 
   let get' t eid tvs =
-    TVarSet.destruct tvs
-    |> List.map (fun tv -> tv, get t eid tv |> TVar.typ)
-    |> Subst.construct
+    let tvs, rvs = MVarSet.elements tvs in
+    let tvs = List.map (fun tv -> tv, get1 t eid tv |> TVar.typ) tvs in
+    let rvs = List.map (fun rv -> rv, get2 t eid rv |> Row.id_for) rvs in
+    Subst.of_list tvs rvs
   
   let res_tvar = TVar.mk KTemporary None
 end

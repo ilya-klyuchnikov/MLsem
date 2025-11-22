@@ -63,6 +63,23 @@ module Ty : sig
     val simplify : t -> t
 end
 
+(** @canonical Mlsem_types.FTy *)
+module FTy : sig
+    type t = Sstt.Ty.F.t
+
+    val any : t
+    val empty : t
+
+    val of_oty : Ty.t * bool -> t
+
+    val neg : t -> t
+    val cup : t -> t -> t
+    val cap : t -> t -> t
+    val diff : t -> t -> t
+    val conj : t list -> t
+    val disj : t list -> t
+end
+
 (** @canonical Mlsem_types.Enum *)
 module Enum : sig
     type t
@@ -122,12 +139,16 @@ end
 
 (** @canonical Mlsem_types.Record *)
 module Record : sig
-    val mk : bool (* is_open *) -> (string * (bool * Ty.t)) list -> Ty.t
+    type oty = Ty.t*bool
+    val mk : oty (* tail *) -> (string * oty) list -> Ty.t
+    val mk_open : (string * oty) list -> Ty.t
+    val mk_closed : (string * oty) list -> Ty.t
+    val mk' : FTy.t -> (string * FTy.t) list -> Ty.t
     val any : Ty.t
     val any_with : string -> Ty.t
     val any_without : string -> Ty.t
-    val dnf : Ty.t -> ((string * (bool * Ty.t)) list * bool) list
-    val of_dnf : ((string * (bool * Ty.t)) list * bool) list -> Ty.t
+    val dnf : Ty.t -> ((string * oty) list * oty) list
+    val of_dnf : ((string * oty) list * oty) list -> Ty.t
     val proj : Ty.t -> string -> Ty.t
     val merge : Ty.t -> Ty.t -> Ty.t
     val remove_field : Ty.t -> string -> Ty.t

@@ -7,8 +7,8 @@ open Ast
 
 let domain_of_proj p ty =
   match p with
-  | Field label -> Record.mk true [label, (false, ty)]
-  | FieldOpt label -> Record.mk true [label, (true, ty)]
+  | PiField label -> Record.mk_open [label, (ty, false)]
+  | PiFieldOpt label -> Record.mk_open [label, (ty, true)]
   | Pi(n,i) ->
     if i >= n then Ty.empty
     else Tuple.mk (List.init n (fun k -> if k=i then ty else Ty.any))
@@ -22,17 +22,13 @@ let domain_of_proj p ty =
 
 let proj p ty =
   match p with
-  | Field label | FieldOpt label -> Record.proj ty label
+  | PiField label | PiFieldOpt label -> Record.proj ty label
   | Pi (n,i) -> Tuple.proj n i ty
   | Hd -> Lst.proj ty |> fst
   | Tl -> Lst.proj ty |> snd
   | PiTag tag -> Tag.proj tag ty
   | PCustom r -> r.proj ty
 
-let remove_field_info t label =
-  let t = Record.remove_field t label in
-  let singleton = Record.mk false [label, (true, Ty.any)] in
-  Record.merge t singleton
 let domains_of_construct (c:Ast.constructor) ty =
   match c with
   | Tuple n ->
@@ -46,29 +42,16 @@ let domains_of_construct (c:Ast.constructor) ty =
     Lst.dnf ty
     |> List.filter (fun (a,b) -> Ty.leq (Lst.cons a b) ty)
     |> List.map (fun (t1,t2) -> [t1;t2])
-  | Rec (labels,opened) ->
-    Ty.cap ty (Record.mk opened (List.map (fun (lbl,o) -> (lbl, (o, Ty.any))) labels))
+  | Rec (labels, opened) ->
+    let mk = if opened then Record.mk_open else Record.mk_closed in
+    Ty.cap ty (mk (List.map (fun lbl -> (lbl, (Ty.any,false))) labels))
     |> Record.dnf
-    |> List.filter_map (fun (bindings,opened) ->
-      let ty' = Record.mk opened bindings in
+    |> List.filter_map (fun (bindings,tail) ->
+      let ty' = Record.mk tail bindings in
       if Ty.leq ty' ty
-      then Some (List.map (fun (lbl,_) -> Record.proj ty' lbl) labels)
+      then Some (List.map (fun lbl -> Record.proj ty' lbl) labels)
       else None
     )
-  | RecUpd label ->
-    Ty.cap ty (Record.any_with label)
-    |> Record.dnf
-    |> List.map (fun (fields,o) -> Record.mk o fields)
-    |> List.filter (fun ti -> Ty.leq ti ty)
-    |> List.map (fun ti ->
-      [ remove_field_info ti label ; Record.proj ti label ]
-    )
-  | RecDel label ->
-    Ty.cap ty (Record.any_without label)
-    |> Record.dnf
-    |> List.map (fun (fields,o) -> Record.mk o fields)
-    |> List.filter (fun ti -> Ty.leq ti ty)
-    |> List.map (fun ti -> [ remove_field_info ti label ])
   | Tag tag -> [ [ Tag.proj tag ty ] ]
   | Enum e when Ty.leq (Enum.typ e) ty -> [ [] ]
   | Enum _ -> [ ]
@@ -86,16 +69,27 @@ let construct (c:Ast.constructor) tys =
   | Ignore ty, [_] -> ty
   | Cons, [t1 ; t2] -> Lst.cons t1 t2
   | Rec (labels, opened), tys when List.length labels = List.length tys ->
-    let bindings = List.map2 (fun (lbl,o) ty -> (lbl, (o,ty))) labels tys in
-    Record.mk opened bindings
-  | RecUpd lbl, [t1 ; t2] ->
-    let right_record = Record.mk false [lbl, (false, t2)] in
-    Record.merge t1 right_record
-  | RecDel lbl, [t] -> Record.remove_field t lbl
+    let mk = if opened then Record.mk_open else Record.mk_closed in
+    let bindings = List.map2 (fun lbl ty -> (lbl, (ty,false))) labels tys in
+    mk bindings
   | Tag tag, [t] -> Tag.mk tag t
   | Enum enum, [] -> Enum.typ enum
   | CCustom r, tys -> r.cons tys
   | _ -> raise (Invalid_argument "Invalid arity for constructor.")
+
+let rv = RVar.mk KNoInfer None
+let tv = TVar.mk KNoInfer None
+let fun_of_operation o =
+  match o with
+  | RecUpd lbl ->
+    let dom1, dom2 = Record.mk' (RVar.fty rv) [], TVar.typ tv in
+    let codom = Record.mk' (RVar.fty rv) [(lbl, FTy.of_oty (TVar.typ tv, false))] in
+    Arrow.mk (Tuple.mk [dom1;dom2]) codom |> GTy.mk |> TyScheme.mk_poly
+  | RecDel lbl ->
+    let dom = Record.mk' (RVar.fty rv) [] in
+    let codom = Record.mk' (RVar.fty rv) [(lbl, FTy.of_oty (Ty.empty, true))] in
+    Arrow.mk dom codom |> GTy.mk |> TyScheme.mk_poly
+  | OCustom { ofun ; _ } -> ofun
 
 (* Expressions *)
 
@@ -106,20 +100,25 @@ let untypeable id msg = raise (Untypeable { eid=id ; title=msg ; descr=None })
 
 let proj_is_gen p =
   match p with
-  | Pi _ | Field _ | FieldOpt _ | Hd | Tl | PiTag _ -> true
+  | Pi _ | PiField _ | PiFieldOpt _ | Hd | Tl | PiTag _ -> true
   | PCustom c -> c.pgen
 let constr_is_gen c =
   match c with
   | Tuple _ | Cons | Rec _ | Tag _ | Enum _
-  | RecUpd _ | RecDel _ | Join _ | Meet _  | Ternary _ -> true
+  | Join _ | Meet _  | Ternary _ -> true
   | Ignore _ -> false
   | CCustom c -> c.cgen
+let op_is_gen o =
+  match o with
+  | RecUpd _ | RecDel _ -> true
+  | OCustom c -> c.ogen
 let rec is_gen (_,e) =
   match e with
   | Lambda _ | Value _ -> true
   | Var _ | App _ -> false
   | Constructor (c, es) -> constr_is_gen c && List.for_all is_gen es
   | Projection (p, e) -> proj_is_gen p && is_gen e
+  | Operation (o, e) -> op_is_gen o && is_gen e
   | LambdaRec lst -> List.for_all (fun (_,_,e) -> is_gen e) lst
   | TypeCast (e, _, _) | TypeCoerce (e, _, _) -> is_gen e
   | Let (_, _, e1, e2) | Ite (_, _, e1, e2) | Alt (e1, e2) -> is_gen e1 && is_gen e2
@@ -132,17 +131,25 @@ let generalize ~e env s =
 
 let rec typeof' env annot (id,e) =
   let open Annot in
+  let subst_ts s ts =
+    let (tvs, ty) = TyScheme.get ts in
+    if MVarSet.subset (Subst.domain s) tvs then GTy.substitute s ty
+    else untypeable id ("Invalid substitution.")
+  in
+  let app t1 t2 =
+    let check ty1 ty2 =
+      Ty.leq ty1 Arrow.any && Ty.leq ty2 (Arrow.domain ty1)
+    in
+    begin match GTy.op2 check Arrow.apply t1 t2 with
+    | Some ty -> ty
+    | None -> untypeable id "Invalid application."
+    end
+  in
   match e, annot with
   | Value _, AValue ty -> ty
   | Var v, AVar s ->
-    if Env.mem v env then begin
-      let (tvs, ty) = Env.find v env |> TyScheme.get in
-      if TVarSet.subset (Subst.dom s) tvs then
-        GTy.substitute s ty
-      else
-        untypeable id ("Invalid substitution for "^(Variable.show v)^".")
-    end else
-      untypeable id ("Undefined variable "^(Variable.show v)^".")
+    if Env.mem v env then Env.find v env |> subst_ts s
+    else untypeable id ("Undefined variable "^(Variable.show v)^".")
   | Constructor (c, es), AConstruct annots when List.length es = List.length annots ->
     let doms = domains_of_construct c Ty.any in
     let check tys =
@@ -179,16 +186,13 @@ let rec typeof' env annot (id,e) =
     let t2 = match a2 with None -> GTy.any | Some a2 -> typeof env a2 e2 in
     GTy.cap t1 t2
   | App (e1, e2), AApp (annot1, annot2) ->
-    let check ty1 ty2 =
-      Ty.leq ty1 Arrow.any &&
-      Ty.leq ty2 (Arrow.domain ty1)
-    in
     let t1 = typeof env annot1 e1 in
     let t2 = typeof env annot2 e2 in
-    begin match GTy.op2 check Arrow.apply t1 t2 with
-    | Some ty -> ty
-    | None -> untypeable id "Invalid application."
-    end
+    app t1 t2
+  | Operation (o, e), AOp (s, annot) ->
+    let t1 = fun_of_operation o |> subst_ts s in
+    let t2 = typeof env annot e in
+    app t1 t2
   | Projection (p, e), AProj annot ->
     let dom = domain_of_proj p Ty.any in
     let check ty = Ty.leq ty dom in
@@ -201,7 +205,7 @@ let rec typeof' env annot (id,e) =
     let tvs,s = typeof_def env annot1 e1 |> TyScheme.get in
     let aux (si, annot) =
       let si = GTy.mk si in
-      if TVarSet.inter tvs (GTy.fv si) |> TVarSet.is_empty then
+      if MVarSet.inter tvs (GTy.fv si) |> MVarSet.is_empty then
         let s = TyScheme.mk tvs (GTy.cap s si) in
         typeof (Env.add v s env) annot e2
       else

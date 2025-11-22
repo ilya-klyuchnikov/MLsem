@@ -26,6 +26,22 @@ let is_empty renv =
 
 let sufficient_refinements env e t =
   let rec aux env (_,e) t =
+    let app t1 e2 =
+      let alpha = TVar.mk KInfer None in
+      let (mono, ty) = TyScheme.get_fresh t1 in
+      let mono = MVarSet.union mono (vars t) in
+      begin match Arrow.dnf (GTy.lb ty) with
+      | [] -> []
+      | [arrows] ->
+        let t1 = Arrow.of_dnf [arrows] in
+        let res = tallying mono [ (t1, Arrow.mk (TVar.typ alpha) t) ] in
+        res |> List.concat_map (fun sol ->
+            let targ = Subst.find1 sol alpha |> top_instance mono in
+            if MVarSet.subset (vars targ) mono |> not then [] else aux env e2 targ
+          )
+      | _ -> []
+      end
+    in
     let renvs = match e with
     | Lambda _ -> []
     | LambdaRec _ -> []
@@ -38,22 +54,9 @@ let sufficient_refinements env e t =
     | Value _ | TypeCoerce _ -> []
     | Projection (p, e) -> aux env e (Checker.domain_of_proj p t)
     | TypeCast (e, _, _) -> aux env e t
-    | App ((_, Var v), e) when Env.mem v env ->
-      let alpha = TVar.mk KInfer None in
-      let (mono, ty) = Env.find v env |> TyScheme.get_fresh in
-      let mono = TVarSet.union mono (vars t) in
-      begin match Arrow.dnf (GTy.lb ty) with
-      | [] -> []
-      | [arrows] ->
-        let t1 = Arrow.of_dnf [arrows] in
-        let res = tallying mono [ (t1, Arrow.mk (TVar.typ alpha) t) ] in
-        res |> List.concat_map (fun sol ->
-            let targ = Subst.find sol alpha |> top_instance mono in
-            if TVarSet.subset (vars targ) mono |> not then [] else aux env e targ
-          )
-      | _ -> []
-      end
+    | App ((_, Var v), e) when Env.mem v env -> app (Env.find v env) e
     | App _ -> []
+    | Operation (o, e) -> app (Checker.fun_of_operation o) e
     | Ite (e, s, e1, e2) ->
       let r1 = combine (aux env e s) (aux env e1 t) in
       let r2 = combine (aux env e (Ty.neg s)) (aux env e2 t) in
@@ -104,7 +107,8 @@ let refinement_envs ?(extra_checks=[]) env e =
     match e with
     | Value _ | Var _ -> ()
     | Constructor (_, es) -> es |> List.iter (aux env)
-    | Projection (_, e) | TypeCast (e, _, _) | TypeCoerce (e, _, _) -> aux env e
+    | Projection (_, e) | TypeCast (e, _, _) | TypeCoerce (e, _, _)
+    | Operation (_, e) -> aux env e
     | Lambda (d, v, e) -> aux_lambda env (d,v,e)
     | LambdaRec lst -> lst |> List.iter (aux_lambda env)
     | Ite (e, tau, e1, e2) ->

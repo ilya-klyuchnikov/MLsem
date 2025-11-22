@@ -88,7 +88,7 @@
 %token EOF
 %token FUN VAL LET MUT IN FST SND HD TL HASHTAG SUGGEST
 %token IF IS THEN ELSE WHILE DO BEGIN PLACEHOLDER_VAR RETURN BREAK CONTINUE
-%token LPAREN RPAREN IRPAREN EQUAL COMMA CONS COLON COLON_OPT ASSIGN
+%token LPAREN RPAREN IRPAREN EQUAL COMMA CONS COLON ASSIGN
 %token COERCE COERCE_STATIC COERCE_NOCHECK CAST_STATIC CAST_NOCHECK
 %token INTERROGATION_MARK EXCLAMATION_MARK
 %token ARROW AND OR NEG DIFF
@@ -96,9 +96,9 @@
 %token LBRACE RBRACE DOUBLEPOINT MATCH WITH END POINT LT GT
 %token AND_KW OR_KW
 %token TYPE WHERE ABSTRACT
-%token LBRACKET RBRACKET SEMICOLON
+%token LBRACKET RBRACKET SEMICOLON DOUBLESEMICOLON
 %token<string> ID IID CID PCID
-%token<string> TVAR TVAR_WEAK
+%token<string> TVAR TVAR_WEAK RVAR RVAR_WEAK
 %token<float> LFLOAT
 %token<Z.t> LINT
 %token<bool> LBOOL
@@ -213,7 +213,7 @@ simple_term3:
 
 simple_term4:
   a=atomic_term { a }
-| a=atomic_term POINT id=ID { annot $startpos $endpos (Projection (Field id, a)) }
+| a=atomic_term POINT id=ID { annot $startpos $endpos (Projection (PiField id, a)) }
 | a=atomic_term DIFF id=ID { annot $startpos $endpos (RecordUpdate (a,id,None)) }
 | p=prefix_term a=simple_term4 { annot $startpos $endpos (App (p, a)) }
 
@@ -336,6 +336,7 @@ simple_typ:
 | lhs=simple_typ ARROW rhs=simple_typ { TArrow (lhs, rhs) }
 | lhs=simple_typ CONS rhs=simple_typ  { TCons (lhs, rhs) }
 | NEG t=simple_typ { TNeg t }
+| ty=atomic_typ INTERROGATION_MARK { TOption ty }
 | lhs=simple_typ OR rhs=simple_typ  { TCup (lhs, rhs) }
 | lhs=simple_typ AND rhs=simple_typ { TCap (lhs, rhs) }
 | lhs=simple_typ DIFF rhs=simple_typ  { TDiff (lhs, rhs) }
@@ -348,18 +349,20 @@ atomic_typ:
 | s=PCID RPAREN { TTag (s, TBase TUnit) }
 | s=TVAR { TVar (KNoInfer, s) }
 | s=TVAR_WEAK { TVar (KInfer, s) }
+| s=RVAR { TRowVar (KNoInfer, s) }
+| s=RVAR_WEAK { TRowVar (KInfer, s) }
 | LPAREN RPAREN { TBase TUnit }
 | LPAREN t=typ RPAREN { t }
-| LBRACE fs=separated_list(SEMICOLON, typ_field) o=optional_open RBRACE { TRecord (o, fs) }
+| LBRACE fs=separated_list(SEMICOLON, typ_field) tail=optional_tail RBRACE { TRecord (fs,tail) }
 | LBRACKET re=typ_re RBRACKET { TSList re }
 
-%inline optional_open:
-  { false }
-| DOUBLEPOINT { true }
+%inline optional_tail:
+| DOUBLESEMICOLON ty=typ { ty }
+| DOUBLEPOINT { TOption (TBase TAny) }
+| { TOption (TBase TEmpty) }
 
 %inline typ_field:
-  id=ID COLON t=simple_typ { (id, t, false) }
-| id=ID COLON_OPT t=simple_typ { (id, t, true) }
+  id=ID COLON t=simple_typ { (id, t) }
 
 %inline type_constant:
 | i=tint { TInt (Some i, Some i) }
@@ -432,6 +435,10 @@ atomic_pattern:
 | LPAREN p=pattern RPAREN { p }
 | v=id_mid EQUAL c=literal { PatAssign (v, c) }
 | LBRACKET lst=separated_list(SEMICOLON, pattern) RBRACKET { list_of_pats lst }
+
+%inline optional_open:
+  { false }
+| DOUBLEPOINT { true }
 
 %inline pat_field:
   id=ID EQUAL p=simple_pattern { (id, p) }

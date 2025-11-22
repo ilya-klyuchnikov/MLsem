@@ -8,8 +8,7 @@ let eval_order_of_constructor c =
   | SA.Tuple _ -> !Config.tuple_eval_order
   | SA.Cons -> !Config.cons_eval_order
   | SA.Rec _ -> !Config.record_eval_order
-  | SA.RecUpd _ -> !Config.recupd_eval_order
-  | SA.Tag _ | SA.Enum _ | SA.RecDel _ -> Config.LeftToRight
+  | SA.Tag _ | SA.Enum _ -> Config.LeftToRight
   | SA.Meet _ | SA.Join _ | SA.Ternary _ | SA.Ignore _ -> Config.UnknownOrder
   | SA.CCustom c ->
     begin match Hashtbl.find_opt Config.ccustom_eval_order c.cname with
@@ -114,6 +113,9 @@ let optimize_dataflow e =
     | App (e1, e2) ->
       let env, ctx, es = aux_order !Config.app_eval_order env [e1;e2] in
       env, ctx, (id, App (List.nth es 0, List.nth es 1))
+    | Operation (o, e) ->
+      let env, ctx, e = aux env e in
+      env, ctx, (id, Operation (o, e))
     | Projection (p, e) ->
       let env, ctx, e = aux env e in
       env, ctx, (id, Projection (p, e))
@@ -243,7 +245,8 @@ let rec clean_unused_assigns e =
       (id, Ite (e,ty,e1,e2)), rv
     | App (e1, e2) ->
       let es, rv = aux_order !Config.app_eval_order cv rv [e1;e2] in
-      (id, App (List.nth es 0, List.nth es 1)), rv 
+      (id, App (List.nth es 0, List.nth es 1)), rv
+    | Operation (o, e) -> let e, rv = aux cv rv e in (id, Operation (o, e)), rv
     | Projection (p, e) -> let e, rv = aux cv rv e in (id, Projection (p, e)), rv
     | Declare (v, e) -> let e, rv = aux cv rv e in (id, Declare (v, e)), rv
     | Let (tys, v, e1, e2) ->

@@ -50,7 +50,7 @@ let neg t =
     { lb=Ty.neg t.ub ; ub=Ty.neg t.lb ; eq=false }
 
 let fv t =
-  if t.eq then TVOp.vars t.lb else TVarSet.union (TVOp.vars t.lb) (TVOp.vars t.ub)
+  if t.eq then TVOp.vars t.lb else MVarSet.union (TVOp.vars t.lb) (TVOp.vars t.ub)
 let substitute s = map (Subst.apply s)
 
 let test f t =

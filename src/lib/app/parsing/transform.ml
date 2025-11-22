@@ -60,9 +60,11 @@ let expr_to_ast t =
     | Cons (e1, e2) -> Constructor (Cons, [aux e1 ; aux e2])
     | Projection (p, e) -> Projection (p, aux e)
     | Record lst ->
-      Constructor (Rec (List.map (fun (str,_) -> str, false) lst, false), List.map snd lst |> List.map aux)
-    | RecordUpdate (e, lbl, None) -> Constructor (RecDel lbl, [aux e])
-    | RecordUpdate (e, lbl, Some e') -> Constructor (RecUpd lbl, [aux e ; aux e'])
+      Constructor (Rec (List.map fst lst, false), List.map snd lst |> List.map aux)
+    | RecordUpdate (e, lbl, None) -> Operation (RecDel lbl, aux e)
+    | RecordUpdate (e, lbl, Some e') ->
+      let id = Position.join (fst e |> Eid.loc) (fst e' |> Eid.loc) |> Eid.unique_with_pos in
+      Operation (RecUpd lbl, (id, Constructor (Tuple 2, [aux e ; aux e'])))
     | TypeCast (e, ty, c) -> TypeCast (aux e, ty, c)
     | TypeCoerce (e, tyo, c) ->
       let ty = match tyo with None -> GTy.dyn | Some ty -> GTy.mk ty in

@@ -26,7 +26,7 @@ let tsort leq lst =
   List.fold_left add_elt [] (List.rev lst)
 
 let abstract_factors v ty =
-  let (factor, _) = factorize (TVarSet.construct [v], TVarSet.empty) ty in
+  let (factor, _) = factorize (TVarSet.singleton v, TVarSet.empty) ty in
   let res = ref [] in
   let aux (abs, dnf) =
     dnf |> List.filter (fun (ps, ns) ->
@@ -40,7 +40,7 @@ let abstract_factors v ty =
   let remaining = Abstract.transform aux factor in
   match !res with
   | [] -> [ Subst.identity ]
-  | res -> (remaining::res) |> List.map (fun ty -> Subst.construct [v, ty])
+  | res -> (remaining::res) |> List.map (fun ty -> Subst.singleton1 v ty)
 let abstract_factors sols (v,t) =
   let ss = abstract_factors v t in
   sols |> List.concat_map (fun sol -> List.map (fun s -> Subst.compose s sol) ss)
@@ -48,14 +48,14 @@ let abstract_factors tvars sol =
   (* Note: this simplification does nothing if parameters are fully annotated *)
   if !Config.no_abstract_inter then
     List.fold_left abstract_factors [sol]
-      (Subst.restrict sol tvars |> Subst.destruct)
+      (Subst.restrict tvars sol |> Subst.bindings1)
   else
     [sol]
 
-let substitute_similar_vars mono v t =
-  let vs = TVarSet.diff (top_vars t) (TVarSet.add v mono) in
-  let nt = vars_with_polarity t |> List.filter_map (fun (v', k) ->
-    if TVarSet.mem vs v' then
+let substitute_similar_vars1 mono v t =
+  let vs = MVarSet.diff (top_vars t) (MVarSet.add1 v mono) in
+  let nt = vars_with_polarity1 t |> List.filter_map (fun (v', k) ->
+    if MVarSet.mem1 v' vs then
     match k with
     | `Pos -> Some (v', TVar.typ v)
     | `Neg -> Some (v', TVar.typ v |> Ty.neg)
@@ -63,22 +63,41 @@ let substitute_similar_vars mono v t =
     else None
     )
   in
-  Subst.construct nt
-
+  Subst.of_list1 nt
+let substitute_similar_vars2 mono v row =
+  let vs = RVarSet.diff
+    (Row.row_vars_toplevel row) (MVarSet.proj2 mono |> RVarSet.add v) in
+  let tail = Record.mk' (Row.tail row) [] in
+  let nrow = vars_with_polarity2 tail |> List.filter_map (fun (v', k) ->
+    if RVarSet.mem v' vs then
+    match k with
+    | `Pos -> Some (v', RVar.row v)
+    | `Neg -> Some (v', (RVar.fty v |> FTy.neg) |> Row.all_fields)
+    | `Both -> None
+    else None
+    )
+  in
+  Subst.of_list2 nrow
 let minimize_new_tvars mono sol =
-  let minimize_binding sol (v,t) =
-    let r = substitute_similar_vars mono v t in
+  let minimize_binding1 sol (v,t) =
+    let r = substitute_similar_vars1 mono v t in
     Subst.compose r sol
   in
-  List.fold_left minimize_binding sol (Subst.destruct sol)
+  let minimize_binding2 sol (v,row) =
+    let r = substitute_similar_vars2 mono v row in
+    Subst.compose r sol
+  in
+  let res = List.fold_left minimize_binding1 sol (Subst.bindings1 sol) in
+  List.fold_left minimize_binding2 res (Subst.bindings2 sol)
 
 let tallying_simpl env res cs =
   let tvars = Env.tvars env in
-  let ntvars s = TVarSet.union tvars (Subst.restrict s tvars |> Subst.intro) in
-  let mono = TVar.all_vars KNoInfer in
+  let ntvars s = MVarSet.union tvars (Subst.restrict tvars s |> Subst.intro) in
+  let mono = MVarSet.of_set (TVar.all_vars KNoInfer) (RVar.all_vars KNoInfer) in
   let is_better (s1,r1) (s2,r2) =
-    let mono2 = TVarSet.union_many [ mono ; ntvars s2 ; TVOp.vars r2 ] in
-    TVOp.decompose mono (Subst.restrict s1 tvars) (Subst.restrict s2 tvars)
+    let mono2 = List.fold_left MVarSet.union MVarSet.empty
+      [ mono ; ntvars s2 ; TVOp.vars r2 ] in
+    TVOp.decompose mono (Subst.restrict tvars s1) (Subst.restrict tvars s2)
     |> List.exists (fun s' -> TVOp.tallying mono2 [(Subst.apply s' r1, r2)] <> [])
   in
   let not_redundant s ss =
@@ -91,12 +110,13 @@ let tallying_simpl env res cs =
   (* Format.printf "with env=%a@." Env.pp env ; *)
   tallying mono cs
   |> List.concat_map (abstract_factors tvars)
-  |> List.map (minimize_new_tvars (TVarSet.union mono tvars))
+  |> List.map (minimize_new_tvars (MVarSet.union mono tvars))
   |> List.map (fun s -> s, Subst.apply s res)
   (* Simplify result if it does not impact the domains *)
   |> List.map (fun (s,r) ->
-    let mono = TVarSet.union mono (ntvars s) in
-    let clean = clean_subst ~pos:Ty.empty ~neg:Ty.any mono r in
+    let mono = MVarSet.union mono (ntvars s) in
+    let clean = clean_subst
+      ~pos1:Ty.empty ~neg1:Ty.any ~pos2:Row.empty ~neg2:Row.any mono r in
     (Subst.compose clean s, Subst.apply clean r)
   )
   |> Utils.filter_among_others not_redundant
@@ -139,13 +159,29 @@ let rec infer cache env renvs annot (id, e) =
   let to_i =
     (function Annot.BSkip -> IAnnot.BSkip | Annot.BType a -> IAnnot.BType (A a)) in
   let empty_cov = (id, REnv.empty) in
+  let app t1 t2 =
+    let t1, t2 = GTy.lb t1, GTy.lb t2 in
+    let tv = TVCache.get1 cache.tvcache id TVCache.res_tvar in
+    let arrow = Arrow.mk t2 (TVar.typ tv) in
+    let ss = tallying_simpl env (TVar.typ tv) [(t1, arrow)] in
+    let ss = if !Config.infer_overload || Ty.is_empty t2 then ss else
+      ss |> List.filter (fun (s, _) -> Subst.apply s t2 |> Ty.non_empty)
+    in
+    log "untypeable application" (fun fmt ->
+      Format.fprintf fmt "function: %a\nargument: %a" Ty.pp t1 Ty.pp t2
+      ) ;
+    ss
+  in
+  let fresh_subst ts =
+    let (tvs,_) = TyScheme.get ts in
+    TVCache.get' cache.tvcache id tvs
+  in
   match e, annot with
   | _, A a -> Ok (a, Checker.typeof env a (id, e))
   | _, Untyp -> Fail
   | Value ty, Infer -> retry_with (nc (Annot.AValue ty))
   | Var v, Infer when Env.mem v env ->
-    let (tvs,_) = Env.find v env |> TyScheme.get in
-    let s = TVCache.get' cache.tvcache id tvs in
+    let s = Env.find v env |> fresh_subst in
     retry_with (nc (Annot.AVar s))
   | Var v, Infer ->
     log "unbound variable" (fun fmt -> Format.fprintf fmt "name: %a" Variable.pp v) ;
@@ -245,24 +281,26 @@ let rec infer cache env renvs annot (id, e) =
     | OneSubst (ss, [a1;a2], [a1';a2'],r) ->
       Subst (ss,AApp(a1,a2),AApp(a1',a2'),r)
     | AllOk ([a1;a2],[t1;t2]) ->
-      let t1, t2 = GTy.lb t1, GTy.lb t2 in
-      let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
-      let arrow = Arrow.mk t2 (TVar.typ tv) in
-      let ss = tallying_simpl env (TVar.typ tv) [(t1, arrow)] in
-      let ss = if !Config.infer_overload || Ty.is_empty t2 then ss else
-        ss |> List.filter (fun (s, _) -> Subst.apply s t2 |> Ty.non_empty)
-      in
-      log "untypeable application" (fun fmt ->
-        Format.fprintf fmt "function: %a\nargument: %a" Ty.pp t1 Ty.pp t2
-        ) ;
+      let ss = app t1 t2 in
       Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
     | _ -> assert false
+    end
+  | Operation (o, _), Infer ->
+    retry_with (AOp (Checker.fun_of_operation o |> fresh_subst, Infer))
+  | Operation (o,e'), AOp (s,annot') ->
+    begin match infer' cache env renvs annot' e' with
+    | Ok (annot', t') ->
+      let t = Checker.fun_of_operation o |> TyScheme.get |> snd |> GTy.substitute s in
+      let ss = app t t' in
+      Subst (ss, nc (Annot.AOp(s,annot')), Untyp, empty_cov)
+    | Subst (ss,a,a',r) -> Subst (ss,AOp (s,a),AOp (s,a'),r)
+    | Fail -> Fail
     end
   | Projection _, Infer -> retry_with (AProj Infer)
   | Projection (p,e'), AProj annot' ->
     begin match infer' cache env renvs annot' e' with
     | Ok (annot', s) ->
-      let tv = TVCache.get cache.tvcache id TVCache.res_tvar in
+      let tv = TVCache.get1 cache.tvcache id TVCache.res_tvar in
       let ty = Checker.domain_of_proj p (TVar.typ tv) in
       let s = GTy.lb s in
       let ss = tallying_simpl env (TVar.typ tv) [(s, ty)] in
@@ -362,7 +400,7 @@ let rec infer cache env renvs annot (id, e) =
 and infer' cache env renvs annot e =
   let tvars = Env.tvars env in
   let subst_disjoint s =
-    TVarSet.inter (Subst.dom s) tvars |> TVarSet.is_empty
+    MVarSet.inter (Subst.domain s) tvars |> MVarSet.is_empty
   in
   match infer cache env renvs annot e with
   | Ok (a, ty) -> Ok (a, ty)

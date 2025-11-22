@@ -16,7 +16,7 @@ val disj : t list -> t
 val conj : t list -> t
 val neg : t -> t
 
-val fv : t -> TVarSet.t
+val fv : t -> MVarSet.t
 val substitute : Subst.t -> t -> t
 (* Mapping functions below assume the operation is monotonic *)
 val map : (Ty.t -> Ty.t) -> t -> t

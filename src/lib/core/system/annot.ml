@@ -10,10 +10,11 @@ module Annot = struct
   [@@deriving show]
   and a =
   | AValue of GTy.t
-  | AVar of Subst.t
+  | AVar of Subst.t 
   | AConstruct of t list
   | ALet of t * part
   | AApp of t * t
+  | AOp of Subst.t * t
   | AProj of t
   | ACast of t
   | ACoerce of GTy.t * t
@@ -27,13 +28,15 @@ module Annot = struct
   [@@deriving show]
 
   let substitute s t =
+    let comp s' = Subst.compose s s' |> Subst.restrict (Subst.domain s') in
     let rec aux t =
       let ann = match t.ann with
       | AValue t -> AValue (GTy.substitute s t)
-      | AVar s' -> AVar (Subst.compose_restr s s')
+      | AVar s' -> AVar (comp s')
       | AConstruct ts -> AConstruct (List.map aux ts)
       | ALet (t, ps) -> ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, aux t) ps)
       | AApp (t1, t2) -> AApp (aux t1, aux t2)
+      | AOp (s', t) -> AOp (comp s', aux t)
       | AProj t -> AProj (aux t)
       | ACast t -> ACast (aux t)
       | ACoerce (ty, t) -> ACoerce (GTy.substitute s ty, aux t)
@@ -69,6 +72,7 @@ module IAnnot = struct
   | AConstruct of t list
   | ALet of t * part
   | AApp of t * t
+  | AOp of Subst.t * t
   | AProj of t
   | ACast of t
   | ACoerce of GTy.t * t
@@ -80,6 +84,7 @@ module IAnnot = struct
   [@@deriving show]
 
   let substitute s =
+    let comp s' = Subst.compose s s' |> Subst.restrict (Subst.domain s') in
     let rec aux t =
       match t with
       | A a -> A (Annot.substitute s a)
@@ -88,6 +93,7 @@ module IAnnot = struct
       | AConstruct ts -> AConstruct (List.map aux ts)
       | ALet (t, ps) -> ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, aux t) ps)
       | AApp (t1, t2) -> AApp (aux t1, aux t2)
+      | AOp (s', t) -> AOp (comp s', aux t)
       | AProj t -> AProj (aux t)
       | ACast t -> ACast (aux t)
       | ACoerce (ty, t) -> ACoerce (GTy.substitute s ty, aux t)

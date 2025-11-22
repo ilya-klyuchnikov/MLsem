@@ -11,6 +11,7 @@ module Annot : sig
   | AConstruct of t list
   | ALet of t * part
   | AApp of t * t
+  | AOp of Subst.t * t
   | AProj of t
   | ACast of t
   | ACoerce of GTy.t * t
@@ -40,6 +41,7 @@ module IAnnot : sig
   | AConstruct of t list
   | ALet of t * part
   | AApp of t * t
+  | AOp of Subst.t * t
   | AProj of t
   | ACast of t
   | ACoerce of GTy.t * t

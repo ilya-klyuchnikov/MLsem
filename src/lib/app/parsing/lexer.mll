@@ -37,6 +37,8 @@ let float = (float_e | float_comma)
 
 let type_var = '\'' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
 let weak_type_var = '\'' '_' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
+let row_var = '`' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
+let weak_row_var = '`' '_' ['a'-'z''A'-'Z''0'-'9']['a'-'z''A'-'Z''0'-'9''_']*
 
 let op_char =  '!' | '$' | '%' | '&' | '*' | '+' | '-' |
                '.' | '/' | ':' | ';' | '<' | '=' | '>' |
@@ -69,7 +71,6 @@ rule token = parse
 | ":"     { COLON }
 | ":!"    { CAST_STATIC }
 | ":!!"   { CAST_NOCHECK }
-| ":?"    { COLON_OPT }
 | "::"    { CONS }
 | ":>"    { COERCE }
 | ":>!"   { COERCE_STATIC }
@@ -109,6 +110,7 @@ rule token = parse
 | "["     { LBRACKET }
 | "]"     { RBRACKET }
 | ";"     { SEMICOLON }
+| ";;"    { DOUBLESEMICOLON }
 | "*"     { TIMES }
 | ".."    { DOUBLEPOINT }
 | "-"     { MINUS }
@@ -134,6 +136,8 @@ rule token = parse
 | param_constr_id as s { PCID (String.sub s 0 ((String.length s) - 1)) }
 | type_var as s { TVAR (String.sub s 1 ((String.length s) - 1)) }
 | weak_type_var as s { TVAR_WEAK (String.sub s 1 ((String.length s) - 1)) }
+| row_var as s { RVAR (String.sub s 1 ((String.length s) - 1)) }
+| weak_row_var as s { RVAR_WEAK (String.sub s 1 ((String.length s) - 1)) }
 | eof     { EOF }
 | _ { raise (LexerError ("Unexpected char: " ^ Lexing.lexeme lexbuf)) }
 

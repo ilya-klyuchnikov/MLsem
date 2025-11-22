@@ -1,9 +1,13 @@
 open Base
 
-module type TVar = sig
+(** @canonical Mlsem_types.Row *)
+module Row = Sstt.Row
+
+type kind = KNoInfer | KInfer | KTemporary
+
+module type Var = sig
     type set
-    type t = Sstt.Var.t
-    type kind = KNoInfer | KInfer | KTemporary
+    type t
 
     val all_vars : kind -> set
     val has_kind : kind -> t -> bool
@@ -11,94 +15,80 @@ module type TVar = sig
     val equal : t -> t -> bool
     val compare : t -> t -> int
     val name : t -> string
-
     val mk : kind -> string option -> t
-    val typ : t -> Ty.t
-
     val pp : Format.formatter -> t -> unit
 end
+module type TVar = sig
+    include Var
+    val typ : t -> Ty.t
+end
+module type RVar = sig
+    include Var
+    val row : t -> Row.t
+    val fty : t -> FTy.t
+end
 
-module type TVarSet = sig
+module type VarSet = sig
     type var
-    type t
 
-    val empty : t
-    val construct : var list -> t
-    val is_empty : t -> bool
-    val mem : t -> var -> bool
-    val filter : (var -> bool) -> t -> t
-    val union : t -> t -> t
+    include Set.S with type elt=var
+
     val union_many : t list -> t
-    val add : var -> t -> t
-    val inter : t -> t -> t
     val inter_many : t list -> t
-    val diff : t -> t -> t
-    val rm : var -> t -> t
-    val equal : t -> t -> bool
-    val subset : t -> t -> bool
-    val destruct : t -> var list
     val pp : Format.formatter -> t -> unit
 end
 
 (** @canonical Mlsem_types.TVar *)
-module rec TVar : (TVar with type set := TVarSet.t)
+module rec TVar : (TVar with type set := TVarSet.t and type t = Sstt.Var.t)
 
 (** @canonical Mlsem_types.TVarSet *)
-and TVarSet : (TVarSet with type var := TVar.t)
+and TVarSet : (VarSet with type var := TVar.t and type t = Sstt.VarSet.t)
+
+(** @canonical Mlsem_types.RVar *)
+module rec RVar : (RVar with type set := RVarSet.t and type t = Sstt.RowVar.t)
+
+(** @canonical Mlsem_types.RVarSet *)
+and RVarSet : (VarSet with type var := RVar.t and type t = Sstt.RowVarSet.t)
+
+(** @canonical Mlsem_types.MVarSet *)
+module MVarSet = Sstt.MixVarSet
 
 (** @canonical Mlsem_types.Subst *)
-module Subst : sig
-    type t
-    val construct : (TVar.t * Ty.t) list -> t
-    val identity : t
-    val is_identity : t -> bool
-    val dom : t -> TVarSet.t
-    val intro : t -> TVarSet.t
-    val mem : t -> TVar.t -> bool
-    val rm: TVar.t -> t -> t
-    val find : t -> TVar.t -> Ty.t
-    val equiv : t -> t -> bool
-    val apply : t -> Ty.t -> Ty.t
-    val destruct : t -> (TVar.t * Ty.t) list
-    val compose : t -> t -> t
-    val compose_restr : t -> t -> t
-    val combine : t -> t -> t
-    val restrict : t -> TVarSet.t -> t
-    val remove : t -> TVarSet.t -> t
-    val split : t -> TVarSet.t -> t * t
-    val pp : Format.formatter -> t -> unit
-end
+module Subst = Sstt.Subst
 
 (** @canonical Mlsem_types.TVOp *)
 module TVOp : sig
-    val vars : Ty.t -> TVarSet.t
-    val vars' : Ty.t list -> TVarSet.t
-    val vars_of_kind : TVar.kind -> Ty.t -> TVarSet.t
-    val top_vars : Ty.t -> TVarSet.t
-    val polarity : TVar.t -> Ty.t -> [ `Both | `Neg | `Pos | `None ]
-    val polarity' : TVar.t -> Ty.t list -> [ `Both | `Neg | `Pos | `None ]
-    val vars_with_polarity : Ty.t -> (TVar.t * [ `Both | `Neg | `Pos ]) list
-    val vars_with_polarity' : Ty.t list -> (TVar.t * [ `Both | `Neg | `Pos ]) list
-    val check_var : Ty.t -> [ `Not_var | `Pos of TVar.t | `Neg of TVar.t ]
+    val vars : Ty.t -> MVarSet.t
+    val vars' : Ty.t list -> MVarSet.t
+    val top_vars : Ty.t -> MVarSet.t
+    val vars_of_kind : kind -> Ty.t -> MVarSet.t
+    val polarity1 : TVar.t -> Ty.t -> [ `Both | `Neg | `Pos | `None ]
+    val polarity2 : RVar.t -> Ty.t -> [ `Both | `Neg | `Pos | `None ]
+    val polarity1' : TVar.t -> Ty.t list -> [ `Both | `Neg | `Pos | `None ]
+    val polarity2' : RVar.t -> Ty.t list -> [ `Both | `Neg | `Pos | `None ]
+    val vars_with_polarity1 : Ty.t -> (TVar.t * [ `Both | `Neg | `Pos ]) list
+    val vars_with_polarity2 : Ty.t -> (RVar.t * [ `Both | `Neg | `Pos ]) list
+    val vars_with_polarity1' : Ty.t list -> (TVar.t * [ `Both | `Neg | `Pos ]) list
+    val vars_with_polarity2' : Ty.t list -> (RVar.t * [ `Both | `Neg | `Pos ]) list
     val is_ground_typ : Ty.t -> bool
-    val refresh : kind:TVar.kind -> TVarSet.t -> Subst.t
-    val shorten_names : TVarSet.t -> Subst.t
+    val refresh : kind:kind -> MVarSet.t -> Subst.t
+    val shorten_names : MVarSet.t -> Subst.t
     val pp_typ_short : Format.formatter -> Ty.t -> unit
     val pp_typ_subst : Subst.t -> Format.formatter -> Ty.t -> unit
 
     (** [clean p n mono t] substitutes in [t]
-        all type variables not in [mono] and only occurring positively by [p], and
-        all type variables not in [mono] and only occurring negatively by [n] *)
-    val clean : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Ty.t
-    val clean_subst : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t -> Subst.t
-    val clean' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Ty.t list
-    val clean_subst' : pos:Ty.t -> neg:Ty.t -> TVarSet.t -> Ty.t list -> Subst.t
+        all variables not in [mono] and only occurring positively by [p], and
+        all variables not in [mono] and only occurring negatively by [n] *)
+    val clean : pos1:Ty.t -> neg1:Ty.t -> pos2:Row.t -> neg2:Row.t -> MVarSet.t -> Ty.t -> Ty.t
+    val clean_subst : pos1:Ty.t -> neg1:Ty.t -> pos2:Row.t -> neg2:Row.t -> MVarSet.t -> Ty.t -> Subst.t
+    val clean' : pos1:Ty.t -> neg1:Ty.t -> pos2:Row.t -> neg2:Row.t -> MVarSet.t -> Ty.t list -> Ty.t list
+    val clean_subst' : pos1:Ty.t -> neg1:Ty.t -> pos2:Row.t -> neg2:Row.t -> MVarSet.t -> Ty.t list -> Subst.t
 
-    val bot_instance : TVarSet.t -> Ty.t -> Ty.t
-    val top_instance : TVarSet.t -> Ty.t -> Ty.t
+    val bot_instance : MVarSet.t -> Ty.t -> Ty.t
+    val top_instance : MVarSet.t -> Ty.t -> Ty.t
 
-    val tallying : TVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
-    val decompose : TVarSet.t -> Subst.t -> Subst.t -> Subst.t list
+    val tallying : MVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
+    val decompose : MVarSet.t -> Subst.t -> Subst.t -> Subst.t list
 
     val factorize : TVarSet.t * TVarSet.t -> Ty.t -> Ty.t * Ty.t
 end

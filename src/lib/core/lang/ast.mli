@@ -36,6 +36,7 @@ type e =
 | Ite of t * Ty.t * t * t
 | PatMatch of t * (pattern * t) list
 | App of t * t
+| Operation of SA.operation * t
 | Projection of SA.projection * t
 | Declare of Variable.t * t
 (** Declaration of an uninitialized mutable variable.

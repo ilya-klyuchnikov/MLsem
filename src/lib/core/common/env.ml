@@ -3,7 +3,7 @@ open Mlsem_types
 
 module type T = sig
   type t
-  val fv : t -> TVarSet.t
+  val fv : t -> MVarSet.t
   val leq : t -> t -> bool
   val substitute : Subst.t -> t -> t
   val pp : Format.formatter -> t -> unit
@@ -26,7 +26,7 @@ module type Env = sig
   val restrict : Variable.t list -> t -> t
   val map : (ty -> ty) -> t -> t
   val filter : (Variable.t -> ty -> bool) -> t -> t
-  val tvars : t -> TVarSet.t
+  val tvars : t -> MVarSet.t
   val substitute : Subst.t -> t -> t
 
   val equiv : t -> t -> bool
@@ -38,15 +38,15 @@ module type Env = sig
 end
 
 module Make(T:T) = struct
-  type t = T.t VarMap.t * TVarSet.t
+  type t = T.t VarMap.t * MVarSet.t
 
-  let empty = (VarMap.empty, TVarSet.empty)
+  let empty = (VarMap.empty, MVarSet.empty)
   let is_empty (m,_) =  VarMap.is_empty m
   let singleton v t = (VarMap.singleton v t, T.fv t)
   let construct lst = (VarMap.of_seq (List.to_seq lst),
-    List.map snd lst |> List.map T.fv |> TVarSet.union_many)
+    List.map snd lst |> List.map T.fv |> List.fold_left MVarSet.union MVarSet.empty)
 
-  let add v t (m,s) = (VarMap.add v t m, TVarSet.union s (T.fv t))
+  let add v t (m,s) = (VarMap.add v t m, MVarSet.union s (T.fv t))
 
   let domain (m, _) = VarMap.bindings m |> List.map fst
 
@@ -129,7 +129,7 @@ module REnv = struct
     (VarMap.union (fun _ t1 t2 ->
       Some (Ty.cap t1 t2)
       ) m1 m2,
-    TVarSet.union s1 s2)
+    MVarSet.union s1 s2)
     
   let conj lst = List.fold_left cap empty lst
 
@@ -143,7 +143,7 @@ module REnv = struct
       | Some _, None | None, Some _ -> None
       | Some t1, Some t2 -> Some (Ty.cup t1 t2)
     ) m1 m2,
-    TVarSet.union s1 s2)
+    MVarSet.union s1 s2)
 
   let disj_approx lst =
     match lst with
