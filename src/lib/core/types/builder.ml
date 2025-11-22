@@ -176,7 +176,7 @@ module Builder' = struct
                     match Hashtbl.find_opt henv name with
                     | Some (def, params, lst) ->
                         let cached = lst |> List.find_opt (fun (args',_) ->
-                            try List.for_all2 (==) args args' with Invalid_argument _ -> false) in
+                            try List.for_all2 Ty.equiv args args' with Invalid_argument _ -> false) in
                         begin match cached with
                         | None ->
                             begin try
