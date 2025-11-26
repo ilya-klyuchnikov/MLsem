@@ -55,3 +55,11 @@ module IAnnot : sig
   val pp : Format.formatter -> t -> unit
   val pp_coverage : Format.formatter -> coverage -> unit
 end
+
+module Domain : sig
+    type t
+    val empty : t
+    val add : IAnnot.coverage -> t -> t
+    val covers : t -> IAnnot.coverage -> bool
+    val pp : Format.formatter -> t -> unit
+end

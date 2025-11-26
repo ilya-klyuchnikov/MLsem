@@ -3,7 +3,6 @@ open Annot
 open Mlsem_types
 open TVOp
 open Ast
-open Caching
 open Mlsem_utils
 
 (* ===== Initial Annot ===== *)
