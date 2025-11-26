@@ -63,7 +63,7 @@ let expr_to_ast t =
       Constructor (Rec (List.map (fun (str,_) -> str, false) lst, false), List.map snd lst |> List.map aux)
     | RecordUpdate (e, lbl, None) -> Constructor (RecDel lbl, [aux e])
     | RecordUpdate (e, lbl, Some e') -> Constructor (RecUpd lbl, [aux e ; aux e'])
-    | TypeCast (e, ty) -> TypeCast (aux e, ty, CheckStatic)
+    | TypeCast (e, ty, c) -> TypeCast (aux e, ty, c)
     | TypeCoerce (e, tyo, c) ->
       let ty = match tyo with None -> GTy.dyn | Some ty -> GTy.mk ty in
       TypeCoerce (aux e, ty, c)

@@ -67,11 +67,13 @@ rule token = parse
 | "~"     { NEG  }
 | "_"     { PLACEHOLDER_VAR }
 | ":"     { COLON }
+| ":!"    { CAST_STATIC }
+| ":!!"   { CAST_NOCHECK }
 | ":?"    { COLON_OPT }
 | "::"    { CONS }
 | ":>"    { COERCE }
-| ":>>"   { COERCE_STATIC }
-| ":>>>"  { COERCE_NOCHECK }
+| ":>!"   { COERCE_STATIC }
+| ":>!!"  { COERCE_NOCHECK }
 | ","     { COMMA }
 | "."     { POINT }
 | "="     { EQUAL }

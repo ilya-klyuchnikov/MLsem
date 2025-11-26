@@ -13,7 +13,7 @@ val (>=) : (int, int) -> bool
 (* If not specifying the type of a top-level mutable variable, it is considered dyn *)
 let mut a = 42
 let read_a = a
-let read_a_cast = (a :>> bool)
+let read_a_cast = (a :>! bool)
 let write_a = a := true
 
 let mut b : int = 73

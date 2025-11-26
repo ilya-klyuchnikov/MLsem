@@ -89,7 +89,7 @@
 %token FUN VAL LET MUT IN FST SND HD TL HASHTAG SUGGEST
 %token IF IS THEN ELSE WHILE DO BEGIN PLACEHOLDER_VAR RETURN BREAK CONTINUE
 %token LPAREN RPAREN IRPAREN EQUAL COMMA CONS COLON COLON_OPT ASSIGN
-%token COERCE COERCE_STATIC COERCE_NOCHECK
+%token COERCE COERCE_STATIC COERCE_NOCHECK CAST_STATIC CAST_NOCHECK
 %token INTERROGATION_MARK EXCLAMATION_MARK
 %token ARROW AND OR NEG DIFF
 %token TIMES PLUS MINUS DIV
@@ -249,7 +249,7 @@ atomic_term:
   let annot = annot $startpos $endpos in
   annot (Ite (t,ty,annot (Const (Bool true)),annot (Const (Bool false))))
   }
-| LPAREN t=term COLON ty=typ RPAREN { annot $startpos $endpos (TypeCast (t,ty)) }
+| LPAREN t=term c=cast ty=typ RPAREN { annot $startpos $endpos (TypeCast (t,ty,c)) }
 | LPAREN t=term c=coerce ty=typ RPAREN { annot $startpos $endpos (TypeCoerce (t,Some ty,c)) }
 | LPAREN t=term c=coerce HASHTAG RPAREN { annot $startpos $endpos (TypeCoerce (t,None,c)) }
 | LBRACE fs=separated_list(SEMICOLON, field_term) RBRACE { annot $startpos $endpos (Record fs) }
@@ -259,6 +259,9 @@ atomic_term:
 { list_of_elts $startpos $endpos lst }
 | LBRACKET t1=term OR ts=separated_nonempty_list(OR, term) RBRACKET
 { alts $startpos $endpos (t1::ts) }
+
+%inline cast:
+  COLON { Check } | CAST_STATIC { CheckStatic } | CAST_NOCHECK { NoCheck }
 
 %inline coerce:
   COERCE { Check } | COERCE_STATIC { CheckStatic } | COERCE_NOCHECK { NoCheck }
