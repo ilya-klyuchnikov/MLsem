@@ -63,6 +63,8 @@ module TVOp : sig
     val decorrelate_fields : fields_ctx -> Ty.t -> Ty.t
     val recombine_fields : fields_ctx -> Ty.t -> Ty.t
     val recombine_fields' : fields_ctx -> Subst.t -> Subst.t
+    val fvars_associated_with : fields_ctx -> RVar.t -> RVarSet.t
+    val rvar_associated_with : fields_ctx -> RVar.t -> (RVar.t * string) option
 
     val vars : Ty.t -> MVarSet.t
     val vars' : Ty.t list -> MVarSet.t
@@ -94,6 +96,7 @@ module TVOp : sig
     val top_instance : MVarSet.t -> Ty.t -> Ty.t
 
     val tallying : MVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
+    val tallying_decorrelated : MVarSet.t -> (Ty.t * Ty.t) list -> Subst.t list
     val decompose : MVarSet.t -> Subst.t -> Subst.t -> Subst.t list
 
     val factorize : TVarSet.t * TVarSet.t -> Ty.t -> Ty.t * Ty.t

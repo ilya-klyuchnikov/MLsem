@@ -133,10 +133,8 @@ let minimize_new_tvars mono sol =
   let res = List.fold_left minimize_binding1 sol (Subst.bindings1 sol) in
   List.fold_left minimize_binding2 res (Subst.bindings2 sol)
 
-let tallying_simpl env res cs =
-  let tvars = Env.tvars env in
+let tallying_simpl mono tvars res cs =
   let ntvars s = MVarSet.union tvars (Subst.restrict tvars s |> Subst.intro) in
-  let mono = MVarSet.of_set (TVar.all_vars KNoInfer) (RVar.all_vars KNoInfer) in
   let is_better (s1,r1) (s2,r2) =
     let mono2 = List.fold_left MVarSet.union MVarSet.empty
       [ mono ; ntvars s2 ; TVOp.vars r2 ] in
@@ -151,7 +149,7 @@ let tallying_simpl env res cs =
   (* Format.printf "with tvars=%a@." (Utils.pp_list TVar.pp)
     (TVarSet.destruct tvars) ; *)
   (* Format.printf "with env=%a@." Env.pp env ; *)
-  tallying mono cs
+  tallying_decorrelated mono cs
   |> List.concat_map (abstract_factors tvars)
   |> List.map (minimize_new_tvars (MVarSet.union mono tvars))
   |> List.map (fun s -> s, Subst.apply s res)
@@ -165,6 +163,16 @@ let tallying_simpl env res cs =
   |> Utils.filter_among_others not_redundant
   |> tsort (fun (_,r1) (_,r2) -> Ty.leq r1 r2)
   (* |> List.map (fun (s,r) -> Format.printf "%a@.%a@." Subst.pp s Ty.pp r ; s,r) *)
+
+let tallying_simpl env res cs =
+  let mono = MVarSet.of_set (TVar.all_vars KNoInfer) (RVar.all_vars KNoInfer) in
+  let tvars = Env.tvars env in
+  let fc = TVOp.get_fields_ctx (MVarSet.proj2 mono) (cs |> List.concat_map (fun (a,b) -> [a;b])) in
+  let tvars = MVarSet.elements2 tvars |> List.fold_left
+    (fun acc rv -> MVarSet.union acc (TVOp.fvars_associated_with fc rv |> MVarSet.of_set2)) tvars in
+  cs |> List.map (fun (a,b) -> (TVOp.decorrelate_fields fc a, TVOp.decorrelate_fields fc b))
+     |> tallying_simpl mono tvars (TVOp.decorrelate_fields fc res)
+     |> List.map (fun (s,r) -> TVOp.recombine_fields' fc s, TVOp.recombine_fields fc r)
 
 (* Reconstruction algorithm *)
 
