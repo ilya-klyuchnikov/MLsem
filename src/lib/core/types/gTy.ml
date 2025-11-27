@@ -65,6 +65,7 @@ let is_any { lb ; _ } = Ty.is_any lb
 let leq = test2 Ty.leq
 let equiv = test2 Ty.equiv
 let disjoint { ub=ub1 ; _ } { ub=ub2 ; _ } = Ty.disjoint ub1 ub2
+let non_gradual { eq ; _ } = eq
 
 let simplify = map Ty.simplify
 let normalize = map Ty.normalize

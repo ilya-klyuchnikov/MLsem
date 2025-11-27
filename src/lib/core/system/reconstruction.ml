@@ -321,7 +321,7 @@ let rec refine cache env annot (id, e) =
       Subst (ss,AApp(a1,a2,res),AApp(a1',a2',res),r)
     | AllOk ([a1;a2],[t1;t2]) ->
       let ss = app res t1 t2 in
-      Subst (ss, nc (Annot.AApp(a1,a2)), Untyp, empty_cov)
+      Subst (ss, nc (Annot.AApp(a1,a2,res)), Untyp, empty_cov)
     | _ -> assert false
     end
   | Operation (o,e'), AOp (f,annot',res) ->
@@ -331,7 +331,7 @@ let rec refine cache env annot (id, e) =
       let s = f tvs in
       let t = GTy.substitute s t in
       let ss = app res t t' in
-      Subst (ss, nc (Annot.AOp(s,annot')), Untyp, empty_cov)
+      Subst (ss, nc (Annot.AOp(s,annot',res)), Untyp, empty_cov)
     | Subst (ss,a,a',r) -> Subst (ss,AOp (f,a,res),AOp (f,a',res),r)
     | Fail -> Fail
     end

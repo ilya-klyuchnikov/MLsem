@@ -10,8 +10,8 @@ module Annot : sig
   | AVar of Subst.t
   | AConstruct of t list
   | ALet of t * part
-  | AApp of t * t
-  | AOp of Subst.t * t
+  | AApp of t * t * Ty.t (* result *)
+  | AOp of Subst.t * t * Ty.t (* result *)
   | AProj of t
   | ACast of GTy.t * t
   | ACoerce of GTy.t * t

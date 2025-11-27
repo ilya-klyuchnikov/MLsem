@@ -13,8 +13,8 @@ module Annot = struct
   | AVar of Subst.t 
   | AConstruct of t list
   | ALet of t * part
-  | AApp of t * t
-  | AOp of Subst.t * t
+  | AApp of t * t * Ty.t (* result *)
+  | AOp of Subst.t * t * Ty.t (* result *)
   | AProj of t
   | ACast of GTy.t * t
   | ACoerce of GTy.t * t
@@ -35,8 +35,8 @@ module Annot = struct
       | AVar s' -> AVar (comp s')
       | AConstruct ts -> AConstruct (List.map aux ts)
       | ALet (t, ps) -> ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, aux t) ps)
-      | AApp (t1, t2) -> AApp (aux t1, aux t2)
-      | AOp (s', t) -> AOp (comp s', aux t)
+      | AApp (t1, t2, ty) -> AApp (aux t1, aux t2, Subst.apply s ty)
+      | AOp (s', t, ty) -> AOp (comp s', aux t, Subst.apply s ty)
       | AProj t -> AProj (aux t)
       | ACast (ty, t) -> ACast (GTy.substitute s ty, aux t)
       | ACoerce (ty, t) -> ACoerce (GTy.substitute s ty, aux t)

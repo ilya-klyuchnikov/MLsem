@@ -136,14 +136,13 @@ let rec typeof' env annot (id,e) =
     if MVarSet.subset (Subst.domain s) tvs then GTy.substitute s ty
     else untypeable id ("Invalid substitution.")
   in
-  let app t1 t2 =
-    let check ty1 ty2 =
-      Ty.leq ty1 Arrow.any && Ty.leq ty2 (Arrow.domain ty1)
-    in
-    begin match GTy.op2 check Arrow.apply t1 t2 with
-    | Some ty -> ty
-    | None -> untypeable id "Invalid application."
-    end
+  let app t1 t2 res =
+    let non_gradual = GTy.non_gradual t1 && GTy.non_gradual t2 in
+    if Ty.leq (GTy.lb t1) (Arrow.mk (GTy.lb t2) res)
+    then
+      if non_gradual then GTy.mk res
+      else GTy.mk_gradual res (Arrow.apply (GTy.ub t1) (GTy.ub t2))
+    else untypeable id "Invalid application."
   in
   match e, annot with
   | Value _, AValue ty -> ty
@@ -185,14 +184,14 @@ let rec typeof' env annot (id,e) =
     let t1 = match a1 with None -> GTy.any | Some a1 -> typeof env a1 e1 in
     let t2 = match a2 with None -> GTy.any | Some a2 -> typeof env a2 e2 in
     GTy.cap t1 t2
-  | App (e1, e2), AApp (annot1, annot2) ->
+  | App (e1, e2), AApp (annot1, annot2, res) ->
     let t1 = typeof env annot1 e1 in
     let t2 = typeof env annot2 e2 in
-    app t1 t2
-  | Operation (o, e), AOp (s, annot) ->
+    app t1 t2 res
+  | Operation (o, e), AOp (s, annot, res) ->
     let t1 = fun_of_operation o |> subst_ts s in
     let t2 = typeof env annot e in
-    app t1 t2
+    app t1 t2 res
   | Projection (p, e), AProj annot ->
     let dom = domain_of_proj p Ty.any in
     let check ty = Ty.leq ty dom in

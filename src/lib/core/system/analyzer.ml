@@ -14,10 +14,10 @@ let rec iter_ann f (id,e) a =
       List.combine es anns
     | Let (_, _, e1, e2), ALet (a1, anns) ->
       (e1,a1)::(List.map (fun (_,a2) -> (e2, a2)) anns)
-    | App (e1,e2), AApp (a1,a2) | Alt (e1,e2), AAlt (Some a1, Some a2) -> [(e1,a1) ; (e2,a2)]
+    | App (e1,e2), AApp (a1,a2,_) | Alt (e1,e2), AAlt (Some a1, Some a2) -> [(e1,a1) ; (e2,a2)]
     | Projection (_, e), AProj a | TypeCast (e, _, _), ACast (_, a)
     | TypeCoerce (e, _, _), ACoerce (_, a) | Lambda (_, _, e), ALambda (_, a)
-    | Operation (_, e), AOp (_, a) -> [(e,a)]
+    | Operation (_, e), AOp (_, a,_) -> [(e,a)]
     | Ite (e, _, e1, e2), AIte (a, _, b1, b2) ->
       (e,a)::([(e1,b1);(e2,b2)] |> List.filter_map (fun (e,b) ->
         match b with Annot.BSkip -> None | BType a -> Some (e,a)))
