@@ -18,3 +18,14 @@ val extract_ellipsis_param3 : { l1: any? ; l2: any? ; l3: any? ;; 'a? } -> 'a
 let extract_ellipsis_test =
   let params = {l1=42 ; l2=73 ; l3=false ; l4=true} in
   extract_ellipsis_param1 params, extract_ellipsis_param2 params, extract_ellipsis_param3 params
+
+
+val any_element_from_record : { ;; 'a? } -> 'a
+
+let fun2_with_ellipsis r =
+  let (a1, a2) = r.l1, r.l2 in
+  let ellipsis = (r\l1)\l2 in
+  a1,a2,ellipsis,any_element_from_record ellipsis
+
+let fun2_with_ellipsis_test =
+  fun2_with_ellipsis { l1=1 ; l2=2 ; l3=3 ; l4=4 ; l5=5 }
