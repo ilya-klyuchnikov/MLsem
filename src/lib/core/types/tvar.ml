@@ -38,7 +38,7 @@ module type VarSet = sig
     val pp : Format.formatter -> t -> unit
 end
 
-module Var(V:Sstt.NamedIdentifier)(VS:Set.S with type elt=V.t) = struct
+module Var(V:Sstt.NamedIdentifier)(VS:Set.S with type elt=V.t)(P:sig val prefix:string end) = struct
   type t = V.t
 
   module VH = Hashtbl.Make(V)
@@ -66,11 +66,11 @@ module Var(V:Sstt.NamedIdentifier)(VS:Set.S with type elt=V.t) = struct
   let mk kind name =
     let id = unique_id () in
     let norm_name = (match kind with
-      | KNoInfer -> "'N"
-      | KInfer -> "'I"
-      | KTemporary -> "'T"
+      | KNoInfer -> P.prefix^"N"
+      | KInfer -> P.prefix^"I"
+      | KTemporary -> P.prefix^"T"
       )^(string_of_int id) in
-    let name = match name with None -> norm_name | Some str -> "'"^str in
+    let name = match name with None -> norm_name | Some str -> P.prefix^str in
     let var = V.mk name in
     VH.add data var {kind} ;
     Hashtbl.replace allvars kind (all_vars kind |> VS.add var) ;
@@ -80,12 +80,12 @@ module Var(V:Sstt.NamedIdentifier)(VS:Set.S with type elt=V.t) = struct
 end
 
 module TVar = struct
-  include Var(Sstt.Var)(Sstt.VarSet)
+  include Var(Sstt.Var)(Sstt.VarSet)(struct let prefix="'" end)
   let typ v = Sstt.VDescr.mk_var v |> Sstt.Ty.of_def
 end
 
 module RVar = struct
-  include Var(Sstt.RowVar)(Sstt.RowVarSet)
+  include Var(Sstt.RowVar)(Sstt.RowVarSet)(struct let prefix="`" end)
   let row v = Row.id_for v
   let fty v = Sstt.Ty.F.mk_var v
 end

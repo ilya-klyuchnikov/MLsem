@@ -2,8 +2,8 @@
 let record_delete x = ((x\l1)\l2)\l3
 let record_update x = { x with l1 = 1 ; l2=2 ; l3=3 }
 
-let record_delete_ann (x:{ ;; 'a}) = ((x\l1)\l2)\l3
-let record_update_ann (x:{ ;; 'a}) = { x with l1 = 1 ; l2=2 ; l3=3 }
+let record_delete_ann (x:{ ;; `a}) = ((x\l1)\l2)\l3
+let record_update_ann (x:{ ;; `a}) = { x with l1 = 1 ; l2=2 ; l3=3 }
 
 let record_test =
   let r1 = {l3=33 ; l4=44} in
