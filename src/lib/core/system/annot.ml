@@ -57,7 +57,7 @@ end
 module IAnnot = struct
   type coverage = (Eid.t * Ty.t) option * REnv.t
   [@@deriving show]
-  type branch = BType of bool (* explored *) * t | BSkip
+  type branch = BMaybe of t | BType of t | BSkip
   [@@deriving show]
   and inter_branch = { coverage: coverage option ; ann: t }
   [@@deriving show]
@@ -103,7 +103,8 @@ module IAnnot = struct
       | AInter bs -> AInter (List.map aux_ib bs)
     and aux_b b =
       match b with
-      | BType (b,t) -> BType (b,aux t)
+      | BMaybe t -> BMaybe (aux t)
+      | BType t -> BType (aux t)
       | BSkip -> BSkip
     and aux_ib { coverage ; ann } =
       let aux_coverage (o,renv) =

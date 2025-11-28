@@ -30,7 +30,7 @@ end
 
 module IAnnot : sig
   type coverage = (Eid.t * Ty.t) option * REnv.t
-  type branch = BType of bool (* explored *) * t | BSkip
+  type branch = BMaybe of t | BType of t | BSkip
   and inter_branch = { coverage: coverage option ; ann: t }
   and inter = inter_branch list
   and part = (Ty.t * t) list

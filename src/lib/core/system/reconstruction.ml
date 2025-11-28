@@ -27,7 +27,7 @@ let rec initial renv (_, e) =
   | Lambda (dom, _, e) -> ALambda (dom, initial renv e)
   | LambdaRec lst -> ALambdaRec (lst |> List.map (fun (dom, _, e) -> dom, initial renv e))
   | Ite (e, tau, e1, e2) ->
-    AIte (initial renv e, tau, BType (false, initial renv e1), BType (false, initial renv e2))
+    AIte (initial renv e, tau, BMaybe (initial renv e1), BMaybe (initial renv e2))
   | App (e1, e2) -> AApp (initial renv e1, initial renv e2, new_result ())
   | Operation (_, e) -> AOp (new_renaming (), initial renv e, new_result ())
   | Projection (_, e) -> AProj (initial renv e, new_result ())
@@ -208,7 +208,7 @@ let rec refine cache env annot (id, e) =
   in
   let retry_with a = refine cache env a (id, e) in
   let to_i =
-    (function Annot.BSkip -> IAnnot.BSkip | Annot.BType a -> IAnnot.BType (true, A a)) in
+    (function Annot.BSkip -> IAnnot.BSkip | Annot.BType a -> IAnnot.BType (A a)) in
   let empty_cov = (id, REnv.empty) in
   let app res t1 t2 =
     let t1, t2 = GTy.lb t1, GTy.lb t2 in
@@ -456,16 +456,16 @@ and refine_b' cache env bannot e s tau =
   let retry_with bannot = refine_b' cache env bannot e s tau in
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
-  | IAnnot.BType (false, annot) when !Config.infer_overload ->
+  | IAnnot.BMaybe annot when !Config.infer_overload ->
     let ss = tallying_simpl env Ty.empty [(GTy.ub s, GTy.ub (GTy.neg tau))] in
-    Subst (ss, IAnnot.BSkip, IAnnot.BType (true, annot), empty_cov)
-  | IAnnot.BType (false, _) when GTy.disjoint s tau -> retry_with (IAnnot.BSkip)
-  | IAnnot.BType (false, annot) -> retry_with (IAnnot.BType (true, annot))
+    Subst (ss, IAnnot.BSkip, IAnnot.BType annot, empty_cov)
+  | IAnnot.BMaybe _ when GTy.disjoint s tau -> retry_with (IAnnot.BSkip)
+  | IAnnot.BMaybe annot -> retry_with (IAnnot.BType annot)
   | IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
-  | IAnnot.BType (true, annot) ->
+  | IAnnot.BType (annot) ->
     begin match refine' cache env annot e with
     | Ok (a, ty) -> Ok (Annot.BType a, ty)
-    | Subst (ss,a1,a2,r) -> Subst (ss,IAnnot.BType (true, a1),IAnnot.BType (true, a2),r)
+    | Subst (ss,a1,a2,r) -> Subst (ss,IAnnot.BType a1,IAnnot.BType a2,r)
     | Fail -> Fail
     end
 and refine_part' cache env e v (tvs, s) (si,annot) =
