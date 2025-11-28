@@ -12,11 +12,15 @@
         "path": "imperative.stml"
     },
     {
+        "name": "Imperative Programming (built-in)",
+        "path": "imperative_advanced.stml"
+    },
+    {
         "name": "Gradual Typing",
         "path": "gradual.stml"
     },
     {
-        "name": "Imperative Programming (built-in)",
-        "path": "imperative_advanced.stml"
+        "name": "Row Polymorphism",
+        "path": "records.stml"
     }
 ]
