@@ -53,7 +53,7 @@ let optimize_dataflow e =
     let immut = VarMap.merge (fun _ v1 v2 ->
       match v1, v2 with
       | None, None | Some _, None | None, Some _ -> None
-      | Some v1, Some v2 when Variable.equals v1 v2 -> Some v1
+      | Some v1, Some v2 when Variable.equal v1 v2 -> Some v1
       | Some _, Some _ -> None
     ) benv.immut nenv.immut in
     let mut = benv.mut in

@@ -172,7 +172,7 @@ let parser_expr_to_expr benv env e =
     and aux_pat pos env (pat, e) =
         let merge_disj =
             NameMap.union (fun str v1 v2 ->
-                if Variable.equals v1 v2 then Some v1
+                if Variable.equal v1 v2 then Some v1
                 else raise (SymbolError ("matched variables "^str^" are conflicting")))
         in
         let rec aux_p env pat =
@@ -211,7 +211,7 @@ let parser_expr_to_expr benv env e =
             | PatOr (p1, p2) ->
                 let (p1, env1) = aux_p env p1 in
                 let (p2, env2) = aux_p (merge_disj env env1) p2 in
-                if NameMap.equal (Variable.equals) env1 env2 |> not
+                if NameMap.equal (Variable.equal) env1 env2 |> not
                 then raise (SymbolError ("missing matched variables in pattern")) ;
                 (PatOr (p1, p2), env1)
             | PatTuple ps ->

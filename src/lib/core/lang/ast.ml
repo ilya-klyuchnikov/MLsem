@@ -180,8 +180,8 @@ let vars e = VarSet.union (uv e) (bv e)
 let rename_fv v v' =
   let aux (id, e) =
     let e = match e with
-    | Var v'' when Variable.equals v v'' -> Var v'
-    | VarAssign (v'', e) when Variable.equals v v'' -> VarAssign (v', e)
+    | Var v'' when Variable.equal v v'' -> Var v'
+    | VarAssign (v'', e) when Variable.equal v v'' -> VarAssign (v', e)
     | e -> e
     in
     (id, e)

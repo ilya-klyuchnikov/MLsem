@@ -5,7 +5,7 @@ module Variable : sig
   val pp : Format.formatter -> t -> unit
   val show : t -> string
   val compare : t -> t -> int
-  val equals : t -> t -> bool
+  val equal : t -> t -> bool
   val create : string option -> t
   val refresh : t -> t
   val attach_location : t -> Position.t -> unit

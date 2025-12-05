@@ -3,8 +3,8 @@ module Variable = struct
   let data : (int, string option * Position.t) Hashtbl.t = Hashtbl.create 100
 
   type t = int
-  let compare = compare
-  let equals a b = a = b
+  let compare = Int.compare
+  let equal = Int.equal
 
   let next_id =
     let last = ref 0 in

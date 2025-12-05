@@ -49,8 +49,8 @@ let rec vars_of_pat pat =
 
 let rec def_of_var_pat pat v e =
   match pat with
-  | PVar (tys,v') when Variable.equals v v' -> tys,e
-  | PAssign (tys,v', ty) when Variable.equals v v' -> tys,(Eid.unique (), Value ty)
+  | PVar (tys,v') when Variable.equal v v' -> tys,e
+  | PAssign (tys,v', ty) when Variable.equal v v' -> tys,(Eid.unique (), Value ty)
   | PVar _ | PAssign _ | PType _ -> assert false
   | PAnd (p1, p2) ->
     if vars_of_pat p1 |> VarSet.mem v
