@@ -108,11 +108,10 @@ let substitute_similar_vars1 mono v t =
   in
   Subst.of_list1 nt
 let substitute_similar_vars2 mono v row =
-  let vs = RVarSet.diff
-    (Row.row_vars_toplevel row) (MVarSet.proj2 mono |> RVarSet.add v) in
-  let tail = Record.mk' (Row.tail row) [] in
-  let nrow = vars_with_polarity2 tail |> List.filter_map (fun (v', k) ->
-    if RVarSet.mem v' vs then
+  let t = Record.mk' (Row.tail row) [] in
+  let vs = MVarSet.diff (top_vars t) (MVarSet.union (strict_vars t) (MVarSet.add2 v mono)) in
+  let nrow = vars_with_polarity2 t |> List.filter_map (fun (v', k) ->
+    if MVarSet.mem2 v' vs then
     match k with
     | `Pos -> Some (v', RVar.row v)
     | `Neg -> Some (v', (RVar.fty v |> FTy.neg) |> Row.all_fields)
