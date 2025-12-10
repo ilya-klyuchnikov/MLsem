@@ -40,10 +40,8 @@ let analyze e a =
   let msg m = res := m::!res in
   let aux e a =
     Hashtbl.replace visited (fst e) () ;
-    let msg s t d =
-      if Eid.show_notices (fst e)
-      then msg { eid=fst e ; severity=s ; title=t ; descr=Some d }
-    in
+    let msg s t d = msg { eid=fst e ; severity=s ; title=t ; descr=Some d } in
+    if Eid.show_notices (fst e) then
     match snd e, a.Annot.ann with
     | TypeCoerce (_, _, c), ACoerce (ty, a) ->
       let s = tyof a in
