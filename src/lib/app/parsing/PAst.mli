@@ -87,5 +87,5 @@ module ParserExpr(B:Builder'.B) : ParserExpr with type texpr=B.type_expr and typ
 module type ParserExt = sig
   module B : Mlsem_types.Builder'.B
   module E : ParserExpr with type texpr=B.type_expr and type benv=B.benv
-  (* val parse_ext : string -> B.ext *)
+  val parse_ext : string -> B.ext
 end

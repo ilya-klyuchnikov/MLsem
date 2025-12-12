@@ -107,6 +107,7 @@
 %token<Z.t> LINT
 %token<bool> LBOOL
 %token<char> LCHAR
+%token<string> EXT_TY
 %token<string> LSTRING
 %token<string> INFIX PREFIX INDEXED OPID
 
@@ -362,6 +363,7 @@ atomic_typ:
 | LPAREN t=typ RPAREN { t }
 | LBRACE fs=separated_list(SEMICOLON, typ_field) tail=optional_tail RBRACE { TRecord (fs,tail) }
 | LBRACKET re=typ_re RBRACKET { TSList re }
+| str=EXT_TY { TExt (M.parse_ext str) }
 
 %inline optional_tail:
 | DOUBLESEMICOLON ty=typ { ty }
