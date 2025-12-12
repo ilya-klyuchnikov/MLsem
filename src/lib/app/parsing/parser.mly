@@ -1,5 +1,9 @@
-%{ (* Emacs, use -*- tuareg -*- to open this file. *)
 
+%parameter<M:PAst.ParserExt>
+
+%{
+  open M
+  open E
   open Mlsem_common
   open Mlsem_system.Ast
   open Mlsem_lang.Const
@@ -9,7 +13,7 @@
   let annot sp ep e =
     (new_annot (Position.lex_join sp ep), e)
 
-  type param = PPattern of parser_pat | PVar of string
+  type param = PPattern of pat | PVar of string
 
   let tmp_var = "__encoding__"
   let abstraction startpos endpos lst t =
@@ -106,9 +110,9 @@
 %token<string> LSTRING
 %token<string> INFIX PREFIX INDEXED OPID
 
-%type<parser_expr> term
-%start<parser_expr> unique_term
-%start<parser_program> program
+%type<pexpr> term
+%start<pexpr> unique_term
+%start<program> program
 
 %right ARROW
 %left OR

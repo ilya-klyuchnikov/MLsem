@@ -1,19 +1,21 @@
 {
-  open Parser
 
+let enter_newline lexbuf =
+  Lexing.new_line lexbuf;
+  lexbuf
+
+let char_for_backslash = function
+  | "n" -> '\010'
+  | "r" -> '\013'
+  | "b" -> '\008'
+  | "t" -> '\009'
+  | c when String.length c = 1 -> c.[0]
+  | c -> Char.chr (int_of_string ("0o"^c))
+
+module Make(P:PAst.ParserExt) = struct
+  module Parser = Parser.Make(P)
   exception LexerError of string
-
-  let enter_newline lexbuf =
-    Lexing.new_line lexbuf;
-    lexbuf
-
-  let char_for_backslash = function
-    | "n" -> '\010'
-    | "r" -> '\013'
-    | "b" -> '\008'
-    | "t" -> '\009'
-    | c when String.length c = 1 -> c.[0]
-    | c -> Char.chr (int_of_string ("0o"^c))
+  open Parser
 }
 
 let backslash_escapes = ['\\' '\'' '"' 'n' 't' 'b' 'r' ' '] | ['0'-'7']['0'-'7']['0'-'7']
@@ -164,3 +166,7 @@ and read_string buf = parse
   }
 | _ { raise (LexerError ("Illegal string character: " ^ Lexing.lexeme lexbuf)) }
 | eof { raise (LexerError ("String is not terminated")) }
+
+{
+end
+}

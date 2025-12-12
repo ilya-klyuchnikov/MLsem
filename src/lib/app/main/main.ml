@@ -1,17 +1,46 @@
 open Mlsem_common
-open IO
-open Mlsem_types.Builder
 open Mlsem_types
 open Mlsem_system.Ast
 module MVariable = Mlsem_lang.MVariable
-
-type def = Variable.t * PAst.expr * Ty.t option
 
 exception IncompatibleType of Variable.t * TyScheme.t
 exception UnresolvedType of Variable.t * TyScheme.t
 exception Untypeable of Variable.t option * Mlsem_system.Checker.error
 
-module NameMap = PAst.NameMap
+module type Main = sig
+  module P : PAst.ParserExt
+
+  module NameMap : Map.S with type key=string
+  type message = Mlsem_system.Analyzer.severity * Position.t * string * string option
+  type treat_result =
+  | TSuccess of (Variable.t * string) list * message list * float
+  | TDone
+  | TFailure of Variable.t option * Position.t * string * string option * float
+
+  type envs = P.B.benv * Variable.t NameMap.t * Ty.t list VarMap.t * Env.t * PEnv.t
+  val treat : envs -> 'a Position.located * P.E.element -> envs * treat_result
+  val treat_sig : envs -> 'a Position.located * P.E.element -> envs * treat_result
+  val treat_def : envs -> 'a Position.located * P.E.element -> envs * treat_result
+  val treat_all_sigs : envs -> ('a Position.located * P.E.element) list -> envs * treat_result
+
+  val initial_envs : envs
+  val initial_senv : Ty.t list VarMap.t
+  val initial_benv : P.B.benv
+  val initial_penv : PEnv.t
+
+  type parsing_result =
+  | PSuccess of P.E.program
+  | PFailure of Position.t * string
+
+  val parse : [< `File of string | `String of string ] -> parsing_result
+end
+
+module Make(P:PAst.ParserExt) : Main with module P=P = struct
+
+module P = P
+module NameMap = P.E.NameMap
+open IO.Make(P)
+open P.B
 
 let sigs_of_ty mono ty =
   let rec aux ty =
@@ -93,7 +122,7 @@ let type_check_recs pos env lst =
   ) lst, msg
 
 type message = Mlsem_system.Analyzer.severity * Position.t * string * string option
-type 'a treat_result =
+type treat_result =
 | TSuccess of (Variable.t * string) list * message list * float
 | TDone
 | TFailure of Variable.t option * Position.t * string * string option * float
@@ -129,7 +158,7 @@ let treat (benv,varm,senv,env) (annot, elem) =
   let v = ref dummy in
   try  
     match elem with
-    | PAst.Definitions lst ->
+    | P.E.Definitions lst ->
       let varm, benv = ref varm, ref benv in
       let lst = lst |> List.map (fun ((kind, name), e) ->
         let var, sigs, benv' = sigs_of_def !benv !varm senv env (kind, name) in
@@ -141,7 +170,7 @@ let treat (benv,varm,senv,env) (annot, elem) =
       let varm = !varm in
       let sigs, recs = List.partition_map (fun (var, e, sigs) ->
         v := var ;
-        let e, benv' = PAst.parser_expr_to_expr !benv varm e in
+        let e, benv' = P.E.to_expr !benv varm e in
         benv := benv' ;
         match sigs with
         | None -> Either.Right (var, e)
@@ -159,7 +188,7 @@ let treat (benv,varm,senv,env) (annot, elem) =
       let senv = List.fold_left (fun senv (v,_) -> VarMap.remove v senv) senv tys2 in
       let tys = tys1@tys2 |> List.map (fun (v, ty) -> v, Format.asprintf "%a" TyScheme.pp_short ty) in
       (!benv,varm,senv,env), TSuccess (tys,msg,retrieve_time time)
-    | PAst.SigDef (name, mut, tyo) ->
+    | P.E.SigDef (name, mut, tyo) ->
       check_not_defined varm name ;
       begin match tyo with
       | None ->
@@ -188,7 +217,7 @@ let treat (benv,varm,senv,env) (annot, elem) =
             TFailure (Some v, pos, str, None, 0.0)
         end
       end
-    | PAst.Command (str, c) ->
+    | P.E.Command (str, c) ->
       begin match str, c with
       | "value_restriction", Bool b -> Config.value_restriction := b
       | "type_narrowing", Bool b -> Config.type_narrowing := b
@@ -199,10 +228,10 @@ let treat (benv,varm,senv,env) (annot, elem) =
       | _ -> failwith ("Invalid command "^str)
       end ;
       (benv,varm,senv,env), TDone
-    | PAst.Types lst ->
+    | P.E.Types lst ->
       let benv = define_aliases benv lst in
       (benv,varm,senv,env), TDone
-    | PAst.AbsType (name, n) ->
+    | P.E.AbsType (name, n) ->
       let benv = define_abstract benv name n in
       (benv,varm,senv,env), TDone
   with
@@ -234,12 +263,12 @@ let treat (benv,varm,senv,env,penv) e =
   (benv,varm,senv,env,penv),r
 
 let treat_sig envs (annot,elem) =
-  let open PAst in
+  let open P.E in
   match elem with
   | Types _ | AbsType _ | SigDef _ -> treat envs (annot,elem)
   | Command _ | Definitions _ -> envs, TDone
 let treat_def envs (annot,elem) =
-  let open PAst in
+  let open P.E in
   match elem with
   | Types _ | AbsType _ | SigDef _ -> envs, TDone
   | Command _ | Definitions _ -> treat envs (annot,elem)
@@ -261,7 +290,7 @@ let initial_varm =
   builtin_functions |> List.fold_left (fun varm (name, _) ->
     let var = MVariable.create Immut (Some name) in
     NameMap.add name var varm
-  ) PAst.empty_name_var_map
+  ) P.E.empty_name_var_map
 let initial_env =
   builtin_functions |> List.fold_left (fun env (name, t) ->
     let var = NameMap.find name initial_varm in
@@ -272,9 +301,10 @@ let initial_senv = VarMap.empty
 let initial_benv = empty_benv
 let initial_penv = PEnv.empty
 let initial_envs = initial_benv, initial_varm, initial_senv, initial_env, initial_penv
+type envs = benv * Variable.t NameMap.t * Ty.t list VarMap.t * Env.t * PEnv.t
 
 type parsing_result =
-| PSuccess of PAst.parser_program
+| PSuccess of P.E.program
 | PFailure of Position.t * string
 
 let parse f =
@@ -287,3 +317,10 @@ let parse f =
   with
   | PAst.LexicalError(pos, msg) -> PFailure (pos, msg)
   | PAst.SyntaxError (pos, msg) -> PFailure (pos, msg)
+end
+
+module PNoExt : PAst.ParserExt = struct
+  module B = Mlsem_types.Builder
+  module E = PAst.ParserExpr(B)
+end
+module NoExt = Make(PNoExt)

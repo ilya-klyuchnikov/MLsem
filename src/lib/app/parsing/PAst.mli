@@ -1,5 +1,4 @@
 open Mlsem_common
-open Mlsem_types.Builder
 open Mlsem_types
 open Mlsem_system.Ast
 open Mlsem_lang
@@ -7,10 +6,6 @@ open Mlsem_lang
 exception SymbolError of string
 exception LexicalError of Position.t * string
 exception SyntaxError of Position.t * string
-
-type varname = string
-
-type annotation = Eid.t Position.located
 
 type 'typ lambda_annot = 'typ option
 type 'typ vkind = Immut | AnnotMut of 'typ | Mut
@@ -60,22 +55,37 @@ and ('a, 'typ, 'enu, 'tag, 'v) ast =
 and ('a, 'typ, 'enu, 'tag, 'v) t = 'a * ('a, 'typ, 'enu, 'tag, 'v) ast
 
 type expr = (Eid.t, Ty.t, Enum.t, Tag.t, Variable.t) t
-type parser_expr = (annotation, type_expr, string, string, varname) t
-type parser_pat = (annotation, type_expr, string, varname) pattern
 
-module NameMap : Map.S with type key=string
-type name_var_map = Variable.t NameMap.t
-val empty_name_var_map : name_var_map
+module type ParserExpr = sig
+    type texpr
+    type benv
+    type varname = string
+    type annotation = Eid.t Position.located
+    val new_annot : Position.t -> annotation
 
-val new_annot : Position.t -> annotation
+    type pexpr = (annotation, texpr, string, string, varname) t
+    type pat = (annotation, texpr, string, varname) pattern
 
-val parser_expr_to_expr : benv -> name_var_map -> parser_expr -> expr * benv
+    module NameMap : Map.S with type key=string
+    type name_var_map = Variable.t NameMap.t
+    val empty_name_var_map : name_var_map
 
-type parser_element =
-| Definitions of ((type_expr, string) vdef * parser_expr) list
-| SigDef of string * bool (* mutable *) * type_expr option
-| Types of (string * string list * type_expr) list
-| AbsType of string * int
-| Command of string * Const.t
+    val to_expr : benv -> name_var_map -> pexpr -> expr * benv
 
-type parser_program = (annotation * parser_element) list
+    type element =
+    | Definitions of ((texpr, string) vdef * pexpr) list
+    | SigDef of string * bool (* mutable *) * texpr option
+    | Types of (string * string list * texpr) list
+    | AbsType of string * int
+    | Command of string * Const.t
+
+    type program = (annotation * element) list
+end
+
+module ParserExpr(B:Builder'.B) : ParserExpr with type texpr=B.type_expr and type benv=B.benv
+
+module type ParserExt = sig
+  module B : Mlsem_types.Builder'.B
+  module E : ParserExpr with type texpr=B.type_expr and type benv=B.benv
+  (* val parse_ext : string -> B.ext *)
+end
