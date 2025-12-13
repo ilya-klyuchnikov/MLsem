@@ -153,25 +153,28 @@ and LazyIAnnot : sig
   val substitute : Subst.t -> t -> t
   val pp : Format.formatter -> t -> unit
 end = struct
-  type v =
+  type ann' =
   | Concrete of IAnnot.t
-  | Potential of (unit -> IAnnot.t) * (Subst.t list)
-  type t = { mutable v : v }
+  | Potential of (unit -> IAnnot.t)
+  type ann = ann' ref
+  type v = { ann : ann ; ss : Subst.t list }
+  type t = v ref
 
-  let get t =
-    match t.v with
-    | Concrete t -> t
-    | Potential (f, ss) ->
-      let ann = f () |> List.fold_right IAnnot.substitute ss in
-      t.v <- Concrete ann ; ann
-  let mk_lazy f = { v=Potential (f, []) }
-  let mk ann = { v=Concrete ann }
-  let substitute s t =
-    match t.v with
-    | Concrete t -> { v = Concrete (IAnnot.substitute s t) }
-    | Potential (f, ss) -> { v = Potential (f, s::ss) }
-  let pp fmt t =
-    match t.v with
+  let force (ann:ann) : IAnnot.t =
+    let iann = match !ann with
+    | Concrete ann -> ann
+    | Potential f -> f ()
+    in
+    ann := Concrete iann ; iann
+  let get (t:t) =
+    let ann = (!t).ann |> force |> List.fold_right IAnnot.substitute (!t).ss in
+    t := { ann=ref (Concrete ann) ; ss=[] } ; ann
+  let mk_lazy f : t = ref { ann=ref (Potential f) ; ss=[] }
+  let mk ann : t = ref { ann=ref (Concrete ann) ; ss=[] }
+  let substitute s (t:t) : t =
+    ref { ann=(!t).ann ; ss=s::(!t).ss }
+  let pp fmt (t:t) =
+    match !(!t.ann) with
     | Concrete t -> IAnnot.pp fmt t
     | Potential _ -> Format.fprintf fmt "_"
 end
