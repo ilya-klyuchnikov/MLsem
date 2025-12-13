@@ -223,7 +223,9 @@ let treat (benv,varm,senv,env) (annot, elem) =
       | "type_narrowing", Bool b -> Config.type_narrowing := b
       | "allow_implicit_downcast", Bool b -> Config.allow_implicit_downcast := b
       | "infer_overload", Bool b -> Config.infer_overload := b
-      | "no_empty_param", Bool b -> Config.no_empty_param := b
+      | "no_empty_param", Bool b ->
+        Config.normalization_fun :=
+          if b then Config.normalize_empty_abstracts else Fun.id
       | "no_abstract_inter", Bool b -> Config.no_abstract_inter := b
       | _ -> failwith ("Invalid command "^str)
       end ;

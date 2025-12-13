@@ -183,26 +183,13 @@ module Domain = struct
   type t = IAnnot.coverage list
   [@@deriving show]
 
-  let transform_abstract =
-    let aux (_, dnf) =
-      let has_no_empty lst =
-        List.for_all Ty.non_empty lst
-      in
-      let has_no_empty (ps,_) =
-        List.for_all has_no_empty ps
-      in
-      List.filter has_no_empty dnf
-    in
-    Abstract.transform aux
-
   let empty = []
   let add c t = c::t
 
-  let env_to_typ ?(normalize=false) renv =
-    let f = if normalize then transform_abstract else Fun.id in
+  let env_to_typ renv =
     let bindings = renv
       |> REnv.bindings |> List.map
-        (fun (v, ty) -> (Variable.get_unique_name v, (f ty, false)))
+        (fun (v, ty) -> (Variable.get_unique_name v, (ty, false)))
     in
     Record.mk_open bindings
 
@@ -220,6 +207,6 @@ module Domain = struct
       |> List.map (fun (_,renv) -> renv)
     in
     let a = renvs |> List.map env_to_typ |> Ty.disj in
-    let b = env_to_typ ~normalize:(!Config.no_empty_param) renv in
-    Ty.leq b a
+    let b = env_to_typ renv in
+    Ty.is_empty (Ty.diff b a |> !Config.normalization_fun)
 end
