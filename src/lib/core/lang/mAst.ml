@@ -23,7 +23,6 @@ type e =
 | Seq of t * t
 | Try of t * t
 | Alt of t * t
-| Error of string
 [@@deriving show]
 and t = Eid.t * e
 [@@deriving show]
@@ -53,7 +52,6 @@ let map_tl f (id,e) =
     | Seq (e1, e2) -> Seq (f e1, f e2)
     | Try (e1, e2) -> Try (f e1, f e2)
     | Alt (e1, e2) -> Alt (f e1, f e2)
-    | Error str -> Error str
   in
   (id,e)
 
@@ -173,7 +171,6 @@ let to_system_ast t =
     | Seq (e1, e2) -> Let ([], MVariable.create Immut None, aux e1, aux e2)
     | Try (e1, e2) -> SA.Constructor (SA.Join 2, [aux e1 ; aux e2])
     | Alt (e1, e2) -> SA.Alt (aux e1, aux e2)
-    | Error str -> SA.Error str
     | Hole _ -> invalid_arg "Expression should not contain a hole."
     in
     (id, e)

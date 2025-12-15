@@ -69,7 +69,6 @@ type e =
 (** Exits the current function. *)
 | Break
 (** Exits the current while loop. *)
-| Error of string
 and t = Eid.t * e
 
 val map_pat : (pattern -> pattern) -> pattern -> pattern

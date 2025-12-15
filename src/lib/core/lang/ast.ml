@@ -49,7 +49,6 @@ type e =
 | While of t * GTy.t * t
 | Return of t
 | Break
-| Error of string
 [@@deriving show]
 and t = Eid.t * e
 [@@deriving show]
@@ -128,7 +127,6 @@ let map_tl f (id,e) =
     | While (e, ty, e') -> While (f e, ty, f e')
     | Return e -> Return (f e)
     | Break -> Break
-    | Error str -> Error str
   in
   (id,e)
 

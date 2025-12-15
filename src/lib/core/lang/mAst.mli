@@ -35,7 +35,6 @@ type e =
 (** May jump from a branch to another. Used to model try-with expressions. *)
 | Alt of t * t
 (** Evaluate both branches independently. The result is (the intersection of) the result of the branches that do not fail. *)
-| Error of string
 and t = Eid.t * e
 
 val map : (t -> t) -> t -> t

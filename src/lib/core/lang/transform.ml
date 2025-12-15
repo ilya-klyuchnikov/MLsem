@@ -81,9 +81,9 @@ let encode_pattern_matching e pats =
   in
   let pats = pats |> List.map (fun (pat, e) ->
     (type_of_pat pat, body_of_pat pat e)) |> List.rev in
-  let error = Eid.refresh (fst e), Error "pattern matching is not exhaustive" in
-  let empty = Eid.unique (), Exc in
-  let default = Eid.unique (), Ite ((Eid.unique (), Var x), GTy.dyn, empty, error) in
+  let default_eid = Eid.refresh (fst e) in
+  let () = Eid.set_show_notices default_eid false in
+  let default = default_eid, TypeCast ((Eid.unique (), Var x), GTy.empty, CheckStatic) in
   let body = List.fold_left add_branch default pats in
   Let (ts, x, e, body)
 
@@ -143,7 +143,7 @@ let rec try_elim_ret ~keep_ret bid e =
     let cont' e = fill cont e in
     match e with
     (* Base cases *)
-    | Hole _ | Error _ | Void | Value _ | Var _ | Exc | Lambda _ | LambdaRec _ -> cont' (id,e)
+    | Hole _ | Void | Value _ | Var _ | Exc | Lambda _ | LambdaRec _ -> cont' (id,e)
     (* Do-not-traverse cases *)
     | Isolate e -> (id, Isolate (aux' e)) |> cont'
     | Constructor (c,es) -> (id, Constructor (c, List.map aux' es)) |> cont'
@@ -231,7 +231,7 @@ let elim_all_ret_noarg bid e =
 let clean_unreachable e =
   let rec ends_with_exc e =
     match snd e with
-    | Exc | Error _ -> true
+    | Exc -> true
     | Seq (_, e2) -> ends_with_exc e2
     | _ -> false
   in
@@ -260,7 +260,6 @@ let eliminate_cf t =
     | Void -> MAst.Void
     | Voidify e -> MAst.Voidify (aux e)
     | Isolate e -> aux e |> snd
-    | Error str -> MAst.Error str
     | Value t -> MAst.Value t
     | Var v -> MAst.Var v
     | Constructor (c, es) -> MAst.Constructor (c, List.map aux es)

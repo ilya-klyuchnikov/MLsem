@@ -29,7 +29,6 @@ type e =
 | TypeCast of t * GTy.t * check
 | TypeCoerce of t * GTy.t * check
 | Alt of t * t
-| Error of string
 and t = Eid.t * e
 
 val map : (t -> t) -> t -> t
@@ -41,7 +40,6 @@ val vars : t -> VarSet.t
 val apply_subst : Subst.t -> t -> t
 
 val coerce : check -> GTy.t -> t -> t
-val is_error : t -> bool
 
 val pp : Format.formatter -> t -> unit
 val pp_e : Format.formatter -> e -> unit

@@ -42,7 +42,6 @@ let sufficient_refinements env e t =
       end
     in
     let renvs = match e with
-    | Error _ -> []
     | Lambda _ -> []
     | LambdaRec _ -> []
     | Var v -> [REnv.singleton v t]
@@ -107,7 +106,7 @@ let refinement_envs
     let extra = Hashtbl.find_all extra id in
     extra |> List.iter (fun ty -> add_refinement env (id,e) ty) ;
     match e with
-    | Error _ | Value _ | Var _ -> ()
+    | Value _ | Var _ -> ()
     | Constructor (_, es) -> es |> List.iter (aux env)
     | Projection (_, e) | TypeCoerce (e, _, _) | Operation (_, e) -> aux env e
     | Lambda (d, v, e) -> aux_lambda env (d,v,e)

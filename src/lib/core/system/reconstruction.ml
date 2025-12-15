@@ -42,7 +42,6 @@ let rec initial renv (_, e) =
         initial renv e2
       ) |> LazyIAnnot.mk_lazy) in
     ALet (a1, parts)
-  | Error _ -> Untyp
 
 let initial renv e =
   let renv = Refinement.Partitioner.from_renvset renv in
@@ -224,9 +223,6 @@ let rec refine cache env annot (id, e) =
   in
   match e, annot with
   | _, A a -> Ok (a, Checker.typeof env a (id, e))
-  | Error str, Untyp ->
-    log "error expression reached" (fun fmt -> Format.fprintf fmt "%s" str) ;
-    Fail
   | _, Untyp -> Fail
   | Var v, AVar f when Env.mem v env ->
     let tvs, _ = Env.find v env |> TyScheme.get in
@@ -463,7 +459,7 @@ and refine_b' cache env bannot e s tau =
   let retry_with bannot = refine_b' cache env bannot e s tau in
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
-  | IAnnot.BMaybe annot when !Config.infer_overload || is_error e ->
+  | IAnnot.BMaybe annot when !Config.infer_overload ->
     let ss = tallying_simpl env Ty.empty [(GTy.ub s, GTy.ub ntau) ; (GTy.lb s, GTy.lb ntau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType annot, empty_cov)
   | IAnnot.BMaybe _ when GTy.leq s ntau -> retry_with (IAnnot.BSkip)

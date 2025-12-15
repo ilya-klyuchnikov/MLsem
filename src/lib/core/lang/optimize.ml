@@ -81,7 +81,7 @@ let optimize_dataflow e =
   let rec aux env (id, e) =
     let env, ctx, e = match e with
     | Hole _ -> failwith "Unsupported hole."
-    | Exc | Void | Value _ | Error _ -> env, hole, (id, e)
+    | Exc | Void | Value _ -> env, hole, (id, e)
     | Voidify e ->
       (* It would be unsound to move an expr of type empty outside *)
       let env, e = aux' env e in
@@ -219,7 +219,7 @@ let rec clean_unused_assigns e =
       (id,e) =
     match e with
     | Hole _ -> failwith "Unsupported hole."
-    | Exc | Void | Value _ | Error _ -> (id, e), rv
+    | Exc | Void | Value _ -> (id, e), rv
     | Voidify e ->
       (* rv is now considered captured, because e may exit (exception) before the end *)
       let cv, rv = VarSet.union cv rv, VarSet.empty in

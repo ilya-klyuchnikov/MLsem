@@ -36,7 +36,6 @@ type e =
 | TypeCast of t * GTy.t * check
 | TypeCoerce of t * GTy.t * check
 | Alt of t * t
-| Error of string
 [@@deriving show]
 and t = Eid.t * e
 [@@deriving show]
@@ -57,7 +56,6 @@ let map_tl f (id,e) =
     | TypeCast (e, ty, c) -> TypeCast (f e, ty, c)
     | TypeCoerce (e, ty, c) -> TypeCoerce (f e, ty, c)
     | Alt (e1, e2) -> Alt (f e1, f e2)
-    | Error str -> Error str
   in
   (id,e)
 
@@ -150,5 +148,3 @@ let rec coerce c ty (id,t) =
       )
   | _ -> raise Exit
   with Exit -> Eid.refresh id, TypeCoerce ((id,t), ty, c)
-
-let is_error (_,e) = match e with Error _ -> true | _ -> false
