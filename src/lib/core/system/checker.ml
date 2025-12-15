@@ -114,7 +114,7 @@ let op_is_gen o =
 let rec is_gen (_,e) =
   match e with
   | Lambda _ | Value _ -> true
-  | Var _ | App _ -> false
+  | Var _ | App _ | Error _ -> false
   | Constructor (c, es) -> constr_is_gen c && List.for_all is_gen es
   | Projection (p, e) -> proj_is_gen p && is_gen e
   | Operation (o, e) -> op_is_gen o && is_gen e
@@ -228,6 +228,7 @@ let rec typeof' env annot (id,e) =
     || (c = NoCheck)
     then ty
     else untypeable id "Impossible type coercion."
+  | Error str, _ -> untypeable id str
   | e, AInter lst ->
     lst |> List.map (fun a -> typeof env a (id,e)) |> GTy.conj
   | e, a ->

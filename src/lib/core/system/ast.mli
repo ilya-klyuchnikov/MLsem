@@ -29,6 +29,7 @@ type e =
 | TypeCast of t * GTy.t * check
 | TypeCoerce of t * GTy.t * check
 | Alt of t * t
+| Error of string
 and t = Eid.t * e
 
 val map : (t -> t) -> t -> t

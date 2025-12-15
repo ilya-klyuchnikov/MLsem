@@ -36,6 +36,7 @@ type e =
 | TypeCast of t * GTy.t * check
 | TypeCoerce of t * GTy.t * check
 | Alt of t * t
+| Error of string
 [@@deriving show]
 and t = Eid.t * e
 [@@deriving show]
@@ -56,6 +57,7 @@ let map_tl f (id,e) =
     | TypeCast (e, ty, c) -> TypeCast (f e, ty, c)
     | TypeCoerce (e, ty, c) -> TypeCoerce (f e, ty, c)
     | Alt (e1, e2) -> Alt (f e1, f e2)
+    | Error str -> Error str
   in
   (id,e)
 
@@ -104,12 +106,13 @@ let vars e = VarSet.union (uv e) (bv e)
 let apply_subst s e =
   let aux (id,e) =
     let e = match e with
-    (* Ite, Conditional, and TypeCast should not contain type variables *)
     | Value t -> Value (GTy.substitute s t)
     | Lambda (ty,v,e) -> Lambda (GTy.substitute s ty,v,e)
     | LambdaRec lst -> LambdaRec (List.map (fun (ty,v,e) -> (GTy.substitute s ty, v, e)) lst)
     | Let (ts, v, e1, e2) -> Let (List.map (Subst.apply s) ts, v, e1, e2)
+    | Ite (e, ty, e1, e2) -> Ite (e, GTy.substitute s ty, e1, e2)
     | TypeCoerce (e, ty, b) -> TypeCoerce (e, GTy.substitute s ty, b)
+    | TypeCast (e, ty, b) -> TypeCast (e, GTy.substitute s ty, b)
     | e -> e
     in id,e
   in

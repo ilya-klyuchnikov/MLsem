@@ -42,6 +42,7 @@ let rec initial renv (_, e) =
         initial renv e2
       ) |> LazyIAnnot.mk_lazy) in
     ALet (a1, parts)
+  | Error _ -> Untyp
 
 let initial renv e =
   let renv = Refinement.Partitioner.from_renvset renv in
@@ -223,6 +224,9 @@ let rec refine cache env annot (id, e) =
   in
   match e, annot with
   | _, A a -> Ok (a, Checker.typeof env a (id, e))
+  | Error str, Untyp ->
+    log "error expression reached" (fun fmt -> Format.fprintf fmt "%s" str) ;
+    Fail
   | _, Untyp -> Fail
   | Var v, AVar f when Env.mem v env ->
     let tvs, _ = Env.find v env |> TyScheme.get in
@@ -357,7 +361,6 @@ let rec refine cache env annot (id, e) =
       let parts = parts |> List.filter (fun (t,_) ->
           Ty.cap (GTy.ub s) t |> !Config.normalization_fun |> Ty.non_empty)
       in
-      (* TODO: remove part when exploring it *)
       begin match refine_part_seq' cache env e2 v (tvs,s) parts with
       | OneFail -> Fail
       | OneSubst (ss,p,p',r) -> Subst (ss,ALet(A annot1,p),ALet(A annot1,p'),r)

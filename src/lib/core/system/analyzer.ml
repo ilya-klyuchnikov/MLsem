@@ -59,11 +59,12 @@ let analyze e a =
   List.rev !res
 
 let get_unreachable e =
+  let is_error (_,e) = match e with Ast.Error _ -> true | _ -> false in
   let res = ref [] in
   let msg m = res := m::!res in
   let aux e =
     let msg s t = msg { eid=fst e ; severity=s ; title=t ; descr=None } in
-    if Hashtbl.mem visited (fst e) || not (Eid.show_notices (fst e)) then true
+    if is_error e || Hashtbl.mem visited (fst e) || not (Eid.show_notices (fst e)) then true
     else (msg Warning "Unreachable code" ; false)
   in
   iter' aux e ;

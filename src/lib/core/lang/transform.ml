@@ -145,7 +145,7 @@ let rec try_elim_ret ~keep_ret bid e =
     let cont' e = fill cont e in
     match e with
     (* Base cases *)
-    | Hole _ | Void | Value _ | Var _ | Exc | Lambda _ | LambdaRec _ -> cont' (id,e)
+    | Hole _ | Error _ | Void | Value _ | Var _ | Exc | Lambda _ | LambdaRec _ -> cont' (id,e)
     (* Do-not-traverse cases *)
     | Isolate e -> (id, Isolate (aux' e)) |> cont'
     | Constructor (c,es) -> (id, Constructor (c, List.map aux' es)) |> cont'
@@ -233,7 +233,7 @@ let elim_all_ret_noarg bid e =
 let clean_unreachable e =
   let rec ends_with_exc e =
     match snd e with
-    | Exc -> true
+    | Exc | Error _ -> true
     | Seq (_, e2) -> ends_with_exc e2
     | _ -> false
   in
@@ -262,6 +262,7 @@ let eliminate_cf t =
     | Void -> MAst.Void
     | Voidify e -> MAst.Voidify (aux e)
     | Isolate e -> aux e |> snd
+    | Error str -> MAst.Error str
     | Value t -> MAst.Value t
     | Var v -> MAst.Var v
     | Constructor (c, es) -> MAst.Constructor (c, List.map aux es)
