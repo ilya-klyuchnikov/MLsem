@@ -459,13 +459,14 @@ and refine' cache env annot e =
     refine' cache env annot e
   | Subst (ss, a1, a2, r) -> Subst (ss, a1, a2, r)
 and refine_b' cache env bannot e s tau =
+  let ntau = GTy.neg tau in
   let retry_with bannot = refine_b' cache env bannot e s tau in
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
-  | IAnnot.BMaybe annot when !Config.infer_overload ->
-    let ss = tallying_simpl env Ty.empty [(GTy.ub s, GTy.ub (GTy.neg tau))] in
+  | IAnnot.BMaybe annot when !Config.infer_overload || is_error e ->
+    let ss = tallying_simpl env Ty.empty [(GTy.ub s, GTy.ub ntau) ; (GTy.lb s, GTy.lb ntau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType annot, empty_cov)
-  | IAnnot.BMaybe _ when GTy.disjoint s tau -> retry_with (IAnnot.BSkip)
+  | IAnnot.BMaybe _ when GTy.leq s ntau -> retry_with (IAnnot.BSkip)
   | IAnnot.BMaybe annot -> retry_with (IAnnot.BType annot)
   | IAnnot.BSkip -> Ok (Annot.BSkip, GTy.empty)
   | IAnnot.BType (annot) ->

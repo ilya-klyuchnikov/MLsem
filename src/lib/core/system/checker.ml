@@ -245,7 +245,7 @@ and typeof_b env bannot (id,e) s tau =
   match bannot with
   | BType annot -> typeof env annot (id,e)
   | BSkip ->
-    if GTy.disjoint s tau |> not
+    if GTy.leq s (GTy.neg tau) |> not
     then untypeable id "Branch is reachable and must be typed." ;
     GTy.empty
 and typeof_def env annot e =

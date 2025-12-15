@@ -150,3 +150,5 @@ let rec coerce c ty (id,t) =
       )
   | _ -> raise Exit
   with Exit -> Eid.refresh id, TypeCoerce ((id,t), ty, c)
+
+let is_error (_,e) = match e with Error _ -> true | _ -> false

@@ -81,12 +81,10 @@ let encode_pattern_matching e pats =
   in
   let pats = pats |> List.map (fun (pat, e) ->
     (type_of_pat pat, body_of_pat pat e)) |> List.rev in
-  let body = match pats with
-  | [] -> assert false
-  | (_, e')::pats -> List.fold_left add_branch e' pats
-  in
-  (* TODO: update encoding (no more typecast but an untypeable else) *)
-  let e = (Eid.refresh (fst e), TypeCast (e, GTy.mk (Ty.disj ts), SA.CheckStatic)) in
+  let error = Eid.refresh (fst e), Error "pattern matching is not exhaustive" in
+  let empty = Eid.unique (), Exc in
+  let default = Eid.unique (), Ite ((Eid.unique (), Var x), GTy.dyn, empty, error) in
+  let body = List.fold_left add_branch default pats in
   Let (ts, x, e, body)
 
 let eliminate_pattern_matching e =

@@ -169,6 +169,12 @@ let type_narrowing2_ok (f:(any -> any) & ('a -> false)) (x:any) =
 let type_narrowing2_ok' ((f,x): ((any -> any) & ('a -> false), any)) =
   if f x then x else 42
 
+let not_exhaustive_patmatch (x:int) =
+  match x with
+  | 42 -> true
+  | 73 -> false
+  end
+
 (* Examples from Tobin-Hochstadt & Felleisen *)
 
 let is_string = fun x ->

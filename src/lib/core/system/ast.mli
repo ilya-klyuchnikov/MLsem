@@ -41,6 +41,7 @@ val vars : t -> VarSet.t
 val apply_subst : Subst.t -> t -> t
 
 val coerce : check -> GTy.t -> t -> t
+val is_error : t -> bool
 
 val pp : Format.formatter -> t -> unit
 val pp_e : Format.formatter -> e -> unit

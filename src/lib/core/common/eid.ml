@@ -22,5 +22,8 @@ let refresh parent =
   Hashtbl.add eid_infos eid info ; eid
 let loc eid = (Hashtbl.find eid_infos eid).loc
 let show_notices eid = (Hashtbl.find eid_infos eid).show_notices
+let set_show_notices eid b =
+  let info = Hashtbl.find eid_infos eid in
+  Hashtbl.replace eid_infos eid { info with show_notices=b }
 let equal, compare, hash = Int.equal, Int.compare, Int.hash
 let pp fmt t = Format.fprintf fmt "%i" t

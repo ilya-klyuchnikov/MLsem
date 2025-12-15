@@ -59,7 +59,6 @@ let analyze e a =
   List.rev !res
 
 let get_unreachable e =
-  let is_error (_,e) = match e with Ast.Error _ -> true | _ -> false in
   let res = ref [] in
   let msg m = res := m::!res in
   let aux e =
