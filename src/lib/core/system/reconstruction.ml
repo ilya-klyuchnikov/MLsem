@@ -354,7 +354,7 @@ let rec refine cache env annot (id, e) =
     | Ok (annot1, s) ->
       let tvs, s = Checker.generalize ~e:e1 env s |> TyScheme.get in
       let parts = parts |> List.filter (fun (t,_) ->
-          Ty.cap (GTy.ub s) t |> !Config.normalization_fun |> Ty.non_empty)
+        Ty.cap (GTy.ub s) t |> !Config.normalization_fun |> Ty.non_empty)
       in
       begin match refine_part_seq' cache env e2 v (tvs,s) parts with
       | OneFail -> Fail

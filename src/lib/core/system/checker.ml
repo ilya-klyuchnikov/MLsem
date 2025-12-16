@@ -37,6 +37,8 @@ let domains_of_construct (c:Ast.constructor) ty =
   | Join n | Meet n -> [List.init n (fun _ -> ty)]
   | Negate when Ty.is_any ty -> [ [Ty.any] ]
   | Negate -> [ ]
+  | Normalize when Ty.is_any ty -> [ [Ty.any] ]
+  | Normalize -> [ ]
   | Ternary _ -> [ [ Ty.any ; ty ; ty ] ]
   | Cons ->
     Lst.dnf ty
@@ -63,6 +65,7 @@ let construct (c:Ast.constructor) tys =
   | Join n, tys when List.length tys = n -> Ty.disj tys
   | Meet n, tys when List.length tys = n -> Ty.conj tys
   | Negate, [ty] -> Ty.neg ty
+  | Normalize, [ty] -> !Config.normalization_fun ty
   | Ternary tau, [t;t1;t2] ->
     if Ty.leq t tau then t1
     else if Ty.leq t (Ty.neg tau) then t2
@@ -105,7 +108,7 @@ let proj_is_gen p =
 let constr_is_gen c =
   match c with
   | Tuple _ | Cons | Rec _ | Tag _ | Enum _
-  | Join _ | Meet _  | Negate | Ternary _ -> true
+  | Join _ | Meet _  | Negate | Ternary _ | Normalize -> true
   | CCustom c -> c.cgen
 let op_is_gen o =
   match o with

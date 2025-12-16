@@ -83,7 +83,8 @@ let encode_pattern_matching e pats =
     (type_of_pat pat, body_of_pat pat e)) |> List.rev in
   let default_eid = Eid.refresh (fst e) in
   let () = Eid.set_show_notices default_eid false in
-  let default = default_eid, TypeCast ((Eid.unique (), Var x), GTy.empty, CheckStatic) in
+  let default = Eid.unique (), Constructor (SA.Normalize, [Eid.unique (), Var x]) in
+  let default = default_eid, TypeCast (default, GTy.empty, CheckStatic) in
   let body = List.fold_left add_branch default pats in
   Let (ts, x, e, body)
 
