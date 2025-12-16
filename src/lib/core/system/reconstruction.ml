@@ -353,7 +353,6 @@ let rec refine cache env annot (id, e) =
     | Subst (ss,a,a',r) -> Subst (ss,ALet (a,parts),ALet (a',parts),r)
     | Ok (annot1, s) ->
       let tvs, s = Checker.generalize ~e:e1 env s |> TyScheme.get in
-      (* let parts = parts |> List.filter (fun (t,_) -> Ty.disjoint (GTy.ub s) t |> not) in *)
       let parts = parts |> List.filter (fun (t,_) ->
           Ty.cap (GTy.ub s) t |> !Config.normalization_fun |> Ty.non_empty)
       in
@@ -460,7 +459,7 @@ and refine_b' cache env bannot e s tau =
   let empty_cov = (fst e, REnv.empty) in
   match bannot with
   | IAnnot.BMaybe annot when !Config.infer_overload ->
-    let ss = tallying_simpl env Ty.empty [(GTy.ub s, GTy.ub ntau) ; (GTy.lb s, GTy.lb ntau)] in
+    let ss = tallying_simpl env Ty.empty [(GTy.lb s, GTy.lb ntau) ; (GTy.ub s, GTy.ub ntau)] in
     Subst (ss, IAnnot.BSkip, IAnnot.BType annot, empty_cov)
   | IAnnot.BMaybe _ when GTy.leq s ntau -> retry_with (IAnnot.BSkip)
   | IAnnot.BMaybe annot -> retry_with (IAnnot.BType annot)
