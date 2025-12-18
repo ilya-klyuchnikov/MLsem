@@ -302,23 +302,32 @@ let rec clean_unused_assigns e =
     (VarSet.union (captured_vars e) (fv e (* Global vars *)))
     VarSet.empty e |> fst
 
-let clean_unused_defs e =
-  let f (id,e) =
-    match e with
-    | Declare (v, e) when VarSet.mem v (fv e) |> not -> e
-    | Let (_, v, e1, e2) when VarSet.mem v (fv e2) |> not -> id, Seq (e1, e2)
-    | e -> id, e
-  in
-  map f e
+(* === Generic cleaning === *)
 
-let clean_nop e =
-  let f (id, e) =
+let rec can_fail (_,e) =
+  match e with
+  | Exc | Void | Value _ | Var _ -> false
+  | Voidify e | TypeCast (e, _, NoCheck) | TypeCoerce (e, _, NoCheck) -> can_fail e
+  | Loop e | Declare (_, e)  -> can_fail e
+  | Let (_, _, e1, e2) | Seq (e1, e2) | Try (e1, e2) | Alt (e1, e2) -> can_fail e1 || can_fail e2
+  | Ite (e,_,e1,e2) -> can_fail e || can_fail e1 || can_fail e2
+  | _ -> true
+let rec can_empty (_,e) =
+  match e with
+  | Void | Voidify _ -> false
+  | Loop e | Declare (_, e)  -> can_empty e
+  | Let (_, _, e1, e2) | Seq (e1, e2) | Try (e1, e2) | Alt (e1, e2) -> can_empty e1 || can_empty e2
+  | _ -> true
+let clean e =
+  let rec f (id,e) =
     match e with
-    | Voidify e when VarSet.is_empty (fv e) -> id, Void
-    | Seq (e1, e2) when VarSet.is_empty (fv e1) -> e2
+    | Voidify e when can_fail e |> not -> id, Void
+    | Seq (e1, e2) when (can_fail e1 |> not) && (can_empty e1 |> not) -> e2
+    | Declare (v, e) when VarSet.mem v (fv e) |> not -> e
+    | Let (_, v, e1, e2) when VarSet.mem v (fv e2) |> not -> f (id, Seq (e1, e2))
     | e -> id, e
   in
   map f e
 
 let optimize_dataflow e =
-  e |> optimize_dataflow |> clean_unused_assigns |> clean_unused_defs |> clean_nop
+  e |> optimize_dataflow |> clean_unused_assigns |> clean
