@@ -1,7 +1,7 @@
 # MLsem
 
-Our test corpus are in the directory `tests`.
-It uses the extension `.ml` because the syntax is close to OCaml's syntax,
+Our test corpuses are in the directory `tests`.
+Each corpus uses the extension `.ml` because the syntax is close to OCaml's syntax,
 but it is not valid OCaml code. 
 
 ## Building and running the native version
@@ -11,14 +11,12 @@ The [OCaml Package Manager](https://opam.ocaml.org/) must be installed first.
 ```
 opam switch create mlsem 5.3.0
 eval $(opam env --switch=mlsem)
-opam install dune
-opam install . --deps-only
+make deps
 make
 ```
 
 This will run the native version of the prototype and
 type-check the definitions in the directory `tests`.
-
 
 ## Testing the Wasm version
 
@@ -42,4 +40,11 @@ It can also be generated from source:
 ```
 make doc
 ```
+
 This will generate the documentation in `webeditor/doc/`.
+
+## License
+
+This software is distributed under the MIT license.
+See [`LICENSE`](LICENSE) for more info.  
+*This work is funded by the ERC CZ LL2325 grant.*
