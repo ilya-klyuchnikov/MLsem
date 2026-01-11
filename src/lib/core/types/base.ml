@@ -28,7 +28,7 @@ module PEnv = struct
           let ty = Sstt.Subst.apply s ty in
           let replace acc (str,v) =
             Str.global_replace (Str.regexp str)
-              (Sstt.Subst.find1 s v |> Format.asprintf "%a" Sstt.Printer.print_ty') acc
+              (Sstt.Subst.find1 s v |> Format.asprintf "@[<h>%a@]" Sstt.Printer.print_ty') acc
           in
           let str = List.fold_left replace str holes in
           ty, str
@@ -94,7 +94,7 @@ module PEnv = struct
         let t = t |> Sstt.Printer.map rename_vars in
         Format.fprintf fmt "(%a)" Sstt.Printer.print t
     in
-    let str = Format.asprintf "%s(%a)" name (Sstt.Prec.print_seq pp_param sep) ps in
+    let str = Format.asprintf "@[<h>%s(%a)@]" name (Sstt.Prec.print_seq pp_param sep) ps in
     perform (Update { empty with paliases=[ty, (str, StrMap.bindings !hmap)] })
 end
 
