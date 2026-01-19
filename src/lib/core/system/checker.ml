@@ -204,18 +204,18 @@ let rec typeof' env annot (id,e) =
   | Let (_, v, e1, e2), ALet (annot1, annots2) ->
     let tvs,s = typeof_def env annot1 e1 |> TyScheme.get in
     let aux (si, annot) =
-      let si = GTy.mk si in
-      if MVarSet.inter tvs (GTy.fv si) |> MVarSet.is_empty then
-        let s = TyScheme.mk tvs (GTy.cap s si) in
-        typeof (Env.add v s env) annot e2
+      if MVarSet.inter tvs (TVOp.vars si) |> MVarSet.is_empty then
+        match annot with
+        | None when Ty.is_empty (Ty.cap (GTy.ub s) si) -> GTy.empty
+        | None -> untypeable id ("Part of "^(Variable.show v)^" is non-empty and should be typed.")
+        | Some annot ->
+            let si = GTy.mk si in
+            let s = TyScheme.mk tvs (GTy.cap s si) in
+            typeof (Env.add v s env) annot e2
       else
         untypeable id ("Partition of "^(Variable.show v)^" contains generalized variables.")
     in
-    if Ty.diff (GTy.ub s) (List.map fst annots2 |> Ty.disj)
-                |> !Config.normalization_fun |> Ty.is_empty then
-      List.map aux annots2 |> GTy.disj
-    else
-      untypeable id ("Partition does not cover the type of "^(Variable.show v)^".")
+    List.map aux annots2 |> GTy.disj
   | TypeCast (e, _, c), ACast (ty, annot) ->
     let t = typeof env annot e in
     if (c = Check && GTy.leq t ty)

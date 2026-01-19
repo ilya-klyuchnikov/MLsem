@@ -37,10 +37,10 @@ let rec initial renv (_, e) =
   | Let (suggs, v, e1, e2) ->
     let a1 = initial renv e1 in
     let tys = Refinement.Partitioner.partition_for renv v suggs in
-    let parts = tys |> List.map (fun ty -> ty, (fun () ->
+    let parts = tys |> List.map (fun ty -> ty, Some ((fun () ->
         let renv = Refinement.Partitioner.filter_compatible renv v ty in
         initial renv e2
-      ) |> LazyIAnnot.mk_lazy) in
+      ) |> LazyIAnnot.mk_lazy)) in
     ALet (a1, parts)
 
 let initial renv e =
@@ -353,9 +353,6 @@ let rec refine cache env annot (id, e) =
     | Subst (ss,a,a',r) -> Subst (ss,ALet (a,parts),ALet (a',parts),r)
     | Ok (annot1, s) ->
       let tvs, s = Checker.generalize ~e:e1 env s |> TyScheme.get in
-      let parts = parts |> List.filter (fun (t,_) ->
-        Ty.cap (GTy.ub s) t |> !Config.normalization_fun |> Ty.non_empty)
-      in
       begin match refine_part_seq' cache env e2 v (tvs,s) parts with
       | OneFail -> Fail
       | OneSubst (ss,p,p',r) -> Subst (ss,ALet(A annot1,p),ALet(A annot1,p'),r)
@@ -471,18 +468,23 @@ and refine_b' cache env bannot e s tau =
     | Fail -> Fail
     end
 and refine_part' cache env e v (tvs, s) (si,annot) =
-  let t = TyScheme.mk tvs (GTy.cap s (GTy.mk si)) in
-  let env = Env.add v t env in
-  match refine' cache env (LazyIAnnot.get annot) e with
-  | Fail -> Fail
-  | Subst (ss,a,a',r) ->
-    let a, a' = LazyIAnnot.mk a, LazyIAnnot.mk a' in
-    Subst (ss,(si,a),(si,a'),r)
-  | Ok (a,ty) -> Ok ((si,a),ty)
+  match annot with
+  | None -> Ok ((si,None), GTy.empty)
+  | Some _ when Ty.is_empty (Ty.cap (GTy.ub s) si) -> Ok ((si,None), GTy.empty)
+  | Some annot ->
+    let t = TyScheme.mk tvs (GTy.cap s (GTy.mk si)) in
+    let env = Env.add v t env in
+    begin match refine' cache env (LazyIAnnot.get annot) e with
+    | Fail -> Fail
+    | Subst (ss,a,a',r) ->
+      let a, a' = LazyIAnnot.mk a, LazyIAnnot.mk a' in
+      Subst (ss,(si,Some a),(si,Some a'),r)
+    | Ok (a,ty) -> Ok ((si,Some a),ty)
+    end
 and refine_seq' cache env lst = seq (refine' cache env) (fun a -> A a) lst
 and refine_part_seq' cache env e v s lst =
   seq (fun a () -> refine_part' cache env e v s a)
-    (fun (si,annot) -> (si, IAnnot.A annot |> LazyIAnnot.mk))
+    (fun (si,annot) -> (si, annot |> Option.map (fun annot -> IAnnot.A annot |> LazyIAnnot.mk)))
     (lst |> List.map (fun a -> (a,())))
 
 let refine env iannot e =

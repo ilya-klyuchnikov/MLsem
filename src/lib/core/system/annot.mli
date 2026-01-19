@@ -4,7 +4,7 @@ open Mlsem_types
 module Annot : sig
   type branch = BType of t | BSkip
   and inter = t list
-  and part = (Ty.t * t) list
+  and part = (Ty.t * t option) list
   and a =
   | AValue of GTy.t
   | AVar of Subst.t
@@ -33,7 +33,7 @@ module rec IAnnot : sig
   type branch = BMaybe of t | BType of t | BSkip
   and inter_branch = { coverage: coverage option ; ann: t }
   and inter = inter_branch list
-  and part = (Ty.t * LazyIAnnot.t) list
+  and part = (Ty.t * LazyIAnnot.t option) list
   and t =
   | A of Annot.t
   | Untyp

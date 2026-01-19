@@ -6,7 +6,7 @@ module Annot = struct
   [@@deriving show]
   and inter = t list
   [@@deriving show]
-  and part = (Ty.t * t) list
+  and part = (Ty.t * t option) list
   [@@deriving show]
   and a =
   | AValue of GTy.t
@@ -34,7 +34,7 @@ module Annot = struct
       | AValue t -> AValue (GTy.substitute s t)
       | AVar s' -> AVar (comp s')
       | AConstruct ts -> AConstruct (List.map aux ts)
-      | ALet (t, ps) -> ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, aux t) ps)
+      | ALet (t, ps) -> ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, Option.map aux t) ps)
       | AApp (t1, t2, ty) -> AApp (aux t1, aux t2, Subst.apply s ty)
       | AOp (s', t, ty) -> AOp (comp s', aux t, Subst.apply s ty)
       | AProj t -> AProj (aux t)
@@ -59,7 +59,7 @@ module rec IAnnot : sig
   type branch = BMaybe of t | BType of t | BSkip
   and inter_branch = { coverage: coverage option ; ann: t }
   and inter = inter_branch list
-  and part = (Ty.t * LazyIAnnot.t) list
+  and part = (Ty.t * LazyIAnnot.t option) list
   and t =
   | A of Annot.t
   | Untyp
@@ -89,7 +89,7 @@ end = struct
   [@@deriving show]
   and inter = inter_branch list
   [@@deriving show]
-  and part = (Ty.t * LazyIAnnot.t) list
+  and part = (Ty.t * LazyIAnnot.t option) list
   [@@deriving show]
   and t =
   | A of Annot.t
@@ -117,7 +117,7 @@ end = struct
       | AVar f -> AVar f
       | AConstruct ts -> AConstruct (List.map aux ts)
       | ALet (t, ps) ->
-        ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, LazyIAnnot.substitute s t) ps)
+        ALet (aux t, List.map (fun (ty, t) -> Subst.apply s ty, Option.map (LazyIAnnot.substitute s) t) ps)
       | AApp (t1, t2, ty) -> AApp (aux t1, aux t2, Subst.apply s ty)
       | AOp (f, t, ty) -> AOp (f, aux t, Subst.apply s ty)
       | AProj (t, ty) -> AProj (aux t, Subst.apply s ty)
