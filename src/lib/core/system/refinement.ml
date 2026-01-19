@@ -143,7 +143,7 @@ let partition ts =
     if Ty.is_empty s then t else s
   in
   let rec aux t =
-    if Ty.is_empty t then []
+    if t |> !Config.normalization_fun |> Ty.is_empty then []
     else
       let s = List.fold_left cap_if_nonempty t ts in
       s::(aux (Ty.diff t s))
