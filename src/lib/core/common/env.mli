@@ -43,13 +43,3 @@ module REnv : sig
   val disj_approx : t list -> t
   val neg_approx : t -> t option
 end
-
-(** @canonical Mlsem_common.REnvSet *)
-module REnvSet : sig
-  type t
-  val empty : t
-  val of_list : REnv.t list -> t
-  val add : t -> REnv.t -> t
-  val union : t -> t -> t
-  val elements : t -> REnv.t list
-end

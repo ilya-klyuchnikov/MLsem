@@ -1,10 +1,11 @@
 open Mlsem_common
 open Annot
+open Refinement
 
-val initial : REnvSet.t -> Ast.t -> IAnnot.t
+val initial : Refinements.t -> Ast.t -> IAnnot.t
 
 (* Can raise Checker.Untypeable *)
 val refine : Env.t -> IAnnot.t -> Ast.t -> Annot.t
 
 (* Can raise Checker.Untypeable *)
-val infer : Env.t -> REnvSet.t -> Ast.t -> Annot.t
+val infer : Env.t -> Refinements.t -> Ast.t -> Annot.t

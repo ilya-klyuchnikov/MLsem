@@ -4,6 +4,26 @@ open Mlsem_types
 open TVOp
 open Mlsem_utils
 
+module Refinements = struct
+  module EMap = Map.Make(Eid)
+  type t = REnv.t EMap.t * REnv.t list
+  let empty = EMap.empty, []
+  let get (t,_) e =
+    match EMap.find_opt e t with
+    | None -> REnv.empty
+    | Some renv -> renv
+  let get_anonymous (_,anon) = anon
+  let add (t,anon) e renv =
+    let prev = get (t,anon) e in
+    let renv = REnv.cap prev renv in
+    let t = if REnv.is_empty renv then EMap.remove e t else EMap.add e renv t in
+    t, anon
+  let add_anonymous (t,anon) renv = (t,renv::anon)
+  let all (t,anon) = (EMap.bindings t |> List.map snd)@anon
+  let map f (t,anon) =
+    EMap.map f t, List.map f anon
+end
+
 let rec typeof env (_,e) =
   match e with
   | TypeCoerce (_, ty, _) -> ty
@@ -91,20 +111,23 @@ let refine env e t =
   in
   aux base_renv renvs
 
-let refinement_envs
+let refinements
   ?(extra_checks=[]) ?(refine_on_typecases=true) ?(refine_on_casts=false) env e =
   let extra = Hashtbl.create 10 in
   extra_checks |> List.iter (fun (eid, ty) -> Hashtbl.add extra eid ty) ;
-  let res = ref REnvSet.empty in
-  let add_refinement env e t =
-    res := REnvSet.add !res (refine env e t)
+  let res = ref Refinements.empty in
+  let add_refinement eid env e t =
+    res := Refinements.add !res eid (refine env e t)
+  in
+  let add_anonymous_refinement env e t =
+    res := Refinements.add_anonymous !res (refine env e t)
   in
   let rec aux_lambda env (d,v,e) =
     let t = TyScheme.mk_mono d in
     aux (Env.add v t env) e
   and aux env (id,e) : unit =
     let extra = Hashtbl.find_all extra id in
-    extra |> List.iter (fun ty -> add_refinement env (id,e) ty) ;
+    extra |> List.iter (fun ty -> add_anonymous_refinement env (id,e) ty) ;
     match e with
     | Value _ | Var _ -> ()
     | Constructor (_, es) -> es |> List.iter (aux env)
@@ -112,26 +135,26 @@ let refinement_envs
     | Lambda (d, v, e) -> aux_lambda env (d,v,e)
     | LambdaRec lst -> lst |> List.iter (aux_lambda env)
     | TypeCast (e, tau, _) ->
-      if refine_on_casts then add_refinement env e (GTy.lb tau) ;
+      if refine_on_casts then add_anonymous_refinement env e (GTy.lb tau) ;
       aux env e
     | Ite (e, tau, e1, e2) ->
       if refine_on_typecases then begin
         let tau = GTy.lb tau in
-        if fv e1 |> VarSet.is_empty |> not then add_refinement env e tau ;
-        if fv e2 |> VarSet.is_empty |> not then add_refinement env e (Ty.neg tau)
+        if fv e1 |> VarSet.is_empty |> not then add_refinement (fst e1) env e tau ;
+        if fv e2 |> VarSet.is_empty |> not then add_refinement (fst e2) env e (Ty.neg tau)
       end ;
       aux env e ; aux env e1 ; aux env e2
     | App (e1, e2) | Alt (e1, e2) -> aux env e1 ; aux env e2
     | Let (_, v, e1, e2) ->
       aux env e1 ; aux (Env.add v (typeof_def env e1) env) e2 ;
       let res' =
-        REnvSet.elements !res |> List.map (fun renv ->
+        !res |> Refinements.map (fun renv ->
           if REnv.mem v renv
           then
             let renv' = refine env e1 (REnv.find v renv) in
             REnv.cap renv renv'
           else renv
-        ) |> REnvSet.of_list
+        )
       in
       res := res'
   in
@@ -170,7 +193,7 @@ module Partitioner = struct
     (* Necessary because of pattern matching encoding for uncurrified functions *)
     t::(isolate_tuple_conjuncts t)@(isolate_record_conjuncts t)
 
-  let from_renvset rs = REnvSet.elements rs
+  let from_refinements rs = Refinements.all rs
   let filter_compatible lst v ty =
     lst |> List.filter (fun renv ->
       (REnv.mem v renv |> not) ||

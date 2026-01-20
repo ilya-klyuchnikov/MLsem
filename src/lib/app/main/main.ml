@@ -66,8 +66,8 @@ let infer var env e =
     (* Format.printf "@.@.%a@.@." Mlsem_system.Ast.pp e ; *)
     let r =
       if !Config.type_narrowing
-      then Mlsem_system.Refinement.refinement_envs env e
-      else REnvSet.empty
+      then Mlsem_system.Refinement.refinements env e
+      else Mlsem_system.Refinement.Refinements.empty
     in
     (* REnvSet.elements r |> List.iter (fun renv -> Format.printf "Renv: %a@." REnv.pp renv) ; *)
     try Mlsem_system.Reconstruction.infer env r e with

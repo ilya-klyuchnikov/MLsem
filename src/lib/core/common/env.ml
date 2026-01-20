@@ -155,17 +155,3 @@ module REnv = struct
     | [] -> None
     | lst -> Some (disj_approx lst)
 end
-
-module REnvSet = struct
-  type t = REnv.t list
-
-  let empty = []
-  let add t renv =
-    if List.exists (REnv.equiv renv) t then t else renv::t
-  let union t1 t2 =
-    if List.length t1 <= List.length t2
-    then List.fold_left add t2 t1
-    else List.fold_left add t1 t2
-  let of_list ts = List.fold_left add empty ts
-  let elements t = t
-end

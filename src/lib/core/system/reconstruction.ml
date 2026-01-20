@@ -7,7 +7,7 @@ open Mlsem_utils
 
 (* ===== Initial Annot ===== *)
 
-let rec initial renv (_, e) =
+let rec initial r (_, e) =
   let new_renaming () =
     let s = ref Subst.identity in
     fun dom ->
@@ -23,30 +23,30 @@ let rec initial renv (_, e) =
   match e with
   | Value ty -> A (AValue ty |> Annot.nc)
   | Var _ -> AVar (new_renaming ())
-  | Constructor (_,es) -> AConstruct (List.map (initial renv) es)
-  | Lambda (dom, _, e) -> ALambda (dom, initial renv e)
-  | LambdaRec lst -> ALambdaRec (lst |> List.map (fun (dom, _, e) -> dom, initial renv e))
+  | Constructor (_,es) -> AConstruct (List.map (initial r) es)
+  | Lambda (dom, _, e) -> ALambda (dom, initial r e)
+  | LambdaRec lst -> ALambdaRec (lst |> List.map (fun (dom, _, e) -> dom, initial r e))
   | Ite (e, tau, e1, e2) ->
-    AIte (initial renv e, tau, BMaybe (initial renv e1), BMaybe (initial renv e2))
-  | App (e1, e2) -> AApp (initial renv e1, initial renv e2, new_result ())
-  | Operation (_, e) -> AOp (new_renaming (), initial renv e, new_result ())
-  | Projection (_, e) -> AProj (initial renv e, new_result ())
-  | TypeCast (e, ty, _) -> ACast (ty, initial renv e)
-  | TypeCoerce (e, ty, _) -> ACoerce (ty, initial renv e)
-  | Alt (e1, e2) -> AAlt (Some (initial renv e1), Some (initial renv e2))
+    AIte (initial r e, tau, BMaybe (initial r e1), BMaybe (initial r e2))
+  | App (e1, e2) -> AApp (initial r e1, initial r e2, new_result ())
+  | Operation (_, e) -> AOp (new_renaming (), initial r e, new_result ())
+  | Projection (_, e) -> AProj (initial r e, new_result ())
+  | TypeCast (e, ty, _) -> ACast (ty, initial r e)
+  | TypeCoerce (e, ty, _) -> ACoerce (ty, initial r e)
+  | Alt (e1, e2) -> AAlt (Some (initial r e1), Some (initial r e2))
   | Let (suggs, v, e1, e2) ->
-    let a1 = initial renv e1 in
-    let tys = Refinement.Partitioner.partition_for renv v suggs in
+    let a1 = initial r e1 in
+    let tys = Refinement.Partitioner.partition_for r v suggs in
     (* Format.printf "Part for %a: %a@." Variable.pp v (Utils.pp_list Ty.pp) tys ; *)
     let parts = tys |> List.map (fun ty -> ty, Some ((fun () ->
-        let renv = Refinement.Partitioner.filter_compatible renv v ty in
-        initial renv e2
+        let r = Refinement.Partitioner.filter_compatible r v ty in
+        initial r e2
       ) |> LazyIAnnot.mk_lazy)) in
     ALet (a1, parts)
 
-let initial renv e =
-  let renv = Refinement.Partitioner.from_renvset renv in
-  initial renv e
+let initial r e =
+  let r = Refinement.Partitioner.from_refinements r in
+  initial r e
 
 (* ===== Annotation Reconstruction ===== *)
 
@@ -508,4 +508,4 @@ let refine env iannot e =
   | Subst _ -> failwith "Top-level environment should not contain an unresolved type variable."
   | Ok (a,_) -> a
 
-let infer env renv e = refine env (initial renv e) e 
+let infer env r e = refine env (initial r e) e 
