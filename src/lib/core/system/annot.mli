@@ -20,9 +20,9 @@ module Annot : sig
   | ALambdaRec of (GTy.t * t) list
   | AAlt of t option * t option
   | AInter of inter
-  and t = { mutable cache: GTy.t option ; ann: a }
+  and t = { mutable cache: GTy.t option ; ann: a ; refinement: REnv.t }
 
-  val nc : a -> t
+  val nc : REnv.t -> a -> t
   val substitute : Subst.t -> t -> t
   val pp : Format.formatter -> t -> unit
   val pp_a : Format.formatter -> a -> unit
@@ -34,8 +34,7 @@ module rec IAnnot : sig
   and inter_branch = { coverage: coverage option ; ann: t }
   and inter = inter_branch list
   and part = (Ty.t * LazyIAnnot.t option) list
-  and t =
-  | A of Annot.t
+  and a =
   | Untyp
   | AVar of (MVarSet.t -> Subst.t)
   | AConstruct of t list
@@ -50,9 +49,13 @@ module rec IAnnot : sig
   | ALambdaRec of (GTy.t * t) list
   | AAlt of t option * t option
   | AInter of inter
+  and t =
+  | A of Annot.t
+  | I of { ann: a ; refinement: REnv.t }
 
   val substitute : Subst.t -> t -> t
   val pp : Format.formatter -> t -> unit
+  val pp_a : Format.formatter -> a -> unit
   val pp_coverage : Format.formatter -> coverage -> unit
 end
 and LazyIAnnot : sig

@@ -17,6 +17,7 @@ module type Env = sig
   val singleton : Variable.t -> ty -> t
   val construct : (Variable.t * ty) list -> t
   val add : Variable.t -> ty -> t -> t
+  val replace : Variable.t -> ty -> t -> t
   val domain : t -> Variable.t list
   val bindings : t -> (Variable.t * ty) list
   val mem : Variable.t -> t -> bool
@@ -56,7 +57,11 @@ module Make(T:T) = struct
 
   let reconstruct m = VarMap.bindings m |> construct
 
-  let rm v (m, _) = VarMap.remove v m |> reconstruct
+  let rm v (m, _ as t) =
+    if VarMap.mem v m then
+      VarMap.remove v m |> reconstruct
+    else
+      t
 
   let find v (m, _) = VarMap.find v m
 
@@ -97,6 +102,7 @@ module Make(T:T) = struct
     let env = filter (fun v _ -> List.mem (Variable.show v) names) env in
     pp fmt env
 
+  let replace v t e = rm v e |> add v t
   let add v t e = assert (mem v e |> not) ; add v t e
 
   let tvars (_, s) = s
@@ -154,4 +160,16 @@ module REnv = struct
     match neg t with
     | [] -> None
     | lst -> Some (disj_approx lst)
+
+  let refine_env env t =
+    let aux env (v,rty) =
+      let ts = Env.find v env in
+      let tvs, ty = TyScheme.get ts in
+      if MVarSet.disjoint tvs (TVOp.vars rty)
+      then
+        let ts = TyScheme.mk tvs (GTy.cap ty (GTy.mk rty)) in
+        Env.replace v ts env
+      else invalid_arg "Cannot refine a universally-quantified type variable."
+    in
+    List.fold_left aux env (bindings t)
 end

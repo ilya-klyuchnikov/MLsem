@@ -9,6 +9,7 @@ module type Env = sig
     val singleton : Variable.t -> ty -> t
     val construct : (Variable.t * ty) list -> t
     val add : Variable.t -> ty -> t -> t
+    val replace : Variable.t -> ty -> t -> t
     val domain : t -> Variable.t list
     val bindings : t -> (Variable.t * ty) list
     val mem : Variable.t -> t -> bool
@@ -42,4 +43,5 @@ module REnv : sig
   val cup_approx : t -> t -> t
   val disj_approx : t list -> t
   val neg_approx : t -> t option
+  val refine_env : Env.t -> t -> Env.t
 end

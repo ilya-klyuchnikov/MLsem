@@ -239,6 +239,7 @@ and typeof env annot e =
   match annot.cache with
   | Some ty -> ty
   | None ->
+    let env = REnv.refine_env env annot.refinement in
     let ty = typeof' env annot.ann e in
     annot.cache <- Some ty ;
     ty

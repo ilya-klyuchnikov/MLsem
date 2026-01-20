@@ -24,7 +24,7 @@ module Annot = struct
   | AAlt of t option * t option
   | AInter of inter
   [@@deriving show]
-  and t = { mutable cache: GTy.t option ; ann: a }
+  and t = { mutable cache: GTy.t option ; ann: a ; refinement: REnv.t }
   [@@deriving show]
 
   let substitute s t =
@@ -45,13 +45,14 @@ module Annot = struct
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (GTy.substitute s ty, aux t)) lst)
       | AAlt (t1, t2) -> AAlt (Option.map aux t1, Option.map aux t2)
       | AInter ts -> AInter (List.map aux ts)
-    in { cache=Option.map (GTy.substitute s) t.cache ; ann }
+    in { cache=Option.map (GTy.substitute s) t.cache ; ann ;
+         refinement=REnv.substitute s t.refinement }
     and aux_b b =
       match b with BSkip -> BSkip | BType t -> BType (aux t)  
     in
     aux t
 
-  let nc a = { cache=None ; ann=a }
+  let nc renv a = { cache=None ; ann=a ; refinement=renv }
 end
 
 module rec IAnnot : sig
@@ -60,8 +61,7 @@ module rec IAnnot : sig
   and inter_branch = { coverage: coverage option ; ann: t }
   and inter = inter_branch list
   and part = (Ty.t * LazyIAnnot.t option) list
-  and t =
-  | A of Annot.t
+  and a =
   | Untyp
   | AVar of (MVarSet.t -> Subst.t)
   | AConstruct of t list
@@ -76,9 +76,13 @@ module rec IAnnot : sig
   | ALambdaRec of (GTy.t * t) list
   | AAlt of t option * t option
   | AInter of inter
+  and t =
+  | A of Annot.t
+  | I of { ann: a ; refinement: REnv.t }
 
   val substitute : Subst.t -> t -> t
   val pp : Format.formatter -> t -> unit
+  val pp_a : Format.formatter -> a -> unit
   val pp_coverage : Format.formatter -> coverage -> unit
 end = struct
   type coverage = (Eid.t * Ty.t) option * REnv.t
@@ -91,8 +95,7 @@ end = struct
   [@@deriving show]
   and part = (Ty.t * LazyIAnnot.t option) list
   [@@deriving show]
-  and t =
-  | A of Annot.t
+  and a =
   | Untyp
   | AVar of (MVarSet.t -> Subst.t)
   | AConstruct of t list
@@ -108,11 +111,14 @@ end = struct
   | AAlt of t option * t option
   | AInter of inter
   [@@deriving show]
+  and t =
+  | A of Annot.t
+  | I of { ann: a ; refinement: REnv.t }
+  [@@deriving show]
 
   let substitute s =
-    let rec aux t =
+    let rec aux_ann t =
       match t with
-      | A a -> A (Annot.substitute s a)
       | Untyp -> Untyp
       | AVar f -> AVar f
       | AConstruct ts -> AConstruct (List.map aux ts)
@@ -128,6 +134,10 @@ end = struct
       | ALambdaRec lst -> ALambdaRec (List.map (fun (ty,t) -> (GTy.substitute s ty, aux t)) lst)
       | AAlt (t1, t2) -> AAlt (Option.map aux t1, Option.map aux t2)
       | AInter bs -> AInter (List.map aux_ib bs)
+    and aux t =
+      match t with
+      | A a -> A (Annot.substitute s a)
+      | I t -> I { ann=aux_ann t.ann ; refinement=REnv.substitute s t.refinement }
     and aux_b b =
       match b with
       | BMaybe t -> BMaybe (aux t)
